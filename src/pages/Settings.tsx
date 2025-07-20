@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/integrations/supabase/auth';
+import { useAuth } => '@/integrations/supabase/auth';
 import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react'; // Import Download icon
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
@@ -100,34 +100,41 @@ const Settings = () => {
   };
 
   const handleExportInventory = async () => {
-    const { data, error } = await supabase.from('items').select('*');
+    const { data, error } = await supabase
+      .from('items')
+      .select('name, description, barcode, quantity, low_stock_threshold, critical_stock_threshold'); // Select specific fields
     if (error) {
       showError('Error fetching inventory data: ' + error.message);
       return;
     }
     if (data) {
-      exportToCsv(data, 'inventory_report.csv');
+      const formattedData = data.map(item => ({
+        'Item Name': item.name,
+        'Description': item.description || 'N/A',
+        'Barcode': item.barcode || 'N/A',
+        'Current Quantity': item.quantity,
+        'Low Stock Threshold': item.low_stock_threshold,
+        'Critical Stock Threshold': item.critical_stock_threshold,
+      }));
+      exportToCsv(formattedData, 'inventory_report.csv');
       showSuccess('Inventory report downloaded!');
     }
   };
 
   const handleExportTransactions = async () => {
-    const { data, error } = await supabase.from('transactions').select('*, items(name), workers(name)');
+    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name)');
     if (error) {
       showError('Error fetching transaction data: ' + error.message);
       return;
     }
     if (data) {
-      // Flatten the data for CSV export
+      // Flatten and rename the data for CSV export
       const flattenedData = data.map(t => ({
-        id: t.id,
-        item_id: t.item_id,
-        item_name: t.items?.name || 'N/A',
-        worker_id: t.worker_id,
-        worker_name: t.workers?.name || 'N/A',
-        type: t.type,
-        quantity: t.quantity,
-        timestamp: t.timestamp,
+        'Item Name': t.items?.name || 'N/A',
+        'Worker Name': t.workers?.name || 'N/A',
+        'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1), // Capitalize type
+        'Quantity': t.quantity,
+        'Timestamp': new Date(t.timestamp).toLocaleString(), // Format timestamp
       }));
       exportToCsv(flattenedData, 'transaction_history_report.csv');
       showSuccess('Transaction history report downloaded!');
