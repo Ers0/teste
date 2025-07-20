@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon } from 'lucide-react';
+import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus } from 'lucide-react'; // Import Plus and Minus icons
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -176,6 +176,14 @@ const WorkerTransaction = () => {
     showSuccess('Transaction session cleared. Ready for new entry!');
   };
 
+  const incrementQuantity = () => {
+    setQuantityToTake(prev => prev + 1);
+  };
+
+  const decrementQuantity = () => {
+    setQuantityToTake(prev => Math.max(1, prev - 1)); // Ensure quantity doesn't go below 1
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
@@ -248,13 +256,22 @@ const WorkerTransaction = () => {
 
                 <div className="space-y-2 mt-4">
                   <Label htmlFor="quantityToTake">Quantity to Take:</Label>
-                  <Input
-                    id="quantityToTake"
-                    type="number"
-                    value={quantityToTake}
-                    onChange={(e) => setQuantityToTake(parseInt(e.target.value) || 1)}
-                    min="1"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={decrementQuantity} disabled={quantityToTake <= 1}>
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <Input
+                      id="quantityToTake"
+                      type="number"
+                      value={quantityToTake}
+                      onChange={(e) => setQuantityToTake(parseInt(e.target.value) || 1)}
+                      min="1"
+                      className="text-center"
+                    />
+                    <Button variant="outline" size="icon" onClick={incrementQuantity}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <Button onClick={handleRecordTakeout} className="w-full" disabled={!scannedWorker || !scannedItem}>
                     Record Takeout
                   </Button>
