@@ -26,8 +26,8 @@ interface ExportableTransactionRecord {
   type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
-  items: { name: string }[]; // Changed to array
-  workers: { name: string }[]; // Changed to array
+  items: { name: string }; // Corrected to object
+  workers: { name: string }; // Corrected to object
 }
 
 const Settings = () => {
@@ -148,8 +148,8 @@ const Settings = () => {
     if (data) {
       // Flatten and rename the data for CSV export
       const flattenedData = (data as ExportableTransactionRecord[]).map(t => ({
-        'Item Name': t.items?.[0]?.name || 'N/A', // Access name from the first element of the array
-        'Worker Name': t.workers?.[0]?.name || 'N/A', // Access name from the first element of the array
+        'Item Name': t.items?.name || 'N/A', // Access name directly from the object
+        'Worker Name': t.workers?.name || 'N/A', // Access name directly from the object
         'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
         'Quantity': t.quantity,
         'Timestamp': new Date(t.timestamp).toLocaleString(),
