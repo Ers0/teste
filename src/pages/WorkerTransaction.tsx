@@ -229,10 +229,18 @@ const WorkerTransaction = () => {
               onValueChange={(value: 'takeout' | 'return') => value && setTransactionType(value)}
               className="flex justify-center gap-4"
             >
-              <ToggleGroupItem value="takeout" aria-label="Toggle takeout" className="flex-1">
+              <ToggleGroupItem 
+                value="takeout" 
+                aria-label="Toggle takeout" 
+                className={`flex-1 ${transactionType === 'takeout' ? 'bg-red-100 dark:bg-red-900' : ''}`}
+              >
                 Takeout
               </ToggleGroupItem>
-              <ToggleGroupItem value="return" aria-label="Toggle return" className="flex-1">
+              <ToggleGroupItem 
+                value="return" 
+                aria-label="Toggle return" 
+                className={`flex-1 ${transactionType === 'return' ? 'bg-green-100 dark:bg-green-900' : ''}`}
+              >
                 Return
               </ToggleGroupItem>
             </ToggleGroup>
