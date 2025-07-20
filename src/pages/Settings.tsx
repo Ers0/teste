@@ -8,45 +8,30 @@ import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/integrations/supabase/auth';
 import { Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
+import { useProfile } from '@/hooks/use-profile'; // Import the new hook
 
 const Settings = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { profile, isLoading: profileLoading, invalidateProfile } = useProfile(); // Use the new hook
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [language, setLanguage] = useState('en'); // Default to English
   const [isSaving, setIsSaving] = useState(false);
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, language')
-          .eq('id', user.id)
-          .limit(1); // Changed from .single() to .limit(1)
-
-        if (error) {
-          showError('Error fetching profile: ' + error.message);
-        } else if (data && data.length > 0) { // Check if data exists and is not empty
-          const profile = data[0]; // Get the first (and only) profile
-          setFirstName(profile.first_name || '');
-          setLastName(profile.last_name || '');
-          setLanguage(profile.language || 'en');
-        } else {
-          // No profile found, keep default state or handle as needed
-          setFirstName('');
-          setLastName('');
-          setLanguage('en');
-        }
-      }
-    };
-
-    if (!loading) {
-      fetchProfile();
+    if (!profileLoading && profile) {
+      setFirstName(profile.first_name || '');
+      setLastName(profile.last_name || '');
+      setLanguage(profile.language || 'en');
+    } else if (!profileLoading && !profile) {
+      // If no profile exists, ensure fields are empty
+      setFirstName('');
+      setLastName('');
+      setLanguage('en');
     }
-  }, [user, loading]);
+  }, [profile, profileLoading]);
 
   const handleSave = async () => {
     if (!user) {
@@ -64,11 +49,12 @@ const Settings = () => {
       showError('Error updating profile: ' + error.message);
     } else {
       showSuccess('Profile updated successfully!');
+      invalidateProfile(); // Invalidate the profile query to trigger re-fetch in Dashboard
     }
     setIsSaving(false);
   };
 
-  if (loading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-gray-600 dark:text-gray-400">Loading settings...</p>

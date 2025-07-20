@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,46 +7,19 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
+import { useProfile } from '@/hooks/use-profile'; // Import the new hook
 
 const Dashboard = () => {
-  const { user, loading } = useAuth();
-  const [userName, setUserName] = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  const { profile, isLoading: profileLoading } = useProfile(); // Use the new hook
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', user.id)
-          .limit(1); // This returns an array, even if it's empty or has one element.
-
-        if (error) {
-          console.error('Error fetching user profile:', error.message);
-          setUserName(user.email); // Fallback to email on error
-        } else if (data && data.length > 0) { // Check if data exists and is not empty
-          const profile = data[0]; // Get the first (and only) profile
-          if (profile.first_name && profile.last_name) {
-            setUserName(`${profile.first_name} ${profile.last_name}`);
-          } else if (profile.first_name) {
-            setUserName(profile.first_name);
-          } else if (profile.last_name) {
-            setUserName(profile.last_name);
-          } else {
-            setUserName(user.email); // Fallback if no name is set in profile
-          }
-        } else {
-          setUserName(user.email); // Fallback if no profile data found
-        }
-      } else {
-        setUserName('Guest'); // For unauthenticated state, though auth should redirect
-      }
-    };
-
-    if (!loading) {
-      fetchUserProfile();
-    }
-  }, [user, loading]);
+  const userName = profile?.first_name && profile?.last_name
+    ? `${profile.first_name} ${profile.last_name}`
+    : profile?.first_name
+    ? profile.first_name
+    : profile?.last_name
+    ? profile.last_name
+    : user?.email || 'Guest';
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -57,7 +30,7 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-gray-600 dark:text-gray-400">Loading user session...</p>
@@ -69,7 +42,7 @@ const Dashboard = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">Welcome, {userName || 'Guest'}!</CardTitle>
+          <CardTitle className="text-3xl font-bold">Welcome, {userName}!</CardTitle>
           <CardDescription className="mt-2">Manage your construction warehouse inventory and workers.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
