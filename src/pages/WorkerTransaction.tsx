@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Import RadioGroup components
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'; // Import ToggleGroup components
 import { showSuccess, showError } from '@/utils/toast';
 import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -223,20 +223,19 @@ const WorkerTransaction = () => {
           {/* Transaction Type Selection */}
           <div className="space-y-2 border-b pb-4">
             <h3 className="text-lg font-semibold">Transaction Type</h3>
-            <RadioGroup
+            <ToggleGroup
+              type="single"
               value={transactionType}
-              onValueChange={(value: 'takeout' | 'return') => setTransactionType(value)}
+              onValueChange={(value: 'takeout' | 'return') => value && setTransactionType(value)}
               className="flex justify-center gap-4"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="takeout" id="takeout" />
-                <Label htmlFor="takeout">Takeout</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="return" id="return" />
-                <Label htmlFor="return">Return</Label>
-              </div>
-            </RadioGroup>
+              <ToggleGroupItem value="takeout" aria-label="Toggle takeout" className="flex-1">
+                Takeout
+              </ToggleGroupItem>
+              <ToggleGroupItem value="return" aria-label="Toggle return" className="flex-1">
+                Return
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
 
           {/* Worker Scan Section */}
