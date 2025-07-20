@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Import Table components
 import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, Scan, Upload, ArrowLeft } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavigate for navigation
+import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface Item {
   id: string;
@@ -24,14 +25,14 @@ const Inventory = () => {
   const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null });
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchItems();
   }, []);
 
   const fetchItems = async () => {
-    const { data, error } = await supabase.from('items').select('*');
+    const { data, error } = await supabase.from('items').select('*').order('name', { ascending: true });
     if (error) {
       showError('Error fetching items: ' + error.message);
     } else {
@@ -183,7 +184,7 @@ const Inventory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-end gap-2 mb-4"> {/* Added gap-2 for spacing */}
+          <div className="flex justify-end gap-2 mb-4">
             <Link to="/scan-item">
               <Button variant="outline">
                 <Scan className="mr-2 h-4 w-4" /> Scan Item
@@ -283,33 +284,56 @@ const Inventory = () => {
             </Dialog>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map((item) => (
-              <Card key={item.id} className="flex flex-col">
-                {item.image_url && (
-                  <img src={item.image_url} alt={item.name} className="w-full h-48 object-cover rounded-t-lg" />
+          <div className="overflow-x-auto"> {/* Added for horizontal scrolling on small screens */}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[80px]">Image</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Barcode</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center text-gray-500">
+                      No items found. Add one above!
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-md" />
+                        ) : (
+                          <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500 text-xs">
+                            No Image
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.description || 'N/A'}</TableCell>
+                      <TableCell>{item.barcode || 'N/A'}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center gap-2">
+                          <Button variant="outline" size="icon" onClick={() => openEditDialog(item)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
-                <CardHeader>
-                  <CardTitle>{item.name}</CardTitle>
-                  <CardDescription>{item.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <p><strong>Barcode:</strong> {item.barcode || 'N/A'}</p>
-                  <p><strong>Quantity:</strong> {item.quantity}</p>
-                </CardContent>
-                <div className="p-4 flex justify-end gap-2">
-                  <Button variant="outline" size="icon" onClick={() => openEditDialog(item)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </Card>
-            ))}
-            {items.length === 0 && (
-              <p className="col-span-full text-center text-gray-500">No items found. Add one above!</p>
-            )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
