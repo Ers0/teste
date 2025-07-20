@@ -141,8 +141,8 @@ const WorkerTransaction = () => {
       return;
     }
 
-    // Record transaction
-    const { error: transactionError } = await supabase
+    // Record transaction and select the joined data for optimistic update
+    const { data: insertedTransaction, error: transactionError } = await supabase
       .from('transactions')
       .insert([
         {
@@ -151,7 +151,9 @@ const WorkerTransaction = () => {
           type: 'takeout',
           quantity: quantityToTake,
         },
-      ]);
+      ])
+      .select('*, items(name), workers(name)') // Select the joined data immediately
+      .single(); // Expect a single result
 
     if (transactionError) {
       showError('Error recording transaction: ' + transactionError.message);
@@ -163,7 +165,16 @@ const WorkerTransaction = () => {
     showSuccess(`Recorded ${quantityToTake} of "${scannedItem.name}" taken by "${scannedWorker.name}".`);
     // Update local state for current item
     setScannedItem({ ...scannedItem, quantity: newQuantity });
-    // Refetch transactions query to refresh history immediately
+
+    // Optimistically update the query cache for transactions history
+    if (insertedTransaction) {
+      queryClient.setQueryData<Transaction[]>(['transactions'], (oldData) => {
+        const updatedData = oldData ? [insertedTransaction, ...oldData] : [insertedTransaction];
+        return updatedData.slice(0, 5); // Maintain the limit of 5
+      });
+    }
+
+    // Still refetch as a fallback for consistency
     queryClient.refetchQueries({ queryKey: ['transactions'] });
   };
 
