@@ -232,14 +232,14 @@ const WorkerTransaction = () => {
               <ToggleGroupItem 
                 value="takeout" 
                 aria-label="Toggle takeout" 
-                className={`flex-1 ${transactionType === 'takeout' ? 'bg-red-100 dark:bg-red-900' : ''}`}
+                className="flex-1 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:dark:bg-red-900 data-[state=on]:dark:text-red-200"
               >
                 Takeout
               </ToggleGroupItem>
               <ToggleGroupItem 
                 value="return" 
                 aria-label="Toggle return" 
-                className={`flex-1 ${transactionType === 'return' ? 'bg-green-100 dark:bg-green-900' : ''}`}
+                className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200"
               >
                 Return
               </ToggleGroupItem>
