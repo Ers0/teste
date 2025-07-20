@@ -7,7 +7,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Inventory from "./pages/Inventory";
-import Workers from "./pages/Workers"; // Import the new Workers page
+import Workers from "./pages/Workers";
+import ScanItem from "./pages/ScanItem"; // Import the new ScanItem page
 import { SessionContextProvider } from "./integrations/supabase/auth";
 
 const queryClient = new QueryClient();
@@ -23,7 +24,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/inventory" element={<Inventory />} />
-            <Route path="/workers" element={<Workers />} /> {/* Add the new Workers route */}
+            <Route path="/workers" element={<Workers />} />
+            <Route path="/scan-item" element={<ScanItem />} /> {/* Add the new ScanItem route */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, Upload } from 'lucide-react';
+import { Link } from 'react-router-dom'; // Import Link for navigation
 
 interface Item {
   id: string;
@@ -173,7 +174,12 @@ const Inventory = () => {
           <CardDescription>Manage your construction warehouse items.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end gap-2 mb-4"> {/* Added gap-2 for spacing */}
+            <Link to="/scan-item">
+              <Button variant="outline">
+                <Scan className="mr-2 h-4 w-4" /> Scan Item
+              </Button>
+            </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => { setEditingItem(null); setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null }); setIsDialogOpen(true); }}>
