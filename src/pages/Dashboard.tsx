@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button'; // Keep Button for logout
-import { Package, Users, Barcode, Settings as SettingsIcon } from 'lucide-react';
+import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList } from 'lucide-react'; // Import ClipboardList icon
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +62,12 @@ const Dashboard = () => {
             <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
               <Barcode className="h-8 w-8 mb-2" />
               <span className="font-semibold">Scan Item (Add/Remove)</span>
+            </Card>
+          </Link>
+          <Link to="/record-takeout" className="block"> {/* New link for WorkerTransaction */}
+            <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
+              <ClipboardList className="h-8 w-8 mb-2" /> {/* Using ClipboardList icon */}
+              <span className="font-semibold text-center">Record Item Takeout</span>
             </Card>
           </Link>
           <Link to="/settings" className="block">

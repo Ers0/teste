@@ -9,7 +9,8 @@ import Login from "./pages/Login";
 import Inventory from "./pages/Inventory";
 import Workers from "./pages/Workers";
 import ScanItem from "./pages/ScanItem";
-import Settings from "./pages/Settings"; // Import the new Settings page
+import Settings from "./pages/Settings";
+import WorkerTransaction from "./pages/WorkerTransaction"; // Import the new WorkerTransaction page
 import { SessionContextProvider } from "./integrations/supabase/auth";
 
 const queryClient = new QueryClient();
@@ -27,7 +28,8 @@ const App = () => (
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/workers" element={<Workers />} />
             <Route path="/scan-item" element={<ScanItem />} />
-            <Route path="/settings" element={<Settings />} /> {/* Add the new Settings route */}
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/record-takeout" element={<WorkerTransaction />} /> {/* Add the new WorkerTransaction route */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
