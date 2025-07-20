@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,42 @@ import { showSuccess, showError } from '@/utils/toast';
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching user profile:', error.message);
+          setUserName(user.email); // Fallback to email on error
+        } else if (data) {
+          if (data.first_name && data.last_name) {
+            setUserName(`${data.first_name} ${data.last_name}`);
+          } else if (data.first_name) {
+            setUserName(data.first_name);
+          } else if (data.last_name) {
+            setUserName(data.last_name);
+          } else {
+            setUserName(user.email); // Fallback if no name is set
+          }
+        } else {
+          setUserName(user.email); // Fallback if no profile data
+        }
+      } else {
+        setUserName('Guest'); // For unauthenticated state, though auth should redirect
+      }
+    };
+
+    if (!loading) {
+      fetchUserProfile();
+    }
+  }, [user, loading]);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -32,7 +68,7 @@ const Dashboard = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">Welcome, {user?.email || 'Guest'}!</CardTitle>
+          <CardTitle className="text-3xl font-bold">Welcome, {userName || 'Guest'}!</CardTitle>
           <CardDescription className="mt-2">Manage your construction warehouse inventory and workers.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
