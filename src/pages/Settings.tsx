@@ -26,8 +26,8 @@ interface ExportableTransactionRecord {
   type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
-  items: { name: string }; // Corrected to object
-  workers: { name: string }; // Corrected to object
+  items: { name: string };
+  workers: { name: string; id: string; qr_code_data: string | null; }; // Added id and qr_code_data
 }
 
 const Settings = () => {
@@ -140,7 +140,7 @@ const Settings = () => {
   };
 
   const handleExportTransactions = async () => {
-    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name)');
+    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name, id, qr_code_data)'); // Added id and qr_code_data
     if (error) {
       showError('Error fetching transaction data: ' + error.message);
       return;
@@ -148,8 +148,10 @@ const Settings = () => {
     if (data) {
       // Flatten and rename the data for CSV export
       const flattenedData = (data as ExportableTransactionRecord[]).map(t => ({
-        'Item Name': t.items?.name || 'N/A', // Access name directly from the object
-        'Worker Name': t.workers?.name || 'N/A', // Access name directly from the object
+        'Item Name': t.items?.name || 'N/A',
+        'Worker Name': t.workers?.name || 'N/A',
+        'Worker ID': t.workers?.id || 'N/A', // Added Worker ID
+        'Worker QR Code Data': t.workers?.qr_code_data || 'N/A', // Added Worker QR Code Data
         'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
         'Quantity': t.quantity,
         'Timestamp': new Date(t.timestamp).toLocaleString(),
