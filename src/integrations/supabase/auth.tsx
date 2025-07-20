@@ -1,12 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { Session, User } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
-
-const supabaseUrl = 'https://zkdeznpqryfqrqxiyypk.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprZGV6bnBxcnlmcXJxeGl5eXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzQ2NzksImV4cCI6MjA2ODU1MDY3OX0.mDqW-KU5UTwK4FkI-kUYUn49gcKLE2ZqcrUSjCPefW0';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../supabase/client'; // Import the single supabase client
 
 interface AuthContextType {
   session: Session | null;
@@ -23,30 +18,39 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('SessionContextProvider: Initializing auth state listener.');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log('Auth State Change Event:', event, 'Session:', currentSession);
       setSession(currentSession);
       setUser(currentSession?.user || null);
       setLoading(false);
 
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         if (currentSession) {
+          console.log('User signed in or updated, navigating to /');
           navigate('/'); // Redirect authenticated users to the main page
         }
       } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out, navigating to /login');
         navigate('/login'); // Redirect unauthenticated users to the login page
       }
     });
 
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log('Initial getSession result:', currentSession);
       setSession(currentSession);
       setUser(currentSession?.user || null);
       setLoading(false);
       if (!currentSession) {
+        console.log('No initial session found, navigating to /login');
         navigate('/login');
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('SessionContextProvider: Unsubscribing from auth state listener.');
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   return (
