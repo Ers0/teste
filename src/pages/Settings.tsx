@@ -6,11 +6,29 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } => '@/integrations/supabase/auth';
-import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react'; // Import Download icon
+import { useAuth } from '@/integrations/supabase/auth'; // Fixed import syntax
+import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
-import { exportToCsv } from '@/utils/export'; // Import the new export utility
+import { exportToCsv } from '@/utils/export';
+
+// Define interfaces for the data shapes expected from Supabase queries for export
+interface ExportableInventoryItem {
+  name: string;
+  description: string | null;
+  barcode: string | null;
+  quantity: number;
+  low_stock_threshold: number | null;
+  critical_stock_threshold: number | null;
+}
+
+interface ExportableTransactionRecord {
+  type: 'takeout' | 'return';
+  quantity: number;
+  timestamp: string;
+  items: { name: string } | null;
+  workers: { name: string } | null;
+}
 
 const Settings = () => {
   const { user, loading: authLoading } = useAuth();
@@ -44,9 +62,9 @@ const Settings = () => {
   // Theme effect
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'black'); // Remove all existing themes
-    root.classList.add(theme); // Add the selected theme
-    localStorage.setItem('theme', theme); // Persist theme
+    root.classList.remove('light', 'dark', 'black');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   const handleSaveProfile = async () => {
@@ -94,7 +112,7 @@ const Settings = () => {
       showError('Error changing password: ' + error.message);
     } else {
       showSuccess('Password changed successfully!');
-      setNewPassword(''); // Clear password field
+      setNewPassword('');
     }
     setIsPasswordChanging(false);
   };
@@ -102,13 +120,13 @@ const Settings = () => {
   const handleExportInventory = async () => {
     const { data, error } = await supabase
       .from('items')
-      .select('name, description, barcode, quantity, low_stock_threshold, critical_stock_threshold'); // Select specific fields
+      .select('name, description, barcode, quantity, low_stock_threshold, critical_stock_threshold');
     if (error) {
       showError('Error fetching inventory data: ' + error.message);
       return;
     }
     if (data) {
-      const formattedData = data.map(item => ({
+      const formattedData = (data as ExportableInventoryItem[]).map(item => ({ // Cast data to the defined interface
         'Item Name': item.name,
         'Description': item.description || 'N/A',
         'Barcode': item.barcode || 'N/A',
@@ -129,12 +147,12 @@ const Settings = () => {
     }
     if (data) {
       // Flatten and rename the data for CSV export
-      const flattenedData = data.map(t => ({
+      const flattenedData = (data as ExportableTransactionRecord[]).map(t => ({ // Cast data to the defined interface
         'Item Name': t.items?.name || 'N/A',
         'Worker Name': t.workers?.name || 'N/A',
-        'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1), // Capitalize type
+        'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
         'Quantity': t.quantity,
-        'Timestamp': new Date(t.timestamp).toLocaleString(), // Format timestamp
+        'Timestamp': new Date(t.timestamp).toLocaleString(),
       }));
       exportToCsv(flattenedData, 'transaction_history_report.csv');
       showSuccess('Transaction history report downloaded!');
