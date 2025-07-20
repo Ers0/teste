@@ -23,14 +23,20 @@ const Settings = () => {
           .from('profiles')
           .select('first_name, last_name, language')
           .eq('id', user.id)
-          .single();
+          .limit(1); // Changed from .single() to .limit(1)
 
         if (error) {
           showError('Error fetching profile: ' + error.message);
-        } else if (data) {
-          setFirstName(data.first_name || '');
-          setLastName(data.last_name || '');
-          setLanguage(data.language || 'en');
+        } else if (data && data.length > 0) { // Check if data exists and is not empty
+          const profile = data[0]; // Get the first (and only) profile
+          setFirstName(profile.first_name || '');
+          setLastName(profile.last_name || '');
+          setLanguage(profile.language || 'en');
+        } else {
+          // No profile found, keep default state or handle as needed
+          setFirstName('');
+          setLastName('');
+          setLanguage('en');
         }
       }
     };
@@ -66,7 +72,7 @@ const Settings = () => {
         <p className="text-gray-600 dark:text-gray-400">Loading settings...</p>
       </div>
     );
-  }
+    }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">

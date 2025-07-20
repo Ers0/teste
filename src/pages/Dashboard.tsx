@@ -19,7 +19,7 @@ const Dashboard = () => {
           .from('profiles')
           .select('first_name, last_name')
           .eq('id', user.id)
-          .limit(1); // Changed from .single() to .limit(1)
+          .limit(1); // This returns an array, even if it's empty or has one element.
 
         if (error) {
           console.error('Error fetching user profile:', error.message);
