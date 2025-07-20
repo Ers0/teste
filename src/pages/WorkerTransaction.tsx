@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { QrCode, Barcode, ArrowLeft, Package, Users } from 'lucide-react';
+import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Worker {
   id: string;
@@ -23,6 +24,17 @@ interface Item {
   quantity: number;
 }
 
+interface Transaction {
+  id: string;
+  item_id: string;
+  worker_id: string;
+  type: string;
+  quantity: number;
+  timestamp: string;
+  items: { name: string };
+  workers: { name: string };
+}
+
 const WorkerTransaction = () => {
   const [workerQrCodeInput, setWorkerQrCodeInput] = useState('');
   const [scannedWorker, setScannedWorker] = useState<Worker | null>(null);
@@ -30,6 +42,31 @@ const WorkerTransaction = () => {
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
   const [quantityToTake, setQuantityToTake] = useState(1);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Fetch transaction history
+  const { data: transactionsHistory, isLoading: isHistoryLoading, error: historyError } = useQuery<Transaction[], Error>({
+    queryKey: ['transactions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*, items(name), workers(name)')
+        .order('timestamp', { ascending: false })
+        .limit(5); // Show last 5 transactions
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return data as Transaction[];
+    },
+    staleTime: 1000 * 10, // Refresh history every 10 seconds
+  });
+
+  useEffect(() => {
+    if (historyError) {
+      showError('Error fetching transaction history: ' + historyError.message);
+    }
+  }, [historyError]);
 
   const handleScanWorker = async () => {
     if (!workerQrCodeInput) {
@@ -124,12 +161,19 @@ const WorkerTransaction = () => {
     }
 
     showSuccess(`Recorded ${quantityToTake} of "${scannedItem.name}" taken by "${scannedWorker.name}".`);
-    // Reset for next transaction
-    setScannedItem(null);
+    // Update local state for current item
+    setScannedItem({ ...scannedItem, quantity: newQuantity });
+    // Invalidate transactions query to refresh history
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
+  };
+
+  const handleDone = () => {
+    setWorkerQrCodeInput('');
+    setScannedWorker(null);
     setItemBarcodeInput('');
+    setScannedItem(null);
     setQuantityToTake(1);
-    // Keep worker scanned for multiple item takeouts
-    setScannedItem({ ...scannedItem, quantity: newQuantity }); // Update local state for current item
+    showSuccess('Transaction session cleared. Ready for new entry!');
   };
 
   return (
@@ -216,6 +260,40 @@ const WorkerTransaction = () => {
                   </Button>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Done Button */}
+          {(scannedWorker || scannedItem) && (
+            <div className="pt-4 border-t">
+              <Button onClick={handleDone} className="w-full">
+                Done with Current Transaction
+              </Button>
+            </div>
+          )}
+
+          {/* Transaction History Section */}
+          <div className="space-y-4 pt-4 border-t">
+            <h3 className="text-lg font-semibold flex items-center">
+              <HistoryIcon className="mr-2 h-5 w-5" /> Recent Takeout History
+            </h3>
+            {isHistoryLoading ? (
+              <p className="text-gray-500">Loading history...</p>
+            ) : transactionsHistory && transactionsHistory.length > 0 ? (
+              <div className="space-y-2">
+                {transactionsHistory.map((transaction) => (
+                  <div key={transaction.id} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
+                    <p><strong>Worker:</strong> {transaction.workers?.name || 'N/A'}</p>
+                    <p><strong>Item:</strong> {transaction.items?.name || 'N/A'}</p>
+                    <p><strong>Quantity:</strong> {transaction.quantity}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(transaction.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">No recent takeouts recorded.</p>
             )}
           </div>
         </CardContent>
