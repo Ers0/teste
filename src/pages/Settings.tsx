@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/integrations/supabase/auth';
-import { Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
+import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react'; // Import Download icon
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
+import { exportToCsv } from '@/utils/export'; // Import the new export utility
 
 const Settings = () => {
   const { user, loading: authLoading } = useAuth();
@@ -98,6 +99,41 @@ const Settings = () => {
     setIsPasswordChanging(false);
   };
 
+  const handleExportInventory = async () => {
+    const { data, error } = await supabase.from('items').select('*');
+    if (error) {
+      showError('Error fetching inventory data: ' + error.message);
+      return;
+    }
+    if (data) {
+      exportToCsv(data, 'inventory_report.csv');
+      showSuccess('Inventory report downloaded!');
+    }
+  };
+
+  const handleExportTransactions = async () => {
+    const { data, error } = await supabase.from('transactions').select('*, items(name), workers(name)');
+    if (error) {
+      showError('Error fetching transaction data: ' + error.message);
+      return;
+    }
+    if (data) {
+      // Flatten the data for CSV export
+      const flattenedData = data.map(t => ({
+        id: t.id,
+        item_id: t.item_id,
+        item_name: t.items?.name || 'N/A',
+        worker_id: t.worker_id,
+        worker_name: t.workers?.name || 'N/A',
+        type: t.type,
+        quantity: t.quantity,
+        timestamp: t.timestamp,
+      }));
+      exportToCsv(flattenedData, 'transaction_history_report.csv');
+      showSuccess('Transaction history report downloaded!');
+    }
+  };
+
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -154,7 +190,7 @@ const Settings = () => {
                 <SelectContent>
                   <SelectItem value="en">English</SelectItem>
                   <SelectItem value="es">Español</SelectItem>
-                  <SelectItem value="pt-BR">Português (Brasil)</SelectItem> {/* Added Brazilian Portuguese */}
+                  <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -190,7 +226,7 @@ const Settings = () => {
           </div>
 
           {/* Theme Selection */}
-          <div className="space-y-4">
+          <div className="space-y-4 border-b pb-4">
             <h3 className="text-lg font-semibold">App Theme</h3>
             <div className="space-y-2">
               <Label htmlFor="theme">Select Theme</Label>
@@ -204,6 +240,23 @@ const Settings = () => {
                   <SelectItem value="black">Black</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* Reports Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Reports</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Download your inventory and transaction data as CSV files for external analysis in spreadsheet software.
+              Please note: Real-time, cloud-based spreadsheet integration requires external setup (e.g., Google Sheets API, Zapier, custom scripts) to connect to your Supabase database, which is beyond the scope of this application.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button onClick={handleExportInventory} className="w-full">
+                <Download className="mr-2 h-4 w-4" /> Export Inventory Data
+              </Button>
+              <Button onClick={handleExportTransactions} className="w-full">
+                <Download className="mr-2 h-4 w-4" /> Export Transaction History
+              </Button>
             </div>
           </div>
         </CardContent>
