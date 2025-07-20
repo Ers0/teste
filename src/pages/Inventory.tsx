@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Import Table components
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -17,7 +18,7 @@ interface Item {
   barcode: string | null;
   quantity: number;
   image_url: string | null;
-  image?: File | null; // Added for temporary file storage
+  image?: File | null;
 }
 
 const Inventory = () => {
@@ -25,14 +26,19 @@ const Inventory = () => {
   const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null });
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<'name' | 'quantity'>('name'); // State for sort key
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc'); // State for sort direction
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchItems();
-  }, []);
+  }, [sortKey, sortDirection]); // Re-fetch items when sort key or direction changes
 
   const fetchItems = async () => {
-    const { data, error } = await supabase.from('items').select('*').order('name', { ascending: true });
+    const { data, error } = await supabase
+      .from('items')
+      .select('*')
+      .order(sortKey, { ascending: sortDirection === 'asc' }); // Apply sorting
     if (error) {
       showError('Error fetching items: ' + error.message);
     } else {
@@ -184,7 +190,35 @@ const Inventory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-end gap-2 mb-4">
+          <div className="flex flex-wrap justify-end gap-2 mb-4">
+            {/* Sort By Select */}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="sort-by">Sort By:</Label>
+              <Select value={sortKey} onValueChange={(value: 'name' | 'quantity') => setSortKey(value)}>
+                <SelectTrigger id="sort-by" className="w-[120px]">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="quantity">Quantity</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sort Direction Select */}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="sort-direction">Order:</Label>
+              <Select value={sortDirection} onValueChange={(value: 'asc' | 'desc') => setSortDirection(value)}>
+                <SelectTrigger id="sort-direction" className="w-[140px]">
+                  <SelectValue placeholder="Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Link to="/scan-item">
               <Button variant="outline">
                 <Scan className="mr-2 h-4 w-4" /> Scan Item
@@ -284,7 +318,7 @@ const Inventory = () => {
             </Dialog>
           </div>
 
-          <div className="overflow-x-auto"> {/* Added for horizontal scrolling on small screens */}
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
