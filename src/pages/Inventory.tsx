@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -26,23 +26,72 @@ const Inventory = () => {
   const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null });
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [sortKey, setSortKey] = useState<'name' | 'quantity'>('name'); // State for sort key
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc'); // State for sort direction
+  const [sortKey, setSortKey] = useState<'name' | 'quantity' | 'movement'>('name'); // Added 'movement'
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchItems();
-  }, [sortKey, sortDirection]); // Re-fetch items when sort key or direction changes
+  }, [sortKey, sortDirection]);
 
   const fetchItems = async () => {
-    const { data, error } = await supabase
-      .from('items')
-      .select('*')
-      .order(sortKey, { ascending: sortDirection === 'asc' }); // Apply sorting
+    let data: Item[] | null = null;
+    let error: Error | null = null;
+
+    if (sortKey === 'movement') {
+      // Fetch all items
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('items')
+        .select('*');
+
+      if (itemsError) {
+        showError('Error fetching items: ' + itemsError.message);
+        return;
+      }
+
+      // Fetch movement counts
+      const { data: movementData, error: movementError } = await supabase
+        .from('item_movement_counts')
+        .select('*');
+
+      if (movementError) {
+        showError('Error fetching item movement counts: ' + movementError.message);
+        return;
+      }
+
+      // Merge data and calculate total movement for sorting
+      const itemsWithMovement = itemsData.map(item => {
+        const movement = movementData.find(m => m.item_id === item.id);
+        return {
+          ...item,
+          total_movement: movement ? movement.total_movement : 0 // Default to 0 if no movement
+        };
+      });
+
+      // Sort client-side based on total_movement
+      itemsWithMovement.sort((a, b) => {
+        if (sortDirection === 'asc') {
+          return (a as any).total_movement - (b as any).total_movement;
+        } else {
+          return (b as any).total_movement - (a as any).total_movement;
+        }
+      });
+      data = itemsWithMovement;
+
+    } else {
+      // Existing logic for name and quantity sort
+      const { data: directData, error: directError } = await supabase
+        .from('items')
+        .select('*')
+        .order(sortKey, { ascending: sortDirection === 'asc' });
+      data = directData;
+      error = directError;
+    }
+
     if (error) {
       showError('Error fetching items: ' + error.message);
     } else {
-      setItems(data);
+      setItems(data || []);
     }
   };
 
@@ -186,7 +235,7 @@ const Inventory = () => {
               <CardTitle className="text-3xl font-bold">Inventory Management</CardTitle>
               <CardDescription>Manage your construction warehouse items.</CardDescription>
             </div>
-            <div className="w-10"></div> {/* Placeholder for alignment */}
+            <div className="w-10"></div>
           </div>
         </CardHeader>
         <CardContent>
@@ -194,13 +243,14 @@ const Inventory = () => {
             {/* Sort By Select */}
             <div className="flex items-center gap-2">
               <Label htmlFor="sort-by">Sort By:</Label>
-              <Select value={sortKey} onValueChange={(value: 'name' | 'quantity') => setSortKey(value)}>
-                <SelectTrigger id="sort-by" className="w-[120px]">
+              <Select value={sortKey} onValueChange={(value: 'name' | 'quantity' | 'movement') => setSortKey(value)}>
+                <SelectTrigger id="sort-by" className="w-[160px]">
                   <SelectValue placeholder="Sort By" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="name">Name</SelectItem>
                   <SelectItem value="quantity">Quantity</SelectItem>
+                  <SelectItem value="movement">Most Movemented</SelectItem> {/* New sort option */}
                 </SelectContent>
               </Select>
             </div>
