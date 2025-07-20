@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, Users, Barcode, QrCode } from 'lucide-react';
+import { Package, Users, Barcode, QrCode, Settings as SettingsIcon } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,10 +54,10 @@ const Dashboard = () => {
               Scan Item (Add/Remove)
             </Button>
           </Link>
-          <Link to="/scan-worker">
+          <Link to="/settings">
             <Button className="w-full h-32 flex flex-col items-center justify-center text-lg">
-              <QrCode className="h-8 w-8 mb-2" />
-              Scan Worker (Pickup/Return)
+              <SettingsIcon className="h-8 w-8 mb-2" />
+              Settings
             </Button>
           </Link>
         </CardContent>
