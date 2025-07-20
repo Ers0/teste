@@ -11,7 +11,6 @@ import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
 import { exportToCsv } from '@/utils/export';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 // Define interfaces for the data shapes expected from Supabase queries for export
 interface ExportableInventoryItem {
@@ -28,11 +27,10 @@ interface ExportableTransactionRecord {
   quantity: number;
   timestamp: string;
   items: { name: string };
-  workers: { name: string; id: string; qr_code_data: string | null; };
+  workers: { name: string; id: string; qr_code_data: string | null; }; // Added id and qr_code_data
 }
 
 const Settings = () => {
-  const { t, i18n } = useTranslation(); // Initialize useTranslation
   const { user, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading, invalidateProfile } = useProfile();
   const [firstName, setFirstName] = useState('');
@@ -54,14 +52,12 @@ const Settings = () => {
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
       setLanguage(profile.language || 'en');
-      i18n.changeLanguage(profile.language || 'en'); // Set initial language from profile
     } else if (!profileLoading && !profile) {
       setFirstName('');
       setLastName('');
       setLanguage('en');
-      i18n.changeLanguage('en'); // Default to English if no profile
     }
-  }, [profile, profileLoading, i18n]);
+  }, [profile, profileLoading]);
 
   // Theme effect
   useEffect(() => {
@@ -95,7 +91,6 @@ const Settings = () => {
     } else {
       showSuccess('Profile updated successfully!');
       invalidateProfile();
-      i18n.changeLanguage(language); // Change language immediately after saving
     }
     setIsSaving(false);
   };
@@ -145,17 +140,18 @@ const Settings = () => {
   };
 
   const handleExportTransactions = async () => {
-    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name, id, qr_code_data)');
+    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name, id, qr_code_data)'); // Added id and qr_code_data
     if (error) {
       showError('Error fetching transaction data: ' + error.message);
       return;
     }
     if (data) {
+      // Flatten and rename the data for CSV export
       const flattenedData = (data as ExportableTransactionRecord[]).map(t => ({
         'Item Name': t.items?.name || 'N/A',
         'Worker Name': t.workers?.name || 'N/A',
-        'Worker ID': t.workers?.id || 'N/A',
-        'Worker QR Code Data': t.workers?.qr_code_data || 'N/A',
+        'Worker ID': t.workers?.id || 'N/A', // Added Worker ID
+        'Worker QR Code Data': t.workers?.qr_code_data || 'N/A', // Added Worker QR Code Data
         'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
         'Quantity': t.quantity,
         'Timestamp': new Date(t.timestamp).toLocaleString(),
@@ -168,7 +164,7 @@ const Settings = () => {
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-gray-600 dark:text-gray-400">{t('loading_settings')}</p>
+        <p className="text-gray-600 dark:text-gray-400">Loading settings...</p>
       </div>
     );
   }
@@ -182,8 +178,8 @@ const Settings = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-2xl">{t('settings')}</CardTitle>
-              <CardDescription>{t('manage_profile_preferences')}</CardDescription> {/* Placeholder for description */}
+              <CardTitle className="text-2xl">Settings</CardTitle>
+              <CardDescription>Manage your profile and application preferences.</CardDescription>
             </div>
             <div className="w-10"></div>
           </div>
@@ -191,32 +187,32 @@ const Settings = () => {
         <CardContent className="space-y-6">
           {/* Profile Settings */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">{t('profile_information')}</h3>
+            <h3 className="text-lg font-semibold">Profile Information</h3>
             <div className="space-y-2">
-              <Label htmlFor="firstName">{t('first_name')}</Label>
+              <Label htmlFor="firstName">First Name</Label>
               <Input
                 id="firstName"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder={t('enter_first_name')} {/* Placeholder for placeholder */}
+                placeholder="Enter your first name"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName">{t('last_name')}</Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
                 id="lastName"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder={t('enter_last_name')} {/* Placeholder for placeholder */}
+                placeholder="Enter your last name"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="language">{t('app_language')}</Label>
+              <Label htmlFor="language">App Language</Label>
               <Select value={language} onValueChange={setLanguage}>
                 <SelectTrigger id="language">
-                  <SelectValue placeholder={t('select_language')} /> {/* Placeholder for placeholder */}
+                  <SelectValue placeholder="Select a language" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="en">English</SelectItem>
@@ -226,49 +222,49 @@ const Settings = () => {
               </Select>
             </div>
             <Button onClick={handleSaveProfile} className="w-full" disabled={isSaving}>
-              {isSaving ? t('saving_profile') : t('save_profile_changes')}
+              {isSaving ? 'Saving Profile...' : 'Save Profile Changes'}
             </Button>
           </div>
 
           {/* Password Change */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">{t('change_password')}</h3>
+            <h3 className="text-lg font-semibold">Change Password</h3>
             <div className="space-y-2">
-              <Label htmlFor="newPassword">{t('new_password')}</Label>
+              <Label htmlFor="newPassword">New Password</Label>
               <Input
                 id="newPassword"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder={t('enter_new_password')} {/* Placeholder for placeholder */}
+                placeholder="Enter new password"
               />
             </div>
             <Button onClick={handleChangePassword} className="w-full" disabled={isPasswordChanging}>
-              {isPasswordChanging ? t('changing_password') : t('change_password')}
+              {isPasswordChanging ? 'Changing Password...' : 'Change Password'}
             </Button>
           </div>
 
           {/* Biometry Note */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">{t('biometric_authentication')}</h3>
+            <h3 className="text-lg font-semibold">Biometric Authentication</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('biometry_note')}
+              Biometric registration (e.g., fingerprint, face ID) is a feature typically available in native mobile applications (Android/iOS) and is not directly supported in web browsers for security reasons.
             </p>
           </div>
 
           {/* Theme Selection */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">{t('app_theme')}</h3>
+            <h3 className="text-lg font-semibold">App Theme</h3>
             <div className="space-y-2">
-              <Label htmlFor="theme">{t('select_theme')}</Label>
+              <Label htmlFor="theme">Select Theme</Label>
               <Select value={theme} onValueChange={(value: 'light' | 'dark' | 'black') => setTheme(value)}>
                 <SelectTrigger id="theme">
-                  <SelectValue placeholder={t('select_theme')} />
+                  <SelectValue placeholder="Select a theme" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="light">{t('light')}</SelectItem>
-                  <SelectItem value="dark">{t('dark')}</SelectItem>
-                  <SelectItem value="black">{t('black')}</SelectItem>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="black">Black</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -276,16 +272,17 @@ const Settings = () => {
 
           {/* Reports Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">{t('reports')}</h3>
+            <h3 className="text-lg font-semibold">Reports</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('reports_note')}
+              Download your inventory and transaction data as CSV files for external analysis in spreadsheet software.
+              Please note: Real-time, cloud-based spreadsheet integration requires external setup (e.g., Google Sheets API, Zapier, custom scripts) to connect to your Supabase database, which is beyond the scope of this application.
             </p>
             <div className="flex flex-col gap-2">
               <Button onClick={handleExportInventory} className="w-full">
-                <Download className="mr-2 h-4 w-4" /> {t('export_inventory_data')}
+                <Download className="mr-2 h-4 w-4" /> Export Inventory Data
               </Button>
               <Button onClick={handleExportTransactions} className="w-full">
-                <Download className="mr-2 h-4 w-4" /> {t('export_transaction_history')}
+                <Download className="mr-2 h-4 w-4" /> Export Transaction History
               </Button>
             </div>
           </div>
