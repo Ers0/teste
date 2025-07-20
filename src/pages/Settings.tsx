@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/integrations/supabase/auth';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const Settings = () => {
   const { user, loading } = useAuth();
@@ -15,6 +16,7 @@ const Settings = () => {
   const [lastName, setLastName] = useState('');
   const [language, setLanguage] = useState('en'); // Default to English
   const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -77,9 +79,17 @@ const Settings = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Settings</CardTitle>
-          <CardDescription>Manage your profile and application preferences.</CardDescription>
+        <CardHeader>
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-grow text-center">
+              <CardTitle className="text-2xl">Settings</CardTitle>
+              <CardDescription>Manage your profile and application preferences.</CardDescription>
+            </div>
+            <div className="w-10"></div> {/* Placeholder for alignment */}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">

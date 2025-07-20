@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, Scan, Upload } from 'lucide-react';
-import { Link } from 'react-router-dom'; // Import Link for navigation
+import { PlusCircle, Edit, Trash2, Scan, Upload, ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavigate for navigation
 
 interface Item {
   id: string;
@@ -24,6 +24,7 @@ const Inventory = () => {
   const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null });
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     fetchItems();
@@ -170,8 +171,16 @@ const Inventory = () => {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-4xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold">Inventory Management</CardTitle>
-          <CardDescription>Manage your construction warehouse items.</CardDescription>
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-grow text-center">
+              <CardTitle className="text-3xl font-bold">Inventory Management</CardTitle>
+              <CardDescription>Manage your construction warehouse items.</CardDescription>
+            </div>
+            <div className="w-10"></div> {/* Placeholder for alignment */}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex justify-end gap-2 mb-4"> {/* Added gap-2 for spacing */}

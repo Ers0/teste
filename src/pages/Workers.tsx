@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, QrCode, Upload } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, QrCode, Upload, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface Worker {
   id: string;
@@ -22,6 +23,7 @@ const Workers = () => {
   const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: '' });
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     fetchWorkers();
@@ -167,8 +169,16 @@ const Workers = () => {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-4xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold">Worker Management</CardTitle>
-          <CardDescription>Manage your construction workers.</CardDescription>
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-grow text-center">
+              <CardTitle className="text-3xl font-bold">Worker Management</CardTitle>
+              <CardDescription>Manage your construction workers.</CardDescription>
+            </div>
+            <div className="w-10"></div> {/* Placeholder for alignment */}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex justify-end mb-4">

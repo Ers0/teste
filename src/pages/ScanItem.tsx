@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus } from 'lucide-react';
+import { Barcode, Plus, Minus, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const ScanItem = () => {
   const [barcode, setBarcode] = useState('');
   const [item, setItem] = useState<any>(null);
   const [quantityChange, setQuantityChange] = useState(0);
+  const navigate = useNavigate(); // Initialize useNavigate
 
   const handleScan = async () => {
     if (!barcode) {
@@ -72,9 +74,17 @@ const ScanItem = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Scan Item</CardTitle>
-          <CardDescription>Scan an item to add or remove quantity.</CardDescription>
+        <CardHeader>
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-grow text-center">
+              <CardTitle className="text-2xl">Scan Item</CardTitle>
+              <CardDescription>Scan an item to add or remove quantity.</CardDescription>
+            </div>
+            <div className="w-10"></div> {/* Placeholder for alignment */}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center space-x-2">
