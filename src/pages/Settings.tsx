@@ -22,12 +22,13 @@ interface ExportableInventoryItem {
   critical_stock_threshold: number | null;
 }
 
-interface ExportableTransactionRecord {
+// Define the exact structure of a single row returned by the Supabase transactions query
+interface SupabaseTransactionRow {
   type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
-  items: { name: string };
-  workers: { name: string; id: string; qr_code_data: string | null; }; // Added id and qr_code_data
+  items: { name: string } | null; // Supabase returns a single object for joined relations, or null
+  workers: { name: string; id: string; qr_code_data: string | null; } | null; // Supabase returns a single object for joined relations, or null
 }
 
 const Settings = () => {
@@ -140,18 +141,21 @@ const Settings = () => {
   };
 
   const handleExportTransactions = async () => {
-    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name, id, qr_code_data)'); // Added id and qr_code_data
+    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name, id, qr_code_data)');
     if (error) {
       showError('Error fetching transaction data: ' + error.message);
       return;
     }
     if (data) {
+      // Cast the data to the correct Supabase row type
+      const transactionsData = data as SupabaseTransactionRow[];
+
       // Flatten and rename the data for CSV export
-      const flattenedData = (data as ExportableTransactionRecord[]).map(t => ({
+      const flattenedData = transactionsData.map(t => ({
         'Item Name': t.items?.name || 'N/A',
         'Worker Name': t.workers?.name || 'N/A',
-        'Worker ID': t.workers?.id || 'N/A', // Added Worker ID
-        'Worker QR Code Data': t.workers?.qr_code_data || 'N/A', // Added Worker QR Code Data
+        'Worker ID': t.workers?.id || 'N/A',
+        'Worker QR Code Data': t.workers?.qr_code_data || 'N/A',
         'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
         'Quantity': t.quantity,
         'Timestamp': new Date(t.timestamp).toLocaleString(),
