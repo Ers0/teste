@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus } from 'lucide-react'; // Import Plus and Minus icons
+import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -163,8 +163,8 @@ const WorkerTransaction = () => {
     showSuccess(`Recorded ${quantityToTake} of "${scannedItem.name}" taken by "${scannedWorker.name}".`);
     // Update local state for current item
     setScannedItem({ ...scannedItem, quantity: newQuantity });
-    // Invalidate transactions query to refresh history
-    queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    // Refetch transactions query to refresh history immediately
+    queryClient.refetchQueries({ queryKey: ['transactions'] });
   };
 
   const handleDone = () => {
