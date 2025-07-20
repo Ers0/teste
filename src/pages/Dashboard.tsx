@@ -64,7 +64,7 @@ const Dashboard = () => {
               <span className="font-semibold">Scan Item (Add/Remove)</span>
             </Card>
           </Link>
-          <Link to="/record-takeout" className="block"> {/* New link for WorkerTransaction */}
+          <Link to="/record-takeout" className="block cursor-pointer"> {/* New link for WorkerTransaction */}
             <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
               <ClipboardList className="h-8 w-8 mb-2" /> {/* Using ClipboardList icon */}
               <span className="font-semibold text-center">Record Item Takeout</span>
