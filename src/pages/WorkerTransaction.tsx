@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Import RadioGroup components
 import { showSuccess, showError } from '@/utils/toast';
 import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,7 +29,7 @@ interface Transaction {
   id: string;
   item_id: string;
   worker_id: string;
-  type: string;
+  type: 'takeout' | 'return'; // Explicitly define type
   quantity: number;
   timestamp: string;
   items: { name: string };
@@ -40,7 +41,8 @@ const WorkerTransaction = () => {
   const [scannedWorker, setScannedWorker] = useState<Worker | null>(null);
   const [itemBarcodeInput, setItemBarcodeInput] = useState('');
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
-  const [quantityToTake, setQuantityToTake] = useState(1);
+  const [quantityToChange, setQuantityToChange] = useState(1);
+  const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout'); // New state for transaction type
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -110,7 +112,7 @@ const WorkerTransaction = () => {
     }
   };
 
-  const handleRecordTakeout = async () => {
+  const handleRecordTransaction = async () => {
     if (!scannedWorker) {
       showError('Please scan a worker first.');
       return;
@@ -119,16 +121,21 @@ const WorkerTransaction = () => {
       showError('Please scan an item first.');
       return;
     }
-    if (quantityToTake <= 0) {
-      showError('Quantity to take must be greater than zero.');
-      return;
-    }
-    if (scannedItem.quantity < quantityToTake) {
-      showError(`Not enough items in stock. Available: ${scannedItem.quantity}`);
+    if (quantityToChange <= 0) {
+      showError('Quantity must be greater than zero.');
       return;
     }
 
-    const newQuantity = scannedItem.quantity - quantityToTake;
+    let newQuantity = scannedItem.quantity;
+    if (transactionType === 'takeout') {
+      if (scannedItem.quantity < quantityToChange) {
+        showError(`Not enough items in stock. Available: ${scannedItem.quantity}`);
+        return;
+      }
+      newQuantity -= quantityToChange;
+    } else { // type === 'return'
+      newQuantity += quantityToChange;
+    }
 
     // Update item quantity
     const { error: updateError } = await supabase
@@ -148,8 +155,8 @@ const WorkerTransaction = () => {
         {
           worker_id: scannedWorker.id,
           item_id: scannedItem.id,
-          type: 'takeout',
-          quantity: quantityToTake,
+          type: transactionType, // Use the selected transaction type
+          quantity: quantityToChange,
         },
       ])
       .select('*, items(name), workers(name)') // Select the joined data immediately
@@ -162,7 +169,7 @@ const WorkerTransaction = () => {
       return;
     }
 
-    showSuccess(`Recorded ${quantityToTake} of "${scannedItem.name}" taken by "${scannedWorker.name}".`);
+    showSuccess(`Recorded ${quantityToChange} of "${scannedItem.name}" ${transactionType === 'takeout' ? 'taken by' : 'returned by'} "${scannedWorker.name}".`);
     // Update local state for current item
     setScannedItem({ ...scannedItem, quantity: newQuantity });
 
@@ -183,17 +190,18 @@ const WorkerTransaction = () => {
     setScannedWorker(null);
     setItemBarcodeInput('');
     setScannedItem(null);
-    setQuantityToTake(1);
+    setQuantityToChange(1);
+    setTransactionType('takeout'); // Reset to default
     showSuccess('Transaction session cleared. Ready for new entry!');
     queryClient.refetchQueries({ queryKey: ['transactions'] }); // Refetch history on done
   };
 
   const incrementQuantity = () => {
-    setQuantityToTake(prev => prev + 1);
+    setQuantityToChange(prev => prev + 1);
   };
 
   const decrementQuantity = () => {
-    setQuantityToTake(prev => Math.max(1, prev - 1)); // Ensure quantity doesn't go below 1
+    setQuantityToChange(prev => Math.max(1, prev - 1)); // Ensure quantity doesn't go below 1
   };
 
   return (
@@ -205,13 +213,32 @@ const WorkerTransaction = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-2xl">Record Item Takeout</CardTitle>
-              <CardDescription>Scan worker, then scan items they are taking.</CardDescription>
+              <CardTitle className="text-2xl">Record Item Transaction</CardTitle>
+              <CardDescription>Scan worker, then scan items for takeout or return.</CardDescription>
             </div>
             <div className="w-10"></div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Transaction Type Selection */}
+          <div className="space-y-2 border-b pb-4">
+            <h3 className="text-lg font-semibold">Transaction Type</h3>
+            <RadioGroup
+              value={transactionType}
+              onValueChange={(value: 'takeout' | 'return') => setTransactionType(value)}
+              className="flex justify-center gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="takeout" id="takeout" />
+                <Label htmlFor="takeout">Takeout</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="return" id="return" />
+                <Label htmlFor="return">Return</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           {/* Worker Scan Section */}
           <div className="space-y-4 border-b pb-4">
             <h3 className="text-lg font-semibold flex items-center">
@@ -224,7 +251,7 @@ const WorkerTransaction = () => {
                 value={workerQrCodeInput}
                 onChange={(e) => setWorkerQrCodeInput(e.target.value)}
                 className="flex-grow"
-                disabled={!!scannedWorker} // Disable if worker is already scanned
+                disabled={!!scannedWorker}
               />
               <Button onClick={handleScanWorker} disabled={!!scannedWorker}>
                 <QrCode className="mr-2 h-4 w-4" /> Scan Worker
@@ -267,16 +294,16 @@ const WorkerTransaction = () => {
                 <p><strong>Barcode:</strong> {scannedItem.barcode}</p>
 
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="quantityToTake">Quantity to Take:</Label>
+                  <Label htmlFor="quantityToChange">Quantity to {transactionType === 'takeout' ? 'Take' : 'Return'}:</Label>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" onClick={decrementQuantity} disabled={quantityToTake <= 1}>
+                    <Button variant="outline" size="icon" onClick={decrementQuantity} disabled={quantityToChange <= 1}>
                       <Minus className="h-4 w-4" />
                     </Button>
                     <Input
-                      id="quantityToTake"
+                      id="quantityToChange"
                       type="number"
-                      value={quantityToTake}
-                      onChange={(e) => setQuantityToTake(parseInt(e.target.value) || 1)}
+                      value={quantityToChange}
+                      onChange={(e) => setQuantityToChange(parseInt(e.target.value) || 1)}
                       min="1"
                       className="text-center"
                     />
@@ -284,8 +311,8 @@ const WorkerTransaction = () => {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                  <Button onClick={handleRecordTakeout} className="w-full" disabled={!scannedWorker || !scannedItem}>
-                    Record Takeout
+                  <Button onClick={handleRecordTransaction} className="w-full" disabled={!scannedWorker || !scannedItem}>
+                    Record {transactionType === 'takeout' ? 'Takeout' : 'Return'}
                   </Button>
                 </div>
               </div>
@@ -302,7 +329,7 @@ const WorkerTransaction = () => {
           {/* Transaction History Section */}
           <div className="space-y-4 pt-4 border-t">
             <h3 className="text-lg font-semibold flex items-center">
-              <HistoryIcon className="mr-2 h-5 w-5" /> Recent Takeout History
+              <HistoryIcon className="mr-2 h-5 w-5" /> Recent Transaction History
             </h3>
             {isHistoryLoading ? (
               <p className="text-gray-500">Loading history...</p>
@@ -312,6 +339,7 @@ const WorkerTransaction = () => {
                   <div key={transaction.id} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
                     <p><strong>Worker:</strong> {transaction.workers?.name || 'N/A'}</p>
                     <p><strong>Item:</strong> {transaction.items?.name || 'N/A'}</p>
+                    <p><strong>Type:</strong> <span className={`font-medium ${transaction.type === 'takeout' ? 'text-red-600' : 'text-green-600'}`}>{transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</span></p>
                     <p><strong>Quantity:</strong> {transaction.quantity}</p>
                     <p className="text-xs text-gray-500">
                       {new Date(transaction.timestamp).toLocaleString()}
@@ -320,7 +348,7 @@ const WorkerTransaction = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No recent takeouts recorded.</p>
+              <p className="text-gray-500">No recent transactions recorded.</p>
             )}
           </div>
         </CardContent>
