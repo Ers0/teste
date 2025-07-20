@@ -264,13 +264,11 @@ const WorkerTransaction = () => {
           </div>
 
           {/* Done Button */}
-          {(scannedWorker || scannedItem) && (
-            <div className="pt-4 border-t">
-              <Button onClick={handleDone} className="w-full">
-                Done with Current Transaction
-              </Button>
-            </div>
-          )}
+          <div className="pt-4 border-t">
+            <Button onClick={handleDone} className="w-full">
+              Done with Current Transaction
+            </Button>
+          </div>
 
           {/* Transaction History Section */}
           <div className="space-y-4 pt-4 border-t">
