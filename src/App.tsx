@@ -6,7 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
-import Inventory from "./pages/Inventory"; // Import the new Inventory page
+import Inventory from "./pages/Inventory";
+import Workers from "./pages/Workers"; // Import the new Workers page
 import { SessionContextProvider } from "./integrations/supabase/auth";
 
 const queryClient = new QueryClient();
@@ -21,7 +22,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/inventory" element={<Inventory />} /> {/* Add the new Inventory route */}
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/workers" element={<Workers />} /> {/* Add the new Workers route */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
