@@ -40,10 +40,18 @@ const Settings = () => {
     }
 
     setIsSaving(true);
+    // Use upsert instead of update to create the profile if it doesn't exist
     const { error } = await supabase
       .from('profiles')
-      .update({ first_name: firstName, last_name: lastName, language: language })
-      .eq('id', user.id);
+      .upsert(
+        {
+          id: user.id, // Ensure the ID is included for upsert
+          first_name: firstName,
+          last_name: lastName,
+          language: language, // Include language
+        },
+        { onConflict: 'id' } // Specify 'id' as the conflict target for upsert
+      );
 
     if (error) {
       showError('Error updating profile: ' + error.message);
