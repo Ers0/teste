@@ -346,7 +346,18 @@ const WorkerTransaction = () => {
                   <div key={transaction.id} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
                     <p><strong>Worker:</strong> {transaction.workers?.name || 'N/A'}</p>
                     <p><strong>Item:</strong> {transaction.items?.name || 'N/A'}</p>
-                    <p><strong>Type:</strong> <span className={`font-medium ${transaction.type === 'takeout' ? 'text-red-600' : 'text-green-600'}`}>{transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</span></p>
+                    <p>
+                      <strong>Type:</strong>{' '}
+                      <span
+                        className={`font-medium px-2 py-1 rounded-full text-xs ${
+                          transaction.type === 'takeout'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+                        }`}
+                      >
+                        {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                      </span>
+                    </p>
                     <p><strong>Quantity:</strong> {transaction.quantity}</p>
                     <p className="text-xs text-gray-500">
                       {new Date(transaction.timestamp).toLocaleString()}
