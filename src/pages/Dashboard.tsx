@@ -19,23 +19,24 @@ const Dashboard = () => {
           .from('profiles')
           .select('first_name, last_name')
           .eq('id', user.id)
-          .single();
+          .limit(1); // Changed from .single() to .limit(1)
 
         if (error) {
           console.error('Error fetching user profile:', error.message);
           setUserName(user.email); // Fallback to email on error
-        } else if (data) {
-          if (data.first_name && data.last_name) {
-            setUserName(`${data.first_name} ${data.last_name}`);
-          } else if (data.first_name) {
-            setUserName(data.first_name);
-          } else if (data.last_name) {
-            setUserName(data.last_name);
+        } else if (data && data.length > 0) { // Check if data exists and is not empty
+          const profile = data[0]; // Get the first (and only) profile
+          if (profile.first_name && profile.last_name) {
+            setUserName(`${profile.first_name} ${profile.last_name}`);
+          } else if (profile.first_name) {
+            setUserName(profile.first_name);
+          } else if (profile.last_name) {
+            setUserName(profile.last_name);
           } else {
-            setUserName(user.email); // Fallback if no name is set
+            setUserName(user.email); // Fallback if no name is set in profile
           }
         } else {
-          setUserName(user.email); // Fallback if no profile data
+          setUserName(user.email); // Fallback if no profile data found
         }
       } else {
         setUserName('Guest'); // For unauthenticated state, though auth should redirect
