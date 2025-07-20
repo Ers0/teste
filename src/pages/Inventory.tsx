@@ -19,14 +19,16 @@ interface Item {
   quantity: number;
   image_url: string | null;
   image?: File | null;
+  low_stock_threshold: number | null; // New field
+  critical_stock_threshold: number | null; // New field
 }
 
 const Inventory = () => {
   const [items, setItems] = useState<Item[]>([]);
-  const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null });
+  const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null, low_stock_threshold: 10, critical_stock_threshold: 5 });
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [sortKey, setSortKey] = useState<'name' | 'quantity' | 'movement'>('name'); // Added 'movement'
+  const [sortKey, setSortKey] = useState<'name' | 'quantity' | 'movement'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const navigate = useNavigate();
 
@@ -39,17 +41,15 @@ const Inventory = () => {
     let error: Error | null = null;
 
     if (sortKey === 'movement') {
-      // Fetch all items
       const { data: itemsData, error: itemsError } = await supabase
         .from('items')
-        .select('*');
+        .select('*, low_stock_threshold, critical_stock_threshold'); // Select new fields
 
       if (itemsError) {
         showError('Error fetching items: ' + itemsError.message);
         return;
       }
 
-      // Fetch movement counts
       const { data: movementData, error: movementError } = await supabase
         .from('item_movement_counts')
         .select('*');
@@ -59,16 +59,14 @@ const Inventory = () => {
         return;
       }
 
-      // Merge data and calculate total movement for sorting
       const itemsWithMovement = itemsData.map(item => {
         const movement = movementData.find(m => m.item_id === item.id);
         return {
           ...item,
-          total_movement: movement ? movement.total_movement : 0 // Default to 0 if no movement
+          total_movement: movement ? movement.total_movement : 0
         };
       });
 
-      // Sort client-side based on total_movement
       itemsWithMovement.sort((a, b) => {
         if (sortDirection === 'asc') {
           return (a as any).total_movement - (b as any).total_movement;
@@ -79,10 +77,9 @@ const Inventory = () => {
       data = itemsWithMovement;
 
     } else {
-      // Existing logic for name and quantity sort
       const { data: directData, error: directError } = await supabase
         .from('items')
-        .select('*')
+        .select('*, low_stock_threshold, critical_stock_threshold') // Select new fields
         .order(sortKey, { ascending: sortDirection === 'asc' });
       data = directData;
       error = directError;
@@ -97,10 +94,12 @@ const Inventory = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    const parsedValue = name === 'quantity' || name === 'low_stock_threshold' || name === 'critical_stock_threshold' ? parseInt(value) : value;
+
     if (editingItem) {
-      setEditingItem({ ...editingItem, [name]: value });
+      setEditingItem({ ...editingItem, [name]: parsedValue });
     } else {
-      setNewItem({ ...newItem, [name]: value });
+      setNewItem({ ...newItem, [name]: parsedValue });
     }
   };
 
@@ -145,7 +144,14 @@ const Inventory = () => {
 
     const { data: insertedItem, error: insertError } = await supabase
       .from('items')
-      .insert([{ name: newItem.name, description: newItem.description, barcode: newItem.barcode, quantity: newItem.quantity }])
+      .insert([{ 
+        name: newItem.name, 
+        description: newItem.description, 
+        barcode: newItem.barcode, 
+        quantity: newItem.quantity,
+        low_stock_threshold: newItem.low_stock_threshold, // Save new field
+        critical_stock_threshold: newItem.critical_stock_threshold // Save new field
+      }])
       .select()
       .single();
 
@@ -163,7 +169,7 @@ const Inventory = () => {
     }
 
     showSuccess('Item added successfully!');
-    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null });
+    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5 });
     setIsDialogOpen(false);
     fetchItems();
   };
@@ -187,6 +193,8 @@ const Inventory = () => {
         barcode: editingItem.barcode,
         quantity: editingItem.quantity,
         image_url: imageUrl,
+        low_stock_threshold: editingItem.low_stock_threshold, // Update new field
+        critical_stock_threshold: editingItem.critical_stock_threshold // Update new field
       })
       .eq('id', editingItem.id);
 
@@ -220,7 +228,17 @@ const Inventory = () => {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingItem(null);
-    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null });
+    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5 });
+  };
+
+  const getQuantityColorClass = (item: Item) => {
+    if (item.critical_stock_threshold !== null && item.quantity <= item.critical_stock_threshold) {
+      return 'text-red-500 font-bold';
+    }
+    if (item.low_stock_threshold !== null && item.quantity <= item.low_stock_threshold) {
+      return 'text-yellow-500 font-bold';
+    }
+    return 'text-green-500';
   };
 
   return (
@@ -250,7 +268,7 @@ const Inventory = () => {
                 <SelectContent>
                   <SelectItem value="name">Name</SelectItem>
                   <SelectItem value="quantity">Quantity</SelectItem>
-                  <SelectItem value="movement">Most Movemented</SelectItem> {/* New sort option */}
+                  <SelectItem value="movement">Most Movemented</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -276,7 +294,7 @@ const Inventory = () => {
             </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => { setEditingItem(null); setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null }); setIsDialogOpen(true); }}>
+                <Button onClick={() => { setEditingItem(null); setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5 }); setIsDialogOpen(true); }}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
                 </Button>
               </DialogTrigger>
@@ -341,6 +359,36 @@ const Inventory = () => {
                       className="col-span-3"
                     />
                   </div>
+                  {/* New Threshold Inputs */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="low_stock_threshold" className="text-right">
+                      Low Stock (Yellow)
+                    </Label>
+                    <Input
+                      id="low_stock_threshold"
+                      name="low_stock_threshold"
+                      type="number"
+                      value={editingItem ? editingItem.low_stock_threshold || '' : newItem.low_stock_threshold}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                      placeholder="e.g., 10"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="critical_stock_threshold" className="text-right">
+                      Critical Stock (Red)
+                    </Label>
+                    <Input
+                      id="critical_stock_threshold"
+                      name="critical_stock_threshold"
+                      type="number"
+                      value={editingItem ? editingItem.critical_stock_threshold || '' : newItem.critical_stock_threshold}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                      placeholder="e.g., 5"
+                    />
+                  </div>
+                  {/* End New Threshold Inputs */}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="image" className="text-right">
                       Image
@@ -402,7 +450,7 @@ const Inventory = () => {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{item.description || 'N/A'}</TableCell>
                       <TableCell>{item.barcode || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className={`text-right ${getQuantityColorClass(item)}`}>{item.quantity}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center gap-2">
                           <Button variant="outline" size="icon" onClick={() => openEditDialog(item)}>
