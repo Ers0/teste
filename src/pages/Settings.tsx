@@ -27,8 +27,8 @@ interface SupabaseTransactionRow {
   type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
-  items: { name: string } | null; // Supabase returns a single object for joined relations, or null
-  workers: { name: string; id: string; qr_code_data: string | null; } | null; // Supabase returns a single object for joined relations, or null
+  items: { name: string }[] | null; // Supabase returns an array for joined relations, or null
+  workers: { name: string; id: string; qr_code_data: string | null; }[] | null; // Supabase returns an array for joined relations, or null
 }
 
 const Settings = () => {
@@ -152,10 +152,10 @@ const Settings = () => {
 
       // Flatten and rename the data for CSV export
       const flattenedData = transactionsData.map(t => ({
-        'Item Name': t.items?.name || 'N/A',
-        'Worker Name': t.workers?.name || 'N/A',
-        'Worker ID': t.workers?.id || 'N/A',
-        'Worker QR Code Data': t.workers?.qr_code_data || 'N/A',
+        'Item Name': t.items?.[0]?.name || 'N/A', // Access the first element of the array
+        'Worker Name': t.workers?.[0]?.name || 'N/A', // Access the first element of the array
+        'Worker ID': t.workers?.[0]?.id || 'N/A',
+        'Worker QR Code Data': t.workers?.[0]?.qr_code_data || 'N/A',
         'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
         'Quantity': t.quantity,
         'Timestamp': new Date(t.timestamp).toLocaleString(),
