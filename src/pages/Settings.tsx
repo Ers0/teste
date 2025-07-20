@@ -9,15 +9,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/integrations/supabase/auth';
 import { Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useProfile } from '@/hooks/use-profile'; // Import the new hook
+import { useProfile } from '@/hooks/use-profile';
 
 const Settings = () => {
   const { user, loading: authLoading } = useAuth();
-  const { profile, isLoading: profileLoading, invalidateProfile } = useProfile(); // Use the new hook
+  const { profile, isLoading: profileLoading, invalidateProfile } = useProfile();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [language, setLanguage] = useState('en'); // Default to English
+  const [language, setLanguage] = useState('en');
+  const [newPassword, setNewPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isPasswordChanging, setIsPasswordChanging] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark' | 'black'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('theme') as 'light' | 'dark' | 'black') || 'light';
+    }
+    return 'light';
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,40 +34,68 @@ const Settings = () => {
       setLastName(profile.last_name || '');
       setLanguage(profile.language || 'en');
     } else if (!profileLoading && !profile) {
-      // If no profile exists, ensure fields are empty
       setFirstName('');
       setLastName('');
       setLanguage('en');
     }
   }, [profile, profileLoading]);
 
-  const handleSave = async () => {
+  // Theme effect
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark', 'black'); // Remove all existing themes
+    root.classList.add(theme); // Add the selected theme
+    localStorage.setItem('theme', theme); // Persist theme
+  }, [theme]);
+
+  const handleSaveProfile = async () => {
     if (!user) {
       showError('You must be logged in to update settings.');
       return;
     }
 
     setIsSaving(true);
-    // Use upsert instead of update to create the profile if it doesn't exist
     const { error } = await supabase
       .from('profiles')
       .upsert(
         {
-          id: user.id, // Ensure the ID is included for upsert
+          id: user.id,
           first_name: firstName,
           last_name: lastName,
-          language: language, // Include language
+          language: language,
         },
-        { onConflict: 'id' } // Specify 'id' as the conflict target for upsert
+        { onConflict: 'id' }
       );
 
     if (error) {
       showError('Error updating profile: ' + error.message);
     } else {
       showSuccess('Profile updated successfully!');
-      invalidateProfile(); // Invalidate the profile query to trigger re-fetch in Dashboard
+      invalidateProfile();
     }
     setIsSaving(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword) {
+      showError('Please enter a new password.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setIsPasswordChanging(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      showError('Error changing password: ' + error.message);
+    } else {
+      showSuccess('Password changed successfully!');
+      setNewPassword(''); // Clear password field
+    }
+    setIsPasswordChanging(false);
   };
 
   if (authLoading || profileLoading) {
@@ -68,7 +104,7 @@ const Settings = () => {
         <p className="text-gray-600 dark:text-gray-400">Loading settings...</p>
       </div>
     );
-    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
@@ -82,46 +118,94 @@ const Settings = () => {
               <CardTitle className="text-2xl">Settings</CardTitle>
               <CardDescription>Manage your profile and application preferences.</CardDescription>
             </div>
-            <div className="w-10"></div> {/* Placeholder for alignment */}
+            <div className="w-10"></div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="firstName">First Name</Label>
-            <Input
-              id="firstName"
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Enter your first name"
-            />
+        <CardContent className="space-y-6">
+          {/* Profile Settings */}
+          <div className="space-y-4 border-b pb-4">
+            <h3 className="text-lg font-semibold">Profile Information</h3>
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Enter your first name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Enter your last name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="language">App Language</Label>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger id="language">
+                  <SelectValue placeholder="Select a language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Español</SelectItem>
+                  <SelectItem value="pt-BR">Português (Brasil)</SelectItem> {/* Added Brazilian Portuguese */}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleSaveProfile} className="w-full" disabled={isSaving}>
+              {isSaving ? 'Saving Profile...' : 'Save Profile Changes'}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="lastName">Last Name</Label>
-            <Input
-              id="lastName"
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Enter your last name"
-            />
+
+          {/* Password Change */}
+          <div className="space-y-4 border-b pb-4">
+            <h3 className="text-lg font-semibold">Change Password</h3>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+            <Button onClick={handleChangePassword} className="w-full" disabled={isPasswordChanging}>
+              {isPasswordChanging ? 'Changing Password...' : 'Change Password'}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="language">App Language</Label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger id="language">
-                <SelectValue placeholder="Select a language" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="es">Español</SelectItem>
-                {/* Add more languages as needed */}
-              </SelectContent>
-            </Select>
+
+          {/* Biometry Note */}
+          <div className="space-y-4 border-b pb-4">
+            <h3 className="text-lg font-semibold">Biometric Authentication</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Biometric registration (e.g., fingerprint, face ID) is a feature typically available in native mobile applications (Android/iOS) and is not directly supported in web browsers for security reasons.
+            </p>
           </div>
-          <Button onClick={handleSave} className="w-full" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
+
+          {/* Theme Selection */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">App Theme</h3>
+            <div className="space-y-2">
+              <Label htmlFor="theme">Select Theme</Label>
+              <Select value={theme} onValueChange={(value: 'light' | 'dark' | 'black') => setTheme(value)}>
+                <SelectTrigger id="theme">
+                  <SelectValue placeholder="Select a theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="black">Black</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
