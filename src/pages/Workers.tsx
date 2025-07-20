@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, QrCode, Upload } from 'lucide-react';
@@ -14,6 +14,7 @@ interface Worker {
   company: string | null;
   photo_url: string | null;
   qr_code_data: string | null;
+  photo?: File | null; // Added for temporary file storage
 }
 
 const Workers = () => {
@@ -47,7 +48,7 @@ const Workers = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       if (editingWorker) {
-        setEditingWorker({ ...editingWorker, photo: e.target.files[0] as any }); // Temporarily store file for upload
+        setEditingWorker({ ...editingWorker, photo: e.target.files[0] });
       } else {
         setNewWorker({ ...newWorker, photo: e.target.files[0] });
       }

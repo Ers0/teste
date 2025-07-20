@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, Upload } from 'lucide-react';
@@ -15,6 +15,7 @@ interface Item {
   barcode: string | null;
   quantity: number;
   image_url: string | null;
+  image?: File | null; // Added for temporary file storage
 }
 
 const Inventory = () => {
@@ -48,7 +49,7 @@ const Inventory = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       if (editingItem) {
-        setEditingItem({ ...editingItem, image: e.target.files[0] as any }); // Temporarily store file for upload
+        setEditingItem({ ...editingItem, image: e.target.files[0] });
       } else {
         setNewItem({ ...newItem, image: e.target.files[0] });
       }
