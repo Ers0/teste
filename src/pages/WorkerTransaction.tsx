@@ -185,6 +185,7 @@ const WorkerTransaction = () => {
     setScannedItem(null);
     setQuantityToTake(1);
     showSuccess('Transaction session cleared. Ready for new entry!');
+    queryClient.refetchQueries({ queryKey: ['transactions'] }); // Refetch history on done
   };
 
   const incrementQuantity = () => {
