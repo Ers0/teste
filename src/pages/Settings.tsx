@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/integrations/supabase/auth'; // Fixed import syntax
+import { useAuth } from '@/integrations/supabase/auth';
 import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
@@ -26,8 +26,8 @@ interface ExportableTransactionRecord {
   type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
-  items: { name: string } | null;
-  workers: { name: string } | null;
+  items: { name: string }[]; // Changed to array
+  workers: { name: string }[]; // Changed to array
 }
 
 const Settings = () => {
@@ -126,7 +126,7 @@ const Settings = () => {
       return;
     }
     if (data) {
-      const formattedData = (data as ExportableInventoryItem[]).map(item => ({ // Cast data to the defined interface
+      const formattedData = (data as ExportableInventoryItem[]).map(item => ({
         'Item Name': item.name,
         'Description': item.description || 'N/A',
         'Barcode': item.barcode || 'N/A',
@@ -147,9 +147,9 @@ const Settings = () => {
     }
     if (data) {
       // Flatten and rename the data for CSV export
-      const flattenedData = (data as ExportableTransactionRecord[]).map(t => ({ // Cast data to the defined interface
-        'Item Name': t.items?.name || 'N/A',
-        'Worker Name': t.workers?.name || 'N/A',
+      const flattenedData = (data as ExportableTransactionRecord[]).map(t => ({
+        'Item Name': t.items?.[0]?.name || 'N/A', // Access name from the first element of the array
+        'Worker Name': t.workers?.[0]?.name || 'N/A', // Access name from the first element of the array
         'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
         'Quantity': t.quantity,
         'Timestamp': new Date(t.timestamp).toLocaleString(),
