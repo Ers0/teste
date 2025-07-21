@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 interface Worker {
   id: string;
@@ -42,6 +43,7 @@ interface Transaction {
 }
 
 const WorkerTransaction = () => {
+  const { t } = useTranslation(); // Initialize useTranslation
   const { user } = useAuth(); // Get the current user
   const [workerQrCodeInput, setWorkerQrCodeInput] = useState('');
   const [scannedWorker, setScannedWorker] = useState<Worker | null>(null);
@@ -75,17 +77,17 @@ const WorkerTransaction = () => {
 
   useEffect(() => {
     if (historyError) {
-      showError('Error fetching transaction history: ' + historyError.message);
+      showError(t('error_fetching_transaction_history') + historyError.message);
     }
   }, [historyError]);
 
   const handleScanWorker = async () => {
     if (!workerQrCodeInput) {
-      showError('Please enter a worker QR code to scan.');
+      showError(t('enter_worker_qr_code_scan'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -97,21 +99,21 @@ const WorkerTransaction = () => {
       .single();
 
     if (error) {
-      showError('Worker not found or error fetching worker: ' + error.message);
+      showError(t('worker_not_found_error') + error.message);
       setScannedWorker(null);
     } else {
       setScannedWorker(data);
-      showSuccess(`Worker "${data.name}" found!`);
+      showSuccess(t('worker_found', { workerName: data.name }));
     }
   };
 
   const handleScanItem = async () => {
     if (!itemBarcodeInput) {
-      showError('Please enter an item barcode to scan.');
+      showError(t('enter_item_barcode_scan'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -123,47 +125,47 @@ const WorkerTransaction = () => {
       .single();
 
     if (error) {
-      showError('Item not found or error fetching item: ' + error.message);
+      showError(t('item_not_found_error') + error.message);
       setScannedItem(null);
     } else {
       setScannedItem(data);
-      showSuccess(`Item "${data.name}" found!`);
+      showSuccess(t('item_found', { itemName: data.name }));
       // If item is one-time use, force transaction type to takeout
       if (data.one_time_use) {
         setTransactionType('takeout');
-        showError('This is a one-time use item, only takeout is allowed.');
+        showError(t('this_is_one_time_use_item_takeout_only'));
       }
     }
   };
 
   const handleRecordTransaction = async () => {
     if (!scannedWorker) {
-      showError('Please scan a worker first.');
+      showError(t('scan_worker_first'));
       return;
     }
     if (!scannedItem) {
-      showError('Please scan an item first.');
+      showError(t('scan_item_first'));
       return;
     }
     if (quantityToChange <= 0) {
-      showError('Quantity must be greater than zero.');
+      showError(t('quantity_greater_than_zero'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
     // Prevent return if item is one-time use
     if (scannedItem.one_time_use && transactionType === 'return') {
-      showError('Cannot return a one-time use item.');
+      showError(t('cannot_return_one_time_use'));
       return;
     }
 
     let newQuantity = scannedItem.quantity;
     if (transactionType === 'takeout') {
       if (scannedItem.quantity < quantityToChange) {
-        showError(`Not enough items in stock. Available: ${scannedItem.quantity}`);
+        showError(t('not_enough_items_in_stock', { available: scannedItem.quantity }));
         return;
       }
       newQuantity -= quantityToChange;
@@ -179,7 +181,7 @@ const WorkerTransaction = () => {
       .eq('user_id', user.id); // Ensure user_id is maintained/updated
 
     if (updateError) {
-      showError('Error updating item quantity: ' + updateError.message);
+      showError(t('error_updating_item_quantity') + updateError.message);
       return;
     }
 
@@ -199,13 +201,13 @@ const WorkerTransaction = () => {
       .single();
 
     if (transactionError) {
-      showError('Error recording transaction: ' + transactionError.message);
+      showError(t('error_recording_transaction') + transactionError.message);
       // Rollback item quantity if transaction fails
       await supabase.from('items').update({ quantity: scannedItem.quantity }).eq('id', scannedItem.id).eq('user_id', user.id);
       return;
     }
 
-    showSuccess(`Recorded ${quantityToChange} of "${scannedItem.name}" ${transactionType === 'takeout' ? 'taken by' : 'returned by'} "${scannedWorker.name}".`);
+    showSuccess(t('recorded_transaction_success', { quantity: quantityToChange, itemName: scannedItem.name, type: transactionType === 'takeout' ? t('taken_by') : t('returned_by'), workerName: scannedWorker.name }));
     setScannedItem({ ...scannedItem, quantity: newQuantity });
 
     if (insertedTransaction) {
@@ -225,7 +227,7 @@ const WorkerTransaction = () => {
     setScannedItem(null);
     setQuantityToChange(1);
     setTransactionType('takeout');
-    showSuccess('Transaction session cleared. Ready for new entry!');
+    showSuccess(t('transaction_session_cleared'));
     queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
   };
 
@@ -246,8 +248,8 @@ const WorkerTransaction = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-2xl">Record Item Transaction</CardTitle>
-              <CardDescription>Scan worker, then scan items for takeout or return.</CardDescription>
+              <CardTitle className="text-2xl">{t('record_item_transaction')}</CardTitle>
+              <CardDescription>{t('scan_worker_then_items')}</CardDescription>
             </div>
             <div className="w-10"></div>
           </div>
@@ -255,13 +257,13 @@ const WorkerTransaction = () => {
         <CardContent className="space-y-6">
           {/* Transaction Type Selection */}
           <div className="space-y-2 border-b pb-4">
-            <h3 className="text-lg font-semibold">Transaction Type</h3>
+            <h3 className="text-lg font-semibold">{t('transaction_type')}</h3>
             <ToggleGroup
               type="single"
               value={transactionType}
               onValueChange={(value: 'takeout' | 'return') => {
                 if (scannedItem?.one_time_use && value === 'return') {
-                  showError('Cannot set to return for a one-time use item.');
+                  showError(t('cannot_set_to_return_one_time_use'));
                   return;
                 }
                 value && setTransactionType(value);
@@ -273,7 +275,7 @@ const WorkerTransaction = () => {
                 aria-label="Toggle takeout" 
                 className="flex-1 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:dark:bg-red-900 data-[state=on]:dark:text-red-200"
               >
-                Takeout
+                {t('takeout')}
               </ToggleGroupItem>
               <ToggleGroupItem 
                 value="return" 
@@ -281,7 +283,7 @@ const WorkerTransaction = () => {
                 disabled={scannedItem?.one_time_use} // Disable if one-time use
                 className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200"
               >
-                Return
+                {t('return')}
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
@@ -289,27 +291,27 @@ const WorkerTransaction = () => {
           {/* Worker Scan Section */}
           <div className="space-y-4 border-b pb-4">
             <h3 className="text-lg font-semibold flex items-center">
-              <Users className="mr-2 h-5 w-5" /> Worker Information
+              <Users className="mr-2 h-5 w-5" /> {t('worker_information')}
             </h3>
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
-                placeholder="Enter worker QR code data"
+                placeholder={t('enter_worker_qr_code')}
                 value={workerQrCodeInput}
                 onChange={(e) => setWorkerQrCodeInput(e.target.value)}
                 className="flex-grow"
                 disabled={!!scannedWorker}
               />
               <Button onClick={handleScanWorker} disabled={!!scannedWorker}>
-                <QrCode className="mr-2 h-4 w-4" /> Scan Worker
+                <QrCode className="mr-2 h-4 w-4" /> {t('scan_worker')}
               </Button>
             </div>
             {scannedWorker && (
               <div className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">
-                <p><strong>Name:</strong> {scannedWorker.name}</p>
-                <p><strong>Company:</strong> {scannedWorker.company || 'N/A'}</p>
+                <p><strong>{t('name')}:</strong> {scannedWorker.name}</p>
+                <p><strong>{t('company')}:</strong> {scannedWorker.company || 'N/A'}</p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => { setScannedWorker(null); setWorkerQrCodeInput(''); }}>
-                  Change Worker
+                  {t('change_worker')}
                 </Button>
               </div>
             )}
@@ -318,33 +320,33 @@ const WorkerTransaction = () => {
           {/* Item Scan Section */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center">
-              <Package className="mr-2 h-5 w-5" /> Item Information
+              <Package className="mr-2 h-5 w-5" /> {t('item_information')}
             </h3>
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
-                placeholder="Enter item barcode"
+                placeholder={t('enter_item_barcode')}
                 value={itemBarcodeInput}
                 onChange={(e) => setItemBarcodeInput(e.target.value)}
                 className="flex-grow"
               />
               <Button onClick={handleScanItem}>
-                <Barcode className="mr-2 h-4 w-4" /> Scan Item
+                <Barcode className="mr-2 h-4 w-4" /> {t('scan_item')}
               </Button>
             </div>
 
             {scannedItem && (
               <div className="border p-3 rounded-md space-y-2 bg-gray-50 dark:bg-gray-800">
                 <h4 className="text-md font-semibold">{scannedItem.name}</h4>
-                <p><strong>Description:</strong> {scannedItem.description || 'N/A'}</p>
-                <p><strong>Current Quantity:</strong> {scannedItem.quantity}</p>
-                <p><strong>Barcode:</strong> {scannedItem.barcode}</p>
+                <p><strong>{t('description')}:</strong> {scannedItem.description || 'N/A'}</p>
+                <p><strong>{t('current_quantity')}:</strong> {scannedItem.quantity}</p>
+                <p><strong>{t('barcode')}:</strong> {scannedItem.barcode}</p>
                 {scannedItem.one_time_use && (
-                  <p className="text-sm text-red-500 font-semibold">This is a ONE-TIME USE item.</p>
+                  <p className="text-sm text-red-500 font-semibold">{t('this_is_one_time_use_item')}</p>
                 )}
 
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="quantityToChange">Quantity to {transactionType === 'takeout' ? 'Take' : 'Return'}:</Label>
+                  <Label htmlFor="quantityToChange">{t('quantity_to_change', { type: transactionType === 'takeout' ? t('take') : t('return') })}:</Label>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={decrementQuantity} disabled={quantityToChange <= 1}>
                       <Minus className="h-4 w-4" />
@@ -362,7 +364,7 @@ const WorkerTransaction = () => {
                     </Button>
                   </div>
                   <Button onClick={handleRecordTransaction} className="w-full" disabled={!scannedWorker || !scannedItem}>
-                    Record {transactionType === 'takeout' ? 'Takeout' : 'Return'}
+                    {t(transactionType === 'takeout' ? 'record_takeout' : 'record_return')}
                   </Button>
                 </div>
               </div>
@@ -372,25 +374,25 @@ const WorkerTransaction = () => {
           {/* Done Button */}
           <div className="pt-4 border-t">
             <Button onClick={handleDone} className="w-full">
-              Done with Current Transaction
+              {t('done_with_current_transaction')}
             </Button>
           </div>
 
           {/* Transaction History Section */}
           <div className="space-y-4 pt-4 border-t">
             <h3 className="text-lg font-semibold flex items-center">
-              <HistoryIcon className="mr-2 h-5 w-5" /> Recent Transaction History
+              <HistoryIcon className="mr-2 h-5 w-5" /> {t('recent_transaction_history')}
             </h3>
             {isHistoryLoading ? (
-              <p className="text-gray-500">Loading history...</p>
+              <p className="text-gray-500">{t('loading_history')}</p>
             ) : transactionsHistory && transactionsHistory.length > 0 ? (
               <div className="space-y-2">
                 {transactionsHistory.map((transaction) => (
                   <div key={transaction.id} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
-                    <p><strong>Worker:</strong> {transaction.workers?.name || 'N/A'}</p>
-                    <p><strong>Item:</strong> {transaction.items?.name || 'N/A'}</p>
+                    <p><strong>{t('worker')}:</strong> {transaction.workers?.name || 'N/A'}</p>
+                    <p><strong>{t('item')}:</strong> {transaction.items?.name || 'N/A'}</p>
                     <p>
-                      <strong>Type:</strong>{' '}
+                      <strong>{t('type')}:</strong>{' '}
                       <span
                         className={`font-medium px-2 py-1 rounded-full text-xs ${
                           transaction.type === 'takeout'
@@ -401,7 +403,7 @@ const WorkerTransaction = () => {
                         {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
                       </span>
                     </p>
-                    <p><strong>Quantity:</strong> {transaction.quantity}</p>
+                    <p><strong>{t('quantity')}:</strong> {transaction.quantity}</p>
                     <p className="text-xs text-gray-500">
                       {new Date(transaction.timestamp).toLocaleString()}
                     </p>
@@ -409,7 +411,7 @@ const WorkerTransaction = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No recent transactions recorded.</p>
+              <p className="text-gray-500">{t('no_recent_transactions')}</p>
             )}
           </div>
         </CardContent>

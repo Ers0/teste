@@ -10,6 +10,7 @@ import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft, RefreshCw } from
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 interface Worker {
   id: string;
@@ -22,6 +23,7 @@ interface Worker {
 }
 
 const Workers = () => {
+  const { t } = useTranslation(); // Initialize useTranslation
   const { user } = useAuth(); // Get the current user
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: crypto.randomUUID() }); // Pre-fill with UUID
@@ -52,7 +54,7 @@ const Workers = () => {
     if (!user) return; // Ensure user is available
     const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id); // Filter by user_id
     if (error) {
-      showError('Error fetching workers: ' + error.message);
+      showError(t('error_fetching_workers') + error.message);
     } else {
       setWorkers(data);
     }
@@ -92,7 +94,7 @@ const Workers = () => {
       });
 
     if (uploadError) {
-      showError('Error uploading photo: ' + uploadError.message);
+      showError(t('error_uploading_photo') + uploadError.message);
       return null;
     }
 
@@ -102,11 +104,11 @@ const Workers = () => {
 
   const handleAddWorker = async () => {
     if (!newWorker.name) {
-      showError('Please fill in worker name.');
+      showError(t('fill_worker_name'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -120,7 +122,7 @@ const Workers = () => {
       .single();
 
     if (insertError) {
-      showError('Error adding worker: ' + insertError.message);
+      showError(t('error_adding_worker') + insertError.message);
       return;
     }
 
@@ -132,7 +134,7 @@ const Workers = () => {
       }
     }
 
-    showSuccess('Worker added successfully!');
+    showSuccess(t('worker_added_successfully'));
     setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() }); // Reset with new UUID
     setIsDialogOpen(false);
     fetchWorkers();
@@ -140,11 +142,11 @@ const Workers = () => {
 
   const handleUpdateWorker = async () => {
     if (!editingWorker || !editingWorker.name) {
-      showError('Please fill in worker name.');
+      showError(t('fill_worker_name'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -168,9 +170,9 @@ const Workers = () => {
       .eq('id', editingWorker.id);
 
     if (error) {
-      showError('Error updating worker: ' + error.message);
+      showError(t('error_updating_worker') + error.message);
     } else {
-      showSuccess('Worker updated successfully!');
+      showSuccess(t('worker_updated_successfully'));
       setEditingWorker(null);
       setIsDialogOpen(false);
       fetchWorkers();
@@ -178,12 +180,12 @@ const Workers = () => {
   };
 
   const handleDeleteWorker = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this worker?')) {
+    if (window.confirm(t('confirm_delete_worker'))) {
       const { error } = await supabase.from('workers').delete().eq('id', id);
       if (error) {
-        showError('Error deleting worker: ' + error.message);
+        showError(t('error_deleting_worker') + error.message);
       } else {
-        showSuccess('Worker deleted successfully!');
+        showSuccess(t('worker_deleted_successfully'));
         fetchWorkers();
       }
     }
@@ -216,9 +218,9 @@ const Workers = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        showSuccess('QR Code downloaded!');
+        showSuccess(t('qr_code_downloaded'));
       } else {
-        showError('QR Code canvas not found.');
+        showError(t('qr_code_canvas_not_found'));
       }
     }
   };
@@ -230,7 +232,7 @@ const Workers = () => {
     } else {
       setNewWorker({ ...newWorker, qr_code_data: newUuid });
     }
-    showSuccess('New QR Code data generated!');
+    showSuccess(t('new_qr_code_generated'));
   };
 
   return (
@@ -242,8 +244,8 @@ const Workers = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-3xl font-bold">Worker Management</CardTitle>
-              <CardDescription>Manage your construction workers.</CardDescription>
+              <CardTitle className="text-3xl font-bold">{t('worker_management_title')}</CardTitle>
+              <CardDescription>{t('manage_construction_workers')}</CardDescription>
             </div>
             <div className="w-10"></div> {/* Placeholder for alignment */}
           </div>
@@ -253,20 +255,20 @@ const Workers = () => {
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => { setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() }); setEditingWorker(null); setIsDialogOpen(true); }}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Worker
+                  <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_worker')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>{editingWorker ? 'Edit Worker' : 'Add New Worker'}</DialogTitle>
+                  <DialogTitle>{editingWorker ? t('edit_worker') : t('add_new_worker')}</DialogTitle>
                   <DialogDescription>
-                    {editingWorker ? 'Make changes to the worker here.' : 'Add a new worker to your system.'}
+                    {editingWorker ? t('make_changes_to_worker') : t('add_new_worker_to_system')}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">
-                      Name
+                      {t('name')}
                     </Label>
                     <Input
                       id="name"
@@ -278,7 +280,7 @@ const Workers = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="company" className="text-right">
-                      Company
+                      {t('company')}
                     </Label>
                     <Input
                       id="company"
@@ -290,7 +292,7 @@ const Workers = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="qr_code_data" className="text-right">
-                      QR Code Data
+                      {t('qr_code_data')}
                     </Label>
                     <div className="col-span-3 flex items-center gap-2">
                       <Input
@@ -299,7 +301,7 @@ const Workers = () => {
                         value={currentQrCodeData || ''}
                         readOnly // Make it read-only
                         className="flex-grow"
-                        placeholder="QR code data will be generated"
+                        placeholder={t('qr_code_data_generated')}
                       />
                       <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode}>
                         <RefreshCw className="h-4 w-4" />
@@ -317,13 +319,13 @@ const Workers = () => {
                         onClick={() => handleDownloadQrCode(editingWorker?.name || newWorker.name || 'worker', currentQrCodeData)}
                         className="mt-2"
                       >
-                        <Download className="mr-2 h-4 w-4" /> Download QR Code
+                        <Download className="mr-2 h-4 w-4" /> {t('download_qr_code')}
                       </Button>
                     </div>
                   )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="photo" className="text-right">
-                      Photo
+                      {t('photo')}
                     </Label>
                     <Input
                       id="photo"
@@ -334,14 +336,14 @@ const Workers = () => {
                       className="col-span-3"
                     />
                     {editingWorker?.photo_url && (
-                      <img src={editingWorker.photo_url} alt="Worker" className="col-span-4 w-24 h-24 object-cover rounded-full mt-2 mx-auto" />
+                      <img src={editingWorker.photo_url} alt={editingWorker.name} className="col-span-4 w-24 h-24 object-cover rounded-full mt-2 mx-auto" />
                     )}
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+                  <Button variant="outline" onClick={closeDialog}>{t('cancel')}</Button>
                   <Button onClick={editingWorker ? handleUpdateWorker : handleAddWorker}>
-                    {editingWorker ? 'Save Changes' : 'Add Worker'}
+                    {editingWorker ? t('save_changes') : t('add_new_worker')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -359,7 +361,7 @@ const Workers = () => {
                   <CardDescription>{worker.company || 'N/A'}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow p-0">
-                  <p className="text-sm text-gray-600 dark:text-gray-400"><strong>QR Data:</strong> {worker.qr_code_data || 'N/A'}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400"><strong>{t('qr_data')}:</strong> {worker.qr_code_data || 'N/A'}</p>
                   {worker.qr_code_data && (
                     <div className="mt-2 flex justify-center">
                       {/* Render QR code for display in the list */}
@@ -388,7 +390,7 @@ const Workers = () => {
               </Card>
             ))}
             {workers.length === 0 && (
-              <p className="col-span-full text-center text-gray-500">No workers found. Add one above!</p>
+              <p className="col-span-full text-center text-gray-500">{t('no_workers_found')}</p>
             )}
           </div>
         </CardContent>

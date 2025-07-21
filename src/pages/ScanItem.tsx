@@ -15,6 +15,7 @@ import beepSound from '/beep.mp3';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 interface Item {
   id: string;
@@ -42,6 +43,7 @@ const initialNewItemState = {
 };
 
 const ScanItem = () => {
+  const { t } = useTranslation(); // Initialize useTranslation
   const { user } = useAuth(); // Get the current user
   const [barcode, setBarcode] = useState('');
   const [item, setItem] = useState<Item | null>(null);
@@ -79,7 +81,7 @@ const ScanItem = () => {
       });
 
     if (uploadError) {
-      showError('Error uploading image: ' + uploadError.message);
+      showError(t('error_uploading_image') + uploadError.message);
       return null;
     }
 
@@ -150,16 +152,16 @@ const ScanItem = () => {
                 );
               } else {
                 console.error("HTML Element with id=reader not found during web scan start attempt.");
-                showError("Camera display area not found. Please try again.");
+                showError(t('camera_display_area_not_found'));
                 setScanning(false);
               }
             } else {
-              showError("No camera found or camera access denied. Please ensure you have a camera and grant permission.");
+              showError(t('no_camera_found_access_denied'));
               setScanning(false);
             }
           } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            showError('Error starting web camera scan: ' + errorMessage + '. Please check camera permissions and ensure no other app is using the camera.');
+            showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
             setScanning(false);
           }
         };
@@ -182,7 +184,7 @@ const ScanItem = () => {
             playBeep();
             setScanning(false);
           } else {
-            showError('No barcode scanned or scan cancelled.');
+            showError(t('no_barcode_scanned_cancelled'));
             setScanning(false);
           }
         };
@@ -203,7 +205,7 @@ const ScanItem = () => {
       return true;
     }
     if (status.denied) {
-      showError('Camera permission denied. Please enable it in your app settings.');
+      showError(t('camera_permission_denied'));
     }
     return false;
   };
@@ -222,27 +224,27 @@ const ScanItem = () => {
 
   const toggleTorch = async () => {
     if (!Capacitor.isNativePlatform()) {
-      showError("Flashlight is only available on native mobile devices.");
+      showError(t('flashlight_native_only'));
       return;
     }
     try {
       if (isTorchOn) {
         await BarcodeScanner.disableTorch();
         setIsTorchOn(false);
-        showSuccess("Flashlight off");
+        showSuccess(t('flashlight_off'));
       } else {
         await BarcodeScanner.enableTorch();
         setIsTorchOn(true);
-        showSuccess("Flashlight on");
+        showSuccess(t('flashlight_on'));
       }
     } catch (e: any) {
-      showError("Failed to toggle flashlight: " + e.message);
+      showError(t('failed_to_toggle_flashlight') + e.message);
     }
   };
 
   const fetchItemByBarcode = async (scannedBarcode: string) => {
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
     console.log("Attempting to fetch item with barcode:", scannedBarcode);
@@ -257,35 +259,35 @@ const ScanItem = () => {
       console.error("Error fetching item:", error);
       // Check if the error is specifically because no rows were found (PGRST116)
       if (error.code === 'PGRST116') {
-        showError('Item not found. You can add it as a new item.');
+        showError(t('item_not_found_add_new'));
         setItem(null);
         setNewItemDetails({ ...initialNewItemState, barcode: scannedBarcode });
         setShowNewItemDialog(true);
       } else {
         // For other types of errors (e.g., network, database issues), just show an error toast
-        showError('Error fetching item: ' + error.message);
+        showError(t('error_fetching_item') + error.message);
         setItem(null);
         setShowNewItemDialog(false); // Ensure dialog is not shown for other errors
       }
     } else {
       console.log("Item found:", data);
       setItem(data);
-      showSuccess(`Item "${data.name}" found!`);
+      showSuccess(t('item_found', { itemName: data.name }));
       setShowNewItemDialog(false);
     }
   };
 
   const handleQuantityUpdate = async (type: 'add' | 'remove') => {
     if (!item) {
-      showError('No item selected to update.');
+      showError(t('no_item_selected_update'));
       return;
     }
     if (quantityChange <= 0) {
-      showError('Quantity change must be greater than zero.');
+      showError(t('quantity_change_greater_than_zero'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -294,7 +296,7 @@ const ScanItem = () => {
       newQuantity += quantityChange;
     } else {
       if (item.quantity < quantityChange) {
-        showError('Cannot remove more items than available quantity.');
+        showError(t('cannot_remove_more_than_available', { available: item.quantity }));
         return;
       }
       newQuantity -= quantityChange;
@@ -307,9 +309,9 @@ const ScanItem = () => {
       .eq('user_id', user.id); // Ensure user_id is maintained/updated
 
     if (error) {
-      showError('Error updating quantity: ' + error.message);
+      showError(t('error_updating_quantity') + error.message);
     } else {
-      showSuccess(`Quantity updated successfully! New quantity: ${newQuantity}`);
+      showSuccess(t('quantity_updated_successfully', { newQuantity }));
       setItem({ ...item, quantity: newQuantity });
       setQuantityChange(0);
       setBarcode('');
@@ -334,11 +336,11 @@ const ScanItem = () => {
 
   const handleAddNewItem = async () => {
     if (!newItemDetails.name || newItemDetails.quantity < 0) {
-      showError('Please fill in item name and ensure quantity is not negative.');
+      showError(t('fill_item_name_quantity'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -358,7 +360,7 @@ const ScanItem = () => {
       .single();
 
     if (insertError) {
-      showError('Error adding item: ' + insertError.message);
+      showError(t('error_adding_item') + insertError.message);
       return;
     }
 
@@ -370,7 +372,7 @@ const ScanItem = () => {
       }
     }
 
-    showSuccess('New item added successfully!');
+    showSuccess(t('new_item_added_successfully'));
     setNewItemDetails(initialNewItemState);
     setShowNewItemDialog(false);
     setBarcode('');
@@ -387,20 +389,20 @@ const ScanItem = () => {
               <>
                 <div id="reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
                 <Button onClick={stopScan} className="mt-4" variant="secondary">
-                  Cancel Scan
+                  {t('cancel_scan')}
                 </Button>
               </>
             ) : (
               <>
                 <div className="absolute inset-0 bg-black opacity-50"></div>
                 <div className="relative z-10 text-white text-lg">
-                  Scanning for barcode...
+                  {t('scanning_for_barcode')}
                   <Button onClick={stopScan} className="mt-4 block mx-auto" variant="secondary">
-                    Cancel Scan
+                    {t('cancel_scan')}
                   </Button>
                   <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
                     <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
-                    {isTorchOn ? 'Turn Flashlight Off' : 'Turn Flashlight On'}
+                    {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
                   </Button>
                 </div>
               </>
@@ -415,8 +417,8 @@ const ScanItem = () => {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="flex-grow text-center">
-                <CardTitle className="text-2xl">Scan Item</CardTitle>
-                <CardDescription>Scan an item to add or remove quantity, or add a new item.</CardDescription>
+                <CardTitle className="text-2xl">{t('scan_item')}</CardTitle>
+                <CardDescription>{t('scan_item_add_remove_description')}</CardDescription>
               </div>
               <div className="w-10"></div>
             </div>
@@ -425,30 +427,30 @@ const ScanItem = () => {
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
-                placeholder="Enter barcode manually"
+                placeholder={t('enter_barcode_manually')}
                 value={barcode}
                 onChange={(e) => setBarcode(e.target.value)}
                 className="flex-grow"
               />
               <Button onClick={startScan}>
-                <Camera className="mr-2 h-4 w-4" /> Scan with Camera
+                <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}
               </Button>
             </div>
             {barcode && !item && !showNewItemDialog && (
               <Button onClick={() => fetchItemByBarcode(barcode)} className="w-full">
-                <Barcode className="mr-2 h-4 w-4" /> Search Item by Barcode
+                <Barcode className="mr-2 h-4 w-4" /> {t('search_item_by_barcode')}
               </Button>
             )}
 
             {item && (
               <div className="border p-4 rounded-md space-y-2">
                 <h3 className="text-lg font-semibold">{item.name}</h3>
-                <p><strong>Description:</strong> {item.description || 'N/A'}</p>
-                <p><strong>Current Quantity:</strong> {item.quantity}</p>
-                <p><strong>Barcode:</strong> {item.barcode}</p>
+                <p><strong>{t('description')}:</strong> {item.description || 'N/A'}</p>
+                <p><strong>{t('current_quantity')}:</strong> {item.quantity}</p>
+                <p><strong>{t('barcode')}:</strong> {item.barcode}</p>
 
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="quantityChange">Change Quantity By:</Label>
+                  <Label htmlFor="quantityChange">{t('change_quantity_by')}</Label>
                   <Input
                     id="quantityChange"
                     type="number"
@@ -458,10 +460,10 @@ const ScanItem = () => {
                   />
                   <div className="flex gap-2">
                     <Button onClick={() => handleQuantityUpdate('add')} className="flex-1">
-                      <Plus className="mr-2 h-4 w-4" /> Add
+                      <Plus className="mr-2 h-4 w-4" /> {t('add')}
                     </Button>
                     <Button onClick={() => handleQuantityUpdate('remove')} variant="destructive" className="flex-1">
-                      <Minus className="mr-2 h-4 w-4" /> Remove
+                      <Minus className="mr-2 h-4 w-4" /> {t('remove')}
                     </Button>
                   </div>
                 </div>
@@ -471,15 +473,15 @@ const ScanItem = () => {
             <Dialog open={showNewItemDialog} onOpenChange={setShowNewItemDialog}>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Add New Item</DialogTitle>
+                  <DialogTitle>{t('add_new_item')}</DialogTitle>
                   <DialogDescription>
-                    No existing item found for this barcode. Add it as a new item.
+                    {t('no_existing_item_found')}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemName" className="text-right">
-                      Name
+                      {t('name')}
                     </Label>
                     <Input
                       id="newItemName"
@@ -491,7 +493,7 @@ const ScanItem = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemDescription" className="text-right">
-                      Description
+                      {t('description')}
                     </Label>
                     <Input
                       id="newItemDescription"
@@ -503,7 +505,7 @@ const ScanItem = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemBarcode" className="text-right">
-                      Barcode
+                      {t('barcode')}
                     </Label>
                     <Input
                       id="newItemBarcode"
@@ -515,7 +517,7 @@ const ScanItem = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemQuantity" className="text-right">
-                      Quantity
+                      {t('quantity')}
                     </Label>
                     <Input
                       id="newItemQuantity"
@@ -528,7 +530,7 @@ const ScanItem = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemLowStockThreshold" className="text-right">
-                      Low Stock (Yellow)
+                      {t('low_stock_yellow')}
                     </Label>
                     <Input
                       id="newItemLowStockThreshold"
@@ -542,7 +544,7 @@ const ScanItem = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemCriticalStockThreshold" className="text-right">
-                      Critical Stock (Red)
+                      {t('critical_stock_red')}
                     </Label>
                     <Input
                       id="newItemCriticalStockThreshold"
@@ -556,7 +558,7 @@ const ScanItem = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemOneTimeUse" className="text-right">
-                      One-Time Use
+                      {t('one_time_use')}
                     </Label>
                     <Switch
                       id="newItemOneTimeUse"
@@ -567,7 +569,7 @@ const ScanItem = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="newItemImage" className="text-right">
-                      Image
+                      {t('image')}
                     </Label>
                     <Input
                       id="newItemImage"
@@ -580,9 +582,9 @@ const ScanItem = () => {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowNewItemDialog(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setShowNewItemDialog(false)}>{t('cancel')}</Button>
                   <Button onClick={handleAddNewItem}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
+                    <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}
                   </Button>
                 </DialogFooter>
               </DialogContent>

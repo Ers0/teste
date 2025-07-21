@@ -11,6 +11,7 @@ import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
 import { exportToCsv } from '@/utils/export';
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 // Define interfaces for the data shapes expected from Supabase queries for export
 interface ExportableInventoryItem {
@@ -32,6 +33,7 @@ interface SupabaseTransactionRow {
 }
 
 const Settings = () => {
+  const { t, i18n } = useTranslation(); // Initialize useTranslation
   const { user, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading, invalidateProfile } = useProfile();
   const [firstName, setFirstName] = useState('');
@@ -53,12 +55,14 @@ const Settings = () => {
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
       setLanguage(profile.language || 'en');
+      i18n.changeLanguage(profile.language || 'en'); // Set i18n language from profile
     } else if (!profileLoading && !profile) {
       setFirstName('');
       setLastName('');
       setLanguage('en');
+      i18n.changeLanguage('en'); // Default to English if no profile
     }
-  }, [profile, profileLoading]);
+  }, [profile, profileLoading, i18n]);
 
   // Theme effect
   useEffect(() => {
@@ -70,7 +74,7 @@ const Settings = () => {
 
   const handleSaveProfile = async () => {
     if (!user) {
-      showError('You must be logged in to update settings.');
+      showError(t('user_not_authenticated_update_settings')); // Translated error
       return;
     }
 
@@ -88,21 +92,22 @@ const Settings = () => {
       );
 
     if (error) {
-      showError('Error updating profile: ' + error.message);
+      showError(t('error_updating_profile') + error.message); // Translated error
     } else {
-      showSuccess('Profile updated successfully!');
+      showSuccess(t('profile_updated_successfully')); // Translated success
       invalidateProfile();
+      i18n.changeLanguage(language); // Change i18n language immediately
     }
     setIsSaving(false);
   };
 
   const handleChangePassword = async () => {
     if (!newPassword) {
-      showError('Please enter a new password.');
+      showError(t('enter_new_password')); // Translated error
       return;
     }
     if (newPassword.length < 6) {
-      showError('Password must be at least 6 characters long.');
+      showError(t('password_min_length')); // Translated error
       return;
     }
 
@@ -110,9 +115,9 @@ const Settings = () => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
 
     if (error) {
-      showError('Error changing password: ' + error.message);
+      showError(t('error_changing_password') + error.message); // Translated error
     } else {
-      showSuccess('Password changed successfully!');
+      showSuccess(t('password_changed_successfully')); // Translated success
       setNewPassword('');
     }
     setIsPasswordChanging(false);
@@ -123,27 +128,27 @@ const Settings = () => {
       .from('items')
       .select('name, description, barcode, quantity, low_stock_threshold, critical_stock_threshold');
     if (error) {
-      showError('Error fetching inventory data: ' + error.message);
+      showError(t('error_fetching_inventory_data') + error.message); // Translated error
       return;
     }
     if (data) {
       const formattedData = (data as ExportableInventoryItem[]).map(item => ({
-        'Item Name': item.name,
-        'Description': item.description || 'N/A',
-        'Barcode': item.barcode || 'N/A',
-        'Current Quantity': item.quantity,
-        'Low Stock Threshold': item.low_stock_threshold,
-        'Critical Stock Threshold': item.critical_stock_threshold,
+        [t('item_name')]: item.name,
+        [t('description')]: item.description || 'N/A',
+        [t('barcode')]: item.barcode || 'N/A',
+        [t('current_quantity')]: item.quantity,
+        [t('low_stock_threshold')]: item.low_stock_threshold,
+        [t('critical_stock_threshold')]: item.critical_stock_threshold,
       }));
       exportToCsv(formattedData, 'inventory_report.csv');
-      showSuccess('Inventory report downloaded!');
+      showSuccess(t('inventory_report_downloaded')); // Translated success
     }
   };
 
   const handleExportTransactions = async () => {
     const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name, id, qr_code_data)');
     if (error) {
-      showError('Error fetching transaction data: ' + error.message);
+      showError(t('error_fetching_transaction_data') + error.message); // Translated error
       return;
     }
     if (data) {
@@ -151,24 +156,24 @@ const Settings = () => {
       const transactionsData = data as SupabaseTransactionRow[];
 
       // Flatten and rename the data for CSV export
-      const flattenedData = transactionsData.map(t => ({
-        'Item Name': t.items?.[0]?.name || 'N/A', // Access the first element of the array
-        'Worker Name': t.workers?.[0]?.name || 'N/A', // Access the first element of the array
-        'Worker ID': t.workers?.[0]?.id || 'N/A',
-        'Worker QR Code Data': t.workers?.[0]?.qr_code_data || 'N/A',
-        'Transaction Type': t.type.charAt(0).toUpperCase() + t.type.slice(1),
-        'Quantity': t.quantity,
-        'Timestamp': new Date(t.timestamp).toLocaleString(),
+      const flattenedData = transactionsData.map(t_data => ({
+        [t('item_name')]: t_data.items?.[0]?.name || 'N/A', // Access the first element of the array
+        [t('worker_name')]: t_data.workers?.[0]?.name || 'N/A', // Access the first element of the array
+        [t('worker_id')]: t_data.workers?.[0]?.id || 'N/A',
+        [t('worker_qr_code_data')]: t_data.workers?.[0]?.qr_code_data || 'N/A',
+        [t('transaction_type')]: t_data.type.charAt(0).toUpperCase() + t_data.type.slice(1),
+        [t('quantity')]: t_data.quantity,
+        [t('timestamp')]: new Date(t_data.timestamp).toLocaleString(),
       }));
       exportToCsv(flattenedData, 'transaction_history_report.csv');
-      showSuccess('Transaction history report downloaded!');
+      showSuccess(t('transaction_history_report_downloaded')); // Translated success
     }
   };
 
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-gray-600 dark:text-gray-400">Loading settings...</p>
+        <p className="text-gray-600 dark:text-gray-400">{t('loading_settings')}</p>
       </div>
     );
   }
@@ -182,8 +187,8 @@ const Settings = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-2xl">Settings</CardTitle>
-              <CardDescription>Manage your profile and application preferences.</CardDescription>
+              <CardTitle className="text-2xl">{t('settings')}</CardTitle>
+              <CardDescription>{t('manage_profile_preferences')}</CardDescription>
             </div>
             <div className="w-10"></div>
           </div>
@@ -191,84 +196,84 @@ const Settings = () => {
         <CardContent className="space-y-6">
           {/* Profile Settings */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">Profile Information</h3>
+            <h3 className="text-lg font-semibold">{t('profile_information')}</h3>
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
+              <Label htmlFor="firstName">{t('first_name')}</Label>
               <Input
                 id="firstName"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Enter your first name"
+                placeholder={t('enter_first_name')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
+              <Label htmlFor="lastName">{t('last_name')}</Label>
               <Input
                 id="lastName"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Enter your last name"
+                placeholder={t('enter_last_name')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="language">App Language</Label>
+              <Label htmlFor="language">{t('app_language')}</Label>
               <Select value={language} onValueChange={setLanguage}>
                 <SelectTrigger id="language">
-                  <SelectValue placeholder="Select a language" />
+                  <SelectValue placeholder={t('select_language')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="es">Español</SelectItem>
-                  <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
+                  <SelectItem value="en">{t('english')}</SelectItem>
+                  <SelectItem value="es">{t('spanish')}</SelectItem>
+                  <SelectItem value="pt-BR">{t('portuguese_brazil')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <Button onClick={handleSaveProfile} className="w-full" disabled={isSaving}>
-              {isSaving ? 'Saving Profile...' : 'Save Profile Changes'}
+              {isSaving ? t('saving_profile') : t('save_profile_changes')}
             </Button>
           </div>
 
           {/* Password Change */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">Change Password</h3>
+            <h3 className="text-lg font-semibold">{t('change_password')}</h3>
             <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
+              <Label htmlFor="newPassword">{t('new_password')}</Label>
               <Input
                 id="newPassword"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
+                placeholder={t('enter_new_password')}
               />
             </div>
             <Button onClick={handleChangePassword} className="w-full" disabled={isPasswordChanging}>
-              {isPasswordChanging ? 'Changing Password...' : 'Change Password'}
+              {isPasswordChanging ? t('changing_password') : t('change_password')}
             </Button>
           </div>
 
           {/* Biometry Note */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">Biometric Authentication</h3>
+            <h3 className="text-lg font-semibold">{t('biometric_authentication')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Biometric registration (e.g., fingerprint, face ID) is a feature typically available in native mobile applications (Android/iOS) and is not directly supported in web browsers for security reasons.
+              {t('biometric_note')}
             </p>
           </div>
 
           {/* Theme Selection */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-lg font-semibold">App Theme</h3>
+            <h3 className="text-lg font-semibold">{t('app_theme')}</h3>
             <div className="space-y-2">
-              <Label htmlFor="theme">Select Theme</Label>
+              <Label htmlFor="theme">{t('select_theme')}</Label>
               <Select value={theme} onValueChange={(value: 'light' | 'dark' | 'black') => setTheme(value)}>
                 <SelectTrigger id="theme">
-                  <SelectValue placeholder="Select a theme" />
+                  <SelectValue placeholder={t('select_theme')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="black">Black</SelectItem>
+                  <SelectItem value="light">{t('light')}</SelectItem>
+                  <SelectItem value="dark">{t('dark')}</SelectItem>
+                  <SelectItem value="black">{t('black')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -276,17 +281,16 @@ const Settings = () => {
 
           {/* Reports Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Reports</h3>
+            <h3 className="text-lg font-semibold">{t('reports')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Download your inventory and transaction data as CSV files for external analysis in spreadsheet software.
-              Please note: Real-time, cloud-based spreadsheet integration requires external setup (e.g., Google Sheets API, Zapier, custom scripts) to connect to your Supabase database, which is beyond the scope of this application.
+              {t('reports_note')}
             </p>
             <div className="flex flex-col gap-2">
               <Button onClick={handleExportInventory} className="w-full">
-                <Download className="mr-2 h-4 w-4" /> Export Inventory Data
+                <Download className="mr-2 h-4 w-4" /> {t('export_inventory_data')}
               </Button>
               <Button onClick={handleExportTransactions} className="w-full">
-                <Download className="mr-2 h-4 w-4" /> Export Transaction History
+                <Download className="mr-2 h-4 w-4" /> {t('export_transaction_history')}
               </Button>
             </div>
           </div>

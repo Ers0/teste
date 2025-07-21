@@ -12,6 +12,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 interface Item {
   id: string;
@@ -28,6 +29,7 @@ interface Item {
 }
 
 const Inventory = () => {
+  const { t } = useTranslation(); // Initialize useTranslation
   const { user } = useAuth(); // Get the current user
   const [items, setItems] = useState<Item[]>([]);
   const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
@@ -56,7 +58,7 @@ const Inventory = () => {
         .eq('user_id', user.id); // Filter by user_id
 
       if (itemsError) {
-        showError('Error fetching items: ' + itemsError.message);
+        showError(t('error_fetching_items') + itemsError.message);
         return;
       }
 
@@ -65,7 +67,7 @@ const Inventory = () => {
         .select('*'); // Note: item_movement_counts might need user_id filtering too if it's per-user
 
       if (movementError) {
-        showError('Error fetching item movement counts: ' + movementError.message);
+        showError(t('error_fetching_item_movement_counts') + movementError.message);
         return;
       }
 
@@ -97,7 +99,7 @@ const Inventory = () => {
     }
 
     if (error) {
-      showError('Error fetching items: ' + error.message);
+      showError(t('error_fetching_items') + error.message);
     } else {
       setItems(data || []);
     }
@@ -147,7 +149,7 @@ const Inventory = () => {
       });
 
     if (uploadError) {
-      showError('Error uploading image: ' + uploadError.message);
+      showError(t('error_uploading_image') + uploadError.message);
       return null;
     }
 
@@ -157,11 +159,11 @@ const Inventory = () => {
 
   const handleAddItem = async () => {
     if (!newItem.name || newItem.quantity < 0) {
-      showError('Please fill in item name and ensure quantity is not negative.');
+      showError(t('fill_item_name_quantity'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -181,7 +183,7 @@ const Inventory = () => {
       .single();
 
     if (insertError) {
-      showError('Error adding item: ' + insertError.message);
+      showError(t('error_adding_item') + insertError.message);
       return;
     }
 
@@ -193,7 +195,7 @@ const Inventory = () => {
       }
     }
 
-    showSuccess('Item added successfully!');
+    showSuccess(t('item_added_successfully'));
     setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
     setIsDialogOpen(false);
     fetchItems();
@@ -201,11 +203,11 @@ const Inventory = () => {
 
   const handleUpdateItem = async () => {
     if (!editingItem || !editingItem.name || editingItem.quantity < 0) {
-      showError('Please fill in item name and ensure quantity is not negative.');
+      showError(t('fill_item_name_quantity'));
       return;
     }
     if (!user) {
-      showError('User not authenticated. Please log in.');
+      showError(t('user_not_authenticated_login'));
       return;
     }
 
@@ -230,9 +232,9 @@ const Inventory = () => {
       .eq('id', editingItem.id);
 
     if (error) {
-      showError('Error updating item: ' + error.message);
+      showError(t('error_updating_item') + error.message);
     } else {
-      showSuccess('Item updated successfully!');
+      showSuccess(t('item_updated_successfully'));
       setEditingItem(null);
       setIsDialogOpen(false);
       fetchItems();
@@ -240,12 +242,12 @@ const Inventory = () => {
   };
 
   const handleDeleteItem = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
+    if (window.confirm(t('confirm_delete_item'))) {
       const { error } = await supabase.from('items').delete().eq('id', id);
       if (error) {
-        showError('Error deleting item: ' + error.message);
+        showError(t('error_deleting_item') + error.message);
       } else {
-        showSuccess('Item deleted successfully!');
+        showSuccess(t('item_deleted_successfully'));
         fetchItems();
       }
     }
@@ -281,8 +283,8 @@ const Inventory = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-3xl font-bold">Inventory Management</CardTitle>
-              <CardDescription>Manage your construction warehouse items.</CardDescription>
+              <CardTitle className="text-3xl font-bold">{t('inventory_management_title')}</CardTitle>
+              <CardDescription>{t('manage_warehouse_items')}</CardDescription>
             </div>
             <div className="w-10"></div>
           </div>
@@ -291,55 +293,55 @@ const Inventory = () => {
           <div className="flex flex-wrap justify-end gap-2 mb-4">
             {/* Sort By Select */}
             <div className="flex items-center gap-2">
-              <Label htmlFor="sort-by">Sort By:</Label>
+              <Label htmlFor="sort-by">{t('sort_by')}</Label>
               <Select value={sortKey} onValueChange={(value: 'name' | 'quantity' | 'movement') => setSortKey(value)}>
                 <SelectTrigger id="sort-by" className="w-[160px]">
-                  <SelectValue placeholder="Sort By" />
+                  <SelectValue placeholder={t('sort_by')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="quantity">Quantity</SelectItem>
-                  <SelectItem value="movement">Most Movemented</SelectItem>
+                  <SelectItem value="name">{t('name')}</SelectItem>
+                  <SelectItem value="quantity">{t('quantity')}</SelectItem>
+                  <SelectItem value="movement">{t('most_movemented')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Sort Direction Select */}
             <div className="flex items-center gap-2">
-              <Label htmlFor="sort-direction">Order:</Label>
+              <Label htmlFor="sort-direction">{t('order')}</Label>
               <Select value={sortDirection} onValueChange={(value: 'asc' | 'desc') => setSortDirection(value)}>
                 <SelectTrigger id="sort-direction" className="w-[140px]">
-                  <SelectValue placeholder="Order" />
+                  <SelectValue placeholder={t('order')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="asc">Ascending</SelectItem>
-                  <SelectItem value="desc">Descending</SelectItem>
+                  <SelectItem value="asc">{t('ascending')}</SelectItem>
+                  <SelectItem value="desc">{t('descending')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <Link to="/scan-item">
               <Button variant="outline">
-                <Scan className="mr-2 h-4 w-4" /> Scan Item
+                <Scan className="mr-2 h-4 w-4" /> {t('scan_item')}
               </Button>
             </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => { setEditingItem(null); setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false }); setIsDialogOpen(true); }}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
+                  <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+                  <DialogTitle>{editingItem ? t('edit_item') : t('add_new_item')}</DialogTitle>
                   <DialogDescription>
-                    {editingItem ? 'Make changes to the item here.' : 'Add a new item to your inventory.'}
+                    {editingItem ? t('make_changes_to_item') : t('add_new_item_to_inventory')}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">
-                      Name
+                      {t('name')}
                     </Label>
                     <Input
                       id="name"
@@ -351,7 +353,7 @@ const Inventory = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="description" className="text-right">
-                      Description
+                      {t('description')}
                     </Label>
                     <Input
                       id="description"
@@ -363,7 +365,7 @@ const Inventory = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="barcode" className="text-right">
-                      Barcode
+                      {t('barcode')}
                     </Label>
                     <Input
                       id="barcode"
@@ -371,7 +373,7 @@ const Inventory = () => {
                       value={editingItem ? editingItem.barcode || '' : newItem.barcode}
                       onChange={handleInputChange}
                       className="col-span-3"
-                      placeholder="Enter barcode or scan"
+                      placeholder={t('enter_barcode_or_scan')}
                     />
                     <Button variant="outline" size="icon" className="col-span-1 ml-auto">
                       <Scan className="h-4 w-4" />
@@ -379,7 +381,7 @@ const Inventory = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="quantity" className="text-right">
-                      Quantity
+                      {t('quantity')}
                     </Label>
                     <Input
                       id="quantity"
@@ -393,7 +395,7 @@ const Inventory = () => {
                   {/* New Threshold Inputs */}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="low_stock_threshold" className="text-right">
-                      Low Stock (Yellow)
+                      {t('low_stock_yellow')}
                     </Label>
                     <Input
                       id="low_stock_threshold"
@@ -407,7 +409,7 @@ const Inventory = () => {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="critical_stock_threshold" className="text-right">
-                      Critical Stock (Red)
+                      {t('critical_stock_red')}
                     </Label>
                     <Input
                       id="critical_stock_threshold"
@@ -422,7 +424,7 @@ const Inventory = () => {
                   {/* One-Time Use Toggle */}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="one_time_use" className="text-right">
-                      One-Time Use
+                      {t('one_time_use')}
                     </Label>
                     <Switch
                       id="one_time_use"
@@ -434,7 +436,7 @@ const Inventory = () => {
                   {/* End New Threshold Inputs */}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="image" className="text-right">
-                      Image
+                      {t('image')}
                     </Label>
                     <Input
                       id="image"
@@ -445,14 +447,14 @@ const Inventory = () => {
                       className="col-span-3"
                     />
                     {editingItem?.image_url && (
-                      <img src={editingItem.image_url} alt="Item" className="col-span-4 w-24 h-24 object-cover rounded-md mt-2 mx-auto" />
+                      <img src={editingItem.image_url} alt={editingItem.name} className="col-span-4 w-24 h-24 object-cover rounded-md mt-2 mx-auto" />
                     )}
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+                  <Button variant="outline" onClick={closeDialog}>{t('cancel')}</Button>
                   <Button onClick={editingItem ? handleUpdateItem : handleAddItem}>
-                    {editingItem ? 'Save Changes' : 'Add Item'}
+                    {editingItem ? t('save_changes') : t('add_new_item')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -463,19 +465,19 @@ const Inventory = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Image</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Barcode</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="w-[80px]">{t('image')}</TableHead>
+                  <TableHead>{t('name')}</TableHead>
+                  <TableHead>{t('description')}</TableHead>
+                  <TableHead>{t('barcode')}</TableHead>
+                  <TableHead className="text-right">{t('quantity')}</TableHead>
+                  <TableHead className="text-center">{t('actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center text-gray-500">
-                      No items found. Add one above!
+                      {t('no_items_found')}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -486,7 +488,7 @@ const Inventory = () => {
                           <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-md" />
                         ) : (
                           <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500 text-xs">
-                            No Image
+                            {t('no_image')}
                           </div>
                         )}
                       </TableCell>
