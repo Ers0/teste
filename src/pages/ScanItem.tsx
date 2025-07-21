@@ -4,36 +4,86 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight } from 'lucide-react';
+import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { Capacitor } from '@capacitor/core';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
-import beepSound from '/beep.mp3'; // Updated import path to public directory
+import beepSound from '/beep.mp3';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+
+interface Item {
+  id: string;
+  name: string;
+  description: string | null;
+  barcode: string | null;
+  quantity: number;
+  image_url: string | null;
+  image?: File | null;
+  low_stock_threshold: number | null;
+  critical_stock_threshold: number | null;
+  one_time_use: boolean;
+}
+
+const initialNewItemState = {
+  name: '',
+  description: '',
+  barcode: '',
+  quantity: 0,
+  image: null as File | null,
+  low_stock_threshold: 10,
+  critical_stock_threshold: 5,
+  one_time_use: false,
+};
 
 const ScanItem = () => {
   const [barcode, setBarcode] = useState('');
-  const [item, setItem] = useState<any>(null);
+  const [item, setItem] = useState<Item | null>(null);
   const [quantityChange, setQuantityChange] = useState(0);
   const [scanning, setScanning] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null); // Ref for the audio element
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const [showNewItemDialog, setShowNewItemDialog] = useState(false);
+  const [newItemDetails, setNewItemDetails] = useState<typeof initialNewItemState>(initialNewItemState);
 
   const navigate = useNavigate();
 
-  // Function to play the beep sound
   const playBeep = () => {
     if (audioRef.current) {
-      audioRef.current.currentTime = 0; // Rewind to start
+      audioRef.current.currentTime = 0;
       audioRef.current.play().catch(e => console.error("Error playing sound:", e));
     }
   };
 
-  // Determine platform and manage scanner lifecycle
+  const uploadImage = async (file: File | null, itemId: string) => {
+    if (!file) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${itemId}.${fileExt}`;
+    const filePath = `item_images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('inventory-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      showError('Error uploading image: ' + uploadError.message);
+      return null;
+    }
+
+    const { data } = supabase.storage.from('inventory-images').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
   useEffect(() => {
     const currentIsWeb = !Capacitor.isNativePlatform();
     setIsWeb(currentIsWeb);
@@ -64,7 +114,6 @@ const ScanItem = () => {
 
     if (scanning) {
       if (currentIsWeb) {
-        // Web scanning logic using html5-qrcode
         const startWebScanner = async () => {
           try {
             const cameras = await Html5Qrcode.getCameras();
@@ -89,7 +138,7 @@ const ScanItem = () => {
                     console.log("Web scan successful:", decodedText);
                     setBarcode(decodedText);
                     fetchItemByBarcode(decodedText);
-                    playBeep(); // Play beep on successful scan
+                    playBeep();
                     setScanning(false);
                   },
                   (errorMessage) => {
@@ -113,7 +162,6 @@ const ScanItem = () => {
         };
         startWebScanner();
       } else {
-        // Native scanning logic
         const runNativeScan = async () => {
           const hasPermission = await checkPermission();
           if (!hasPermission) {
@@ -128,7 +176,7 @@ const ScanItem = () => {
             console.log("Native scan successful:", result.content);
             setBarcode(result.content);
             await fetchItemByBarcode(result.content);
-            playBeep(); // Play beep on successful scan
+            playBeep();
             setScanning(false);
           } else {
             showError('No barcode scanned or scan cancelled.');
@@ -162,6 +210,7 @@ const ScanItem = () => {
     setItem(null);
     setQuantityChange(0);
     setScanning(true);
+    setShowNewItemDialog(false);
   };
 
   const stopScan = () => {
@@ -196,11 +245,14 @@ const ScanItem = () => {
       .single();
 
     if (error) {
-      showError('Item not found or error fetching item: ' + error.message);
+      showError('Item not found. You can add it as a new item.');
       setItem(null);
+      setNewItemDetails({ ...initialNewItemState, barcode: scannedBarcode });
+      setShowNewItemDialog(true);
     } else {
       setItem(data);
       showSuccess(`Item "${data.name}" found!`);
+      setShowNewItemDialog(false);
     }
   };
 
@@ -240,9 +292,65 @@ const ScanItem = () => {
     }
   };
 
+  const handleNewItemInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const parsedValue = name === 'quantity' || name === 'low_stock_threshold' || name === 'critical_stock_threshold' ? parseInt(value) : value;
+    setNewItemDetails({ ...newItemDetails, [name]: parsedValue });
+  };
+
+  const handleNewItemToggleChange = (checked: boolean) => {
+    setNewItemDetails({ ...newItemDetails, one_time_use: checked });
+  };
+
+  const handleNewItemImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setNewItemDetails({ ...newItemDetails, image: e.target.files[0] });
+    }
+  };
+
+  const handleAddNewItem = async () => {
+    if (!newItemDetails.name || newItemDetails.quantity < 0) {
+      showError('Please fill in item name and ensure quantity is not negative.');
+      return;
+    }
+
+    const { data: insertedItem, error: insertError } = await supabase
+      .from('items')
+      .insert([{
+        name: newItemDetails.name,
+        description: newItemDetails.description,
+        barcode: newItemDetails.barcode,
+        quantity: newItemDetails.quantity,
+        low_stock_threshold: newItemDetails.low_stock_threshold,
+        critical_stock_threshold: newItemDetails.critical_stock_threshold,
+        one_time_use: newItemDetails.one_time_use
+      }])
+      .select()
+      .single();
+
+    if (insertError) {
+      showError('Error adding item: ' + insertError.message);
+      return;
+    }
+
+    let imageUrl = null;
+    if (newItemDetails.image && insertedItem) {
+      imageUrl = await uploadImage(newItemDetails.image, insertedItem.id);
+      if (imageUrl) {
+        await supabase.from('items').update({ image_url: imageUrl }).eq('id', insertedItem.id);
+      }
+    }
+
+    showSuccess('New item added successfully!');
+    setNewItemDetails(initialNewItemState);
+    setShowNewItemDialog(false);
+    setBarcode('');
+    setItem(null);
+  };
+
   return (
     <React.Fragment>
-      <audio ref={audioRef} src={beepSound} preload="auto" /> {/* Audio element for beep sound */}
+      <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 ${scanning && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
         {scanning && (
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
@@ -261,7 +369,6 @@ const ScanItem = () => {
                   <Button onClick={stopScan} className="mt-4 block mx-auto" variant="secondary">
                     Cancel Scan
                   </Button>
-                  {/* Flashlight button for native mobile */}
                   <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
                     <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
                     {isTorchOn ? 'Turn Flashlight Off' : 'Turn Flashlight On'}
@@ -280,7 +387,7 @@ const ScanItem = () => {
               </Button>
               <div className="flex-grow text-center">
                 <CardTitle className="text-2xl">Scan Item</CardTitle>
-                <CardDescription>Scan an item to add or remove quantity.</CardDescription>
+                <CardDescription>Scan an item to add or remove quantity, or add a new item.</CardDescription>
               </div>
               <div className="w-10"></div>
             </div>
@@ -298,7 +405,7 @@ const ScanItem = () => {
                 <Camera className="mr-2 h-4 w-4" /> Scan with Camera
               </Button>
             </div>
-            {barcode && !item && (
+            {barcode && !item && !showNewItemDialog && (
               <Button onClick={() => fetchItemByBarcode(barcode)} className="w-full">
                 <Barcode className="mr-2 h-4 w-4" /> Search Item by Barcode
               </Button>
@@ -331,6 +438,126 @@ const ScanItem = () => {
                 </div>
               </div>
             )}
+
+            <Dialog open={showNewItemDialog} onOpenChange={setShowNewItemDialog}>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Item</DialogTitle>
+                  <DialogDescription>
+                    No existing item found for this barcode. Add it as a new item.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemName" className="text-right">
+                      Name
+                    </Label>
+                    <Input
+                      id="newItemName"
+                      name="name"
+                      value={newItemDetails.name}
+                      onChange={handleNewItemInputChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemDescription" className="text-right">
+                      Description
+                    </Label>
+                    <Input
+                      id="newItemDescription"
+                      name="description"
+                      value={newItemDetails.description}
+                      onChange={handleNewItemInputChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemBarcode" className="text-right">
+                      Barcode
+                    </Label>
+                    <Input
+                      id="newItemBarcode"
+                      name="barcode"
+                      value={newItemDetails.barcode}
+                      readOnly
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemQuantity" className="text-right">
+                      Quantity
+                    </Label>
+                    <Input
+                      id="newItemQuantity"
+                      name="quantity"
+                      type="number"
+                      value={newItemDetails.quantity}
+                      onChange={handleNewItemInputChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemLowStockThreshold" className="text-right">
+                      Low Stock (Yellow)
+                    </Label>
+                    <Input
+                      id="newItemLowStockThreshold"
+                      name="low_stock_threshold"
+                      type="number"
+                      value={newItemDetails.low_stock_threshold}
+                      onChange={handleNewItemInputChange}
+                      className="col-span-3"
+                      placeholder="e.g., 10"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemCriticalStockThreshold" className="text-right">
+                      Critical Stock (Red)
+                    </Label>
+                    <Input
+                      id="newItemCriticalStockThreshold"
+                      name="critical_stock_threshold"
+                      type="number"
+                      value={newItemDetails.critical_stock_threshold}
+                      onChange={handleNewItemInputChange}
+                      className="col-span-3"
+                      placeholder="e.g., 5"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemOneTimeUse" className="text-right">
+                      One-Time Use
+                    </Label>
+                    <Switch
+                      id="newItemOneTimeUse"
+                      checked={newItemDetails.one_time_use}
+                      onCheckedChange={handleNewItemToggleChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemImage" className="text-right">
+                      Image
+                    </Label>
+                    <Input
+                      id="newItemImage"
+                      name="image"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleNewItemImageChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowNewItemDialog(false)}>Cancel</Button>
+                  <Button onClick={handleAddNewItem}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
       </div>
