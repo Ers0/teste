@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/client';
 import i18n from '@/i18n';
 
@@ -25,17 +25,18 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Overall loading for auth state
+  const [profileLoading, setProfileLoading] = useState(true); // Loading specifically for profile data
   const navigate = useNavigate();
+  const location = useLocation(); // Get current location
 
   useEffect(() => {
     console.log('SessionContextProvider: Initializing auth state listener.');
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('Auth State Change Event:', event, 'Session:', currentSession);
       setSession(currentSession);
       setUser(currentSession?.user || null);
-      // setLoading(false); // Moved to finally block for initial check
 
       if (currentSession?.user) {
         setProfileLoading(true);
@@ -61,15 +62,20 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
           setProfileLoading(false);
         }
 
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          console.log('User signed in or updated, navigating to /');
+        // Only navigate to '/' if the event is SIGNED_IN or USER_UPDATED
+        // and the user is currently on the login page.
+        // This prevents unnecessary re-navigation if already on a protected route.
+        if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && location.pathname === '/login') {
+          console.log('User signed in or updated, navigating from login to /');
           navigate('/');
         }
       } else {
         setProfile(null);
         setProfileLoading(false);
         i18n.changeLanguage('en');
-        if (event === 'SIGNED_OUT') {
+        // Only navigate to '/login' if the event is SIGNED_OUT
+        // and the user is not already on the login page.
+        if (event === 'SIGNED_OUT' && location.pathname !== '/login') {
           console.log('User signed out, navigating to /login');
           navigate('/login');
         }
@@ -108,12 +114,20 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
           } finally {
             setProfileLoading(false);
           }
+          // If user is authenticated and on the login page, navigate to home
+          if (location.pathname === '/login') {
+            console.log('Initial session found, navigating from login to /');
+            navigate('/');
+          }
         } else {
           setProfile(null);
           setProfileLoading(false);
           i18n.changeLanguage('en');
-          console.log('No initial session found, navigating to /login');
-          navigate('/login');
+          // If no initial session and not already on login page, navigate to login
+          if (location.pathname !== '/login') {
+            console.log('No initial session found, navigating to /login');
+            navigate('/login');
+          }
         }
       } catch (err) {
         console.error('Unexpected error during initial session check:', err);
@@ -121,8 +135,9 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         setUser(null);
         setProfile(null);
         setProfileLoading(false);
-        i18n.changeLanguage('en');
-        navigate('/login'); // Ensure navigation even on unexpected errors
+        if (location.pathname !== '/login') {
+          navigate('/login'); // Ensure navigation even on unexpected errors
+        }
       } finally {
         setLoading(false); // Ensure overall loading is set to false
       }
@@ -134,7 +149,16 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('SessionContextProvider: Unsubscribing from auth state listener.');
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, location.pathname]); // Add location.pathname to dependencies
+
+  // Render a global loading state while authentication is being determined
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-gray-600 dark:text-gray-400">Loading application...</p>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
