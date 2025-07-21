@@ -57,9 +57,9 @@ const ScanItem = () => {
 
     const result = await BarcodeScanner.startScan(); // start scanning and wait for a result
 
-    if (result.hasResult && result.barcode) {
-      setBarcode(result.barcode.displayValue);
-      await fetchItemByBarcode(result.barcode.displayValue);
+    if (result.hasContent && result.content) { // Corrected: hasResult to hasContent, barcode.displayValue to content
+      setBarcode(result.content);
+      await fetchItemByBarcode(result.content);
       stopScan();
     } else {
       showError('No barcode scanned or scan cancelled.');
