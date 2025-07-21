@@ -195,5 +195,6 @@
   "worker_not_found": "Worker Not Found",
   "worker_details_could_not_be_loaded": "Worker details could not be loaded.",
   "go_back": "Go Back",
-  "loading_report": "Loading report..."
+  "loading_report": "Loading report...",
+  "scanning_external_qr_code_note": "Scanning external QR code. The scanned value will appear here."
 }

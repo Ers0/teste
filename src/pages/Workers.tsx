@@ -523,15 +523,21 @@ const Workers = () => {
                           onChange={handleInputChange}
                           className="flex-grow"
                           placeholder={t('enter_qr_code_data')}
+                          readOnly={scanningQr}
                         />
-                        <Button type="button" variant="outline" size="icon" onClick={startQrScan}>
+                        <Button type="button" variant="outline" size="icon" onClick={startQrScan} disabled={scanningQr}>
                           <Camera className="h-4 w-4" />
                         </Button>
-                        <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode}>
+                        <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode} disabled={scanningQr}>
                           <RefreshCw className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
+                    {scanningQr && (
+                      <p className="col-span-4 text-center text-sm text-muted-foreground">
+                        {t('scanning_external_qr_code_note')}
+                      </p>
+                    )}
                     {currentQrCodeData && (
                       <div className="col-span-4 flex flex-col items-center gap-2">
                         <div className="p-2 border rounded-md bg-white">
