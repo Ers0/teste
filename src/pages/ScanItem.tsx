@@ -21,111 +21,120 @@ const ScanItem = () => {
   const html5QrCodeScannerRef = useRef<Html5QrcodeScanner | null>(null); // Ref for web scanner instance
   const navigate = useNavigate();
 
+  // Determine platform and manage scanner lifecycle
   useEffect(() => {
-    setIsWeb(!Capacitor.isNativePlatform()); // Determine platform on component mount
+    const currentIsWeb = !Capacitor.isNativePlatform();
+    setIsWeb(currentIsWeb);
 
-    // Cleanup function to stop scanning and reset body background when component unmounts
-    return () => {
-      if (scanning) {
-        stopScan();
+    const stopAllScanners = async () => {
+      if (html5QrCodeScannerRef.current) {
+        await html5QrCodeScannerRef.current.clear().catch(error => {
+          console.error("Failed to clear html5QrcodeScanner: ", error);
+        });
+        html5QrCodeScannerRef.current = null;
+      }
+      try {
+        if (!currentIsWeb) { // Only stop native scanner if it was active
+          await BarcodeScanner.stopScan();
+          await BarcodeScanner.showBackground();
+        }
+      } catch (e) {
+        console.error("Error stopping native barcode scanner:", e);
+      } finally {
+        setBodyBackground('');
+        removeCssClass('barcode-scanner-active');
       }
     };
-  }, [scanning]); // Depend on scanning state to ensure cleanup runs if scanning is active
+
+    if (scanning) {
+      if (currentIsWeb) {
+        // Web scanning logic using html5-qrcode
+        const startWebScanner = async () => {
+          try {
+            const readerElement = document.getElementById("reader");
+            if (readerElement) {
+              const html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                /* verbose= */ false
+              );
+              html5QrCodeScannerRef.current = html5QrcodeScanner;
+
+              html5QrcodeScanner.render(
+                (decodedText) => {
+                  setBarcode(decodedText);
+                  fetchItemByBarcode(decodedText);
+                  setScanning(false); // Stop scanning after successful scan
+                },
+                (errorMessage) => {
+                  // console.warn(`QR Code Scan Error: ${errorMessage}`);
+                }
+              );
+            } else {
+              console.error("HTML Element with id=reader not found during web scan start attempt.");
+              setScanning(false);
+            }
+          } catch (err: any) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            showError('Error starting web camera scan: ' + errorMessage);
+            setScanning(false);
+          }
+        };
+        startWebScanner();
+      } else {
+        // Native scanning logic
+        const runNativeScan = async () => {
+          const hasPermission = await checkPermission();
+          if (!hasPermission) {
+            setScanning(false);
+            return;
+          }
+          setBodyBackground('transparent');
+          addCssClass('barcode-scanner-active');
+          BarcodeScanner.hideBackground();
+          const result = await BarcodeScanner.startScan();
+          if (result.hasContent && result.content) {
+            setBarcode(result.content);
+            await fetchItemByBarcode(result.content);
+            setScanning(false); // Stop scanning after successful scan
+          } else {
+            showError('No barcode scanned or scan cancelled.');
+            setScanning(false);
+          }
+        };
+        runNativeScan();
+      }
+    } else {
+      // If scanning is false, ensure all scanners are stopped
+      stopAllScanners();
+    }
+
+    // Cleanup function for the effect (runs on unmount or when dependencies change and effect re-runs)
+    return () => {
+      stopAllScanners();
+    };
+  }, [scanning, isWeb]); // Dependencies: scanning and isWeb
 
   const checkPermission = async () => {
-    // check or request permission for native
     const status = await BarcodeScanner.checkPermission({ force: true });
-
     if (status.granted) {
       return true;
     }
-
     if (status.denied) {
       showError('Camera permission denied. Please enable it in your app settings.');
     }
-
     return false;
   };
 
-  const startScan = async () => {
-    setBarcode(''); // Clear previous barcode
-    setItem(null); // Clear previous item
-    setQuantityChange(0); // Reset quantity change
-    setScanning(true);
-
-    if (isWeb) {
-      // Web scanning logic using html5-qrcode
-      try {
-        const html5QrcodeScanner = new Html5QrcodeScanner(
-          "reader", // ID of the HTML element where the scanner will be rendered
-          { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false }, // disableFlip for better mobile experience
-          /* verbose= */ false
-        );
-        html5QrcodeScannerRef.current = html5QrcodeScanner; // Corrected assignment here
-
-        html5QrcodeScanner.render(
-          (decodedText, decodedResult) => {
-            // onScanSuccess
-            setBarcode(decodedText);
-            fetchItemByBarcode(decodedText);
-            stopScan(); // Stop scanning after successful scan
-          },
-          (errorMessage) => {
-            // onScanError (optional, can be noisy)
-            // console.warn(`QR Code Scan Error: ${errorMessage}`);
-          }
-        );
-      } catch (err: any) {
-        // Ensure the error message is always a string
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        showError('Error starting web camera scan: ' + errorMessage);
-        setScanning(false);
-      }
-    } else {
-      // Native scanning logic (existing)
-      const hasPermission = await checkPermission();
-      if (!hasPermission) {
-        setScanning(false); // Stop scanning state if no permission
-        return;
-      }
-
-      setBodyBackground('transparent'); // Make body transparent for camera feed
-      addCssClass('barcode-scanner-active'); // Add class to body for styling
-
-      BarcodeScanner.hideBackground(); // make background of WebView transparent
-
-      const result = await BarcodeScanner.startScan(); // start scanning and wait for a result
-
-      if (result.hasContent && result.content) {
-        setBarcode(result.content);
-        await fetchItemByBarcode(result.content);
-        stopScan();
-      } else {
-        showError('No barcode scanned or scan cancelled.');
-        stopScan();
-      }
-    }
+  const startScan = () => {
+    setBarcode('');
+    setItem(null);
+    setQuantityChange(0);
+    setScanning(true); // This will trigger the useEffect to start the appropriate scanner
   };
 
   const stopScan = () => {
-    if (isWeb) {
-      if (html5QrCodeScannerRef.current) {
-        html5QrCodeScannerRef.current.clear().catch(error => {
-          console.error("Failed to clear html5QrcodeScanner: ", error);
-        });
-      }
-    } else {
-      try {
-        BarcodeScanner.stopScan();
-        BarcodeScanner.showBackground(); // Ensure background is shown again
-      } catch (e) {
-        console.error("Error stopping barcode scanner:", e);
-      } finally {
-        setBodyBackground(''); // Reset body background
-        removeCssClass('barcode-scanner-active'); // Remove class from body
-      }
-    }
-    setScanning(false);
+    setScanning(false); // This will trigger the useEffect cleanup to stop scanners
   };
 
   const fetchItemByBarcode = async (scannedBarcode: string) => {
