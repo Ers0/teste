@@ -18,7 +18,8 @@ const ScanItem = () => {
   const [quantityChange, setQuantityChange] = useState(0);
   const [scanning, setScanning] = useState(false);
   const [isWeb, setIsWeb] = useState(false); // State to track if running on web
-  const html5QrCodeScannerRef = useRef<Html5QrcodeScanner | null>(null); // Ref for web scanner instance
+  const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null); // Ref for web scanner instance, now Html5Qrcode
+
   const navigate = useNavigate();
 
   // Determine platform and manage scanner lifecycle
@@ -28,8 +29,8 @@ const ScanItem = () => {
 
     const stopAllScanners = async () => {
       if (html5QrCodeScannerRef.current) {
-        await html5QrCodeScannerRef.current.clear().catch(error => {
-          console.error("Failed to clear html5QrcodeScanner: ", error);
+        await html5QrCodeScannerRef.current.stop().catch(error => { // Use .stop() for Html5Qrcode
+          console.error("Failed to stop html5Qrcode: ", error);
         });
         html5QrCodeScannerRef.current = null;
       }
@@ -51,19 +52,27 @@ const ScanItem = () => {
         // Web scanning logic using html5-qrcode
         const startWebScanner = async () => {
           try {
-            // Explicitly check for camera permissions and availability
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
+              let cameraId = cameras[0].id; // Default to the first camera
+              // Try to find a back camera (environment facing)
+              const backCamera = cameras.find(camera => camera.label.toLowerCase().includes('back') || camera.label.toLowerCase().includes('environment'));
+              if (backCamera) {
+                cameraId = backCamera.id;
+              } else if (cameras.length > 1) {
+                // If no explicit 'back' camera found, but multiple cameras exist,
+                // try to pick the second one, which is often the back camera on laptops.
+                cameraId = cameras[1].id;
+              }
+
               const readerElement = document.getElementById("reader");
               if (readerElement) {
-                const html5QrcodeScanner = new Html5QrcodeScanner(
-                  "reader",
-                  { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                  /* verbose= */ false
-                );
-                html5QrCodeScannerRef.current = html5QrcodeScanner;
+                const html5Qrcode = new Html5Qrcode("reader"); // Use Html5Qrcode directly
+                html5QrCodeScannerRef.current = html5Qrcode;
 
-                html5QrcodeScanner.render(
+                await html5Qrcode.start(
+                  cameraId,
+                  { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
                   (decodedText) => {
                     setBarcode(decodedText);
                     fetchItemByBarcode(decodedText);
