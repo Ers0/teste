@@ -149,28 +149,4 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('SessionContextProvider: Unsubscribing from auth state listener.');
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]); // Add location.pathname to dependencies
-
-  // Render a global loading state while authentication is being determined
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-gray-600 dark:text-gray-400">Loading application...</p>
-      </div>
-    );
-  }
-
-  return (
-    <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within a SessionContextProvider');
-  }
-  return context;
-};
+  }, [navigate]); // Removed location.pathname from dependencies
