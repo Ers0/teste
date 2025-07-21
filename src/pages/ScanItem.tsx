@@ -57,7 +57,7 @@ const ScanItem = () => {
 
     const result = await BarcodeScanner.startScan(); // start scanning and wait for a result
 
-    if (result.has} && result.barcode) {
+    if (result.hasResult && result.barcode) {
       setBarcode(result.barcode.displayValue);
       await fetchItemByBarcode(result.barcode.displayValue);
       stopScan();
