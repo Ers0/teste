@@ -138,7 +138,7 @@ const ScanItem = () => {
 
                     await html5Qrcode.start(
                       cameraId,
-                      { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                      { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false }, // Adjusted qrbox
                       (decodedText) => {
                         console.log("Web scan successful:", decodedText);
                         setBarcode(decodedText);

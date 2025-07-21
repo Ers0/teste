@@ -133,7 +133,7 @@ const FiscalNotes = () => {
 
                   await html5Qrcode.start(
                     cameraId,
-                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                    { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false }, // Adjusted qrbox
                     (decodedText) => {
                       console.log("Web scan successful:", decodedText);
                       setNfeKey(decodedText);
@@ -344,6 +344,7 @@ const FiscalNotes = () => {
               <Button onClick={stopScan} className="mt-4" variant="secondary">
                 {t('cancel_scan')}
               </Button>
+              <p className="text-sm text-white mt-2">{t('position_barcode_horizontally')}</p>
             </>
           ) : (
             <>
@@ -357,6 +358,7 @@ const FiscalNotes = () => {
                   <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
                   {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
                 </Button>
+                <p className="text-sm text-white mt-2">{t('position_barcode_horizontally')}</p>
               </div>
             </>
           )}
