@@ -16,14 +16,17 @@ import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { exportToCsv } from '@/utils/export';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "@radix-ui/react-icons";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 interface FiscalNote {
   id: string;
   nfe_key: string;
-  issuer_name: string | null;
-  total_value: number | null;
-  issue_date: string | null;
-  file_url: string | null;
+  description: string | null; // New field
+  arrival_date: string | null; // New field
   user_id: string;
   created_at: string;
 }
@@ -34,6 +37,8 @@ const FiscalNotes = () => {
   const navigate = useNavigate();
 
   const [nfeKey, setNfeKey] = useState('');
+  const [description, setDescription] = useState(''); // State for description
+  const [arrivalDate, setArrivalDate] = useState<Date | undefined>(undefined); // State for arrival date
   const [fiscalNotes, setFiscalNotes] = useState<FiscalNote[]>([]);
   const [scanning, setScanning] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
@@ -205,6 +210,8 @@ const FiscalNotes = () => {
 
   const startScan = () => {
     setNfeKey('');
+    setDescription('');
+    setArrivalDate(undefined);
     setScanning(true);
   };
 
@@ -247,7 +254,7 @@ const FiscalNotes = () => {
     }
   };
 
-  const handleFetchAndSaveFiscalNote = async () => {
+  const handleSaveFiscalNote = async () => {
     if (!nfeKey) {
       showError(t('enter_nfe_key_scan'));
       return;
@@ -256,8 +263,6 @@ const FiscalNotes = () => {
       showError(t('user_not_authenticated_login'));
       return;
     }
-
-    console.log("Attempting to fetch and save fiscal note for key:", nfeKey);
 
     // Check if fiscal note with this key already exists for the user
     const { data: existingNote, error: existingError } = await supabase
@@ -269,42 +274,10 @@ const FiscalNotes = () => {
 
     if (existingNote) {
       showError(t('fiscal_note_already_exists'));
-      console.log("Fiscal note already exists:", existingNote);
       return;
     }
     if (existingError && existingError.code !== 'PGRST116') { // PGRST116 means no rows found
       showError(t('error_checking_existing_fiscal_note') + existingError.message);
-      console.error("Error checking existing fiscal note:", existingError);
-      return;
-    }
-    console.log("No existing fiscal note found, proceeding to fetch.");
-
-    // Call Edge Function to simulate fetching data
-    const { data: edgeFunctionResponse, error: edgeFunctionInvokeError } = await supabase.functions.invoke('fetch-fiscal-note-data', {
-      body: { nfe_key: nfeKey },
-    });
-
-    if (edgeFunctionInvokeError) {
-      console.error("Edge Function invocation error:", edgeFunctionInvokeError);
-      showError(t('error_fetching_fiscal_note_data') + edgeFunctionInvokeError.message);
-      return;
-    }
-
-    // The `edgeFunctionResponse.data` contains the JSON body returned by the Edge Function.
-    // Check if the Edge Function itself returned an application-level error.
-    if (edgeFunctionResponse.error) {
-      console.error("Error from Edge Function (application-level):", edgeFunctionResponse.error);
-      showError(t('error_fetching_fiscal_note_data') + edgeFunctionResponse.error);
-      return;
-    }
-
-    const fetchedData = edgeFunctionResponse; // This is the actual data object from the Edge Function's response body
-    console.log("Fetched data from Edge Function:", fetchedData);
-
-    // Validate fetchedData structure before saving
-    if (!fetchedData || !fetchedData.nfe_key || !fetchedData.issuer_name || fetchedData.total_value === undefined || !fetchedData.issue_date) {
-      showError(t('invalid_fiscal_note_data_received'));
-      console.error("Invalid data structure received from Edge Function:", fetchedData);
       return;
     }
 
@@ -313,21 +286,20 @@ const FiscalNotes = () => {
       .from('fiscal_notes')
       .insert([
         {
-          nfe_key: fetchedData.nfe_key,
-          issuer_name: fetchedData.issuer_name,
-          total_value: parseFloat(fetchedData.total_value), // Ensure it's a number
-          issue_date: fetchedData.issue_date,
-          file_url: fetchedData.file_url,
+          nfe_key: nfeKey,
+          description: description.trim() || null,
+          arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
           user_id: user.id,
         },
       ]);
 
     if (insertError) {
-      console.error("Error saving fiscal note to Supabase:", insertError);
       showError(t('error_saving_fiscal_note') + insertError.message);
     } else {
       showSuccess(t('fiscal_note_saved_successfully'));
       setNfeKey('');
+      setDescription('');
+      setArrivalDate(undefined);
       fetchFiscalNotes(); // Refresh the list
     }
   };
@@ -352,10 +324,8 @@ const FiscalNotes = () => {
 
     const formattedData = fiscalNotes.map(note => ({
       [t('nfe_key')]: note.nfe_key,
-      [t('issuer_name')]: note.issuer_name || 'N/A',
-      [t('total_value')]: note.total_value,
-      [t('issue_date')]: note.issue_date ? new Date(note.issue_date).toLocaleString() : 'N/A',
-      [t('file_url')]: note.file_url || 'N/A',
+      [t('fiscal_note_description')]: note.description || 'N/A',
+      [t('fiscal_note_arrival_date')]: note.arrival_date ? new Date(note.arrival_date).toLocaleDateString() : 'N/A',
       [t('created_at')]: new Date(note.created_at).toLocaleString(),
     }));
 
@@ -423,8 +393,43 @@ const FiscalNotes = () => {
                   <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}
                 </Button>
               </div>
-              <Button onClick={handleFetchAndSaveFiscalNote} className="w-full" disabled={!nfeKey}>
-                <FileText className="mr-2 h-4 w-4" /> {t('fetch_and_save_fiscal_note')}
+              <div className="space-y-2">
+                <Label htmlFor="description">{t('description')}</Label>
+                <Input
+                  id="description"
+                  type="text"
+                  placeholder={t('enter_brief_description')}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="arrivalDate">{t('arrival_date')}</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !arrivalDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {arrivalDate ? format(arrivalDate, "PPP") : <span>{t('pick_a_date')}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={arrivalDate}
+                      onSelect={setArrivalDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <Button onClick={handleSaveFiscalNote} className="w-full" disabled={!nfeKey}>
+                <FileText className="mr-2 h-4 w-4" /> {t('save_fiscal_note')}
               </Button>
             </div>
 
@@ -439,9 +444,9 @@ const FiscalNotes = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('nfe_key')}</TableHead>
-                    <TableHead>{t('issuer')}</TableHead>
-                    <TableHead className="text-right">{t('total_value')}</TableHead>
-                    <TableHead>{t('issue_date')}</TableHead>
+                    <TableHead>{t('fiscal_note_description')}</TableHead>
+                    <TableHead>{t('fiscal_note_arrival_date')}</TableHead>
+                    <TableHead className="text-right">{t('created_at')}</TableHead>
                     <TableHead className="text-center">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -456,18 +461,11 @@ const FiscalNotes = () => {
                     fiscalNotes.map((note) => (
                       <TableRow key={note.id}>
                         <TableCell className="font-medium">{note.nfe_key}</TableCell>
-                        <TableCell>{note.issuer_name || 'N/A'}</TableCell>
-                        <TableCell className="text-right">{note.total_value?.toFixed(2) || 'N/A'}</TableCell>
-                        <TableCell>{note.issue_date ? new Date(note.issue_date).toLocaleDateString() : 'N/A'}</TableCell>
+                        <TableCell>{note.description || 'N/A'}</TableCell>
+                        <TableCell>{note.arrival_date ? new Date(note.arrival_date).toLocaleDateString() : 'N/A'}</TableCell>
+                        <TableCell className="text-right">{new Date(note.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex justify-center gap-2">
-                            {note.file_url && (
-                              <a href={note.file_url} target="_blank" rel="noopener noreferrer">
-                                <Button variant="outline" size="icon">
-                                  <FileText className="h-4 w-4" />
-                                </Button>
-                              </a>
-                            )}
                             <Button variant="destructive" size="icon" onClick={() => handleDeleteFiscalNote(note.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
