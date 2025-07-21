@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/client';
@@ -28,12 +28,13 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const [loading, setLoading] = useState(true); // Overall loading for auth state
   const [profileLoading, setProfileLoading] = useState(true); // Loading specifically for profile data
   const navigate = useNavigate();
-  const location = useLocation(); // Get current location
+  const location = useLocation();
+  const isInitialLoad = useRef(true); // Use a ref to track initial load
 
   useEffect(() => {
-    console.log('SessionContextProvider: Initializing auth state listener.');
+    console.log('SessionContextProvider: Setting up auth state listener.');
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    const handleAuthChange = async (event: string, currentSession: Session | null) => {
       console.log('Auth State Change Event:', event, 'Session:', currentSession);
       setSession(currentSession);
       setUser(currentSession?.user || null);
@@ -62,10 +63,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
           setProfileLoading(false);
         }
 
-        // Only navigate to '/' if the event is SIGNED_IN or USER_UPDATED
-        // and the user is currently on the login page.
-        // This prevents unnecessary re-navigation if already on a protected route.
-        if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && location.pathname === '/login') {
+        if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_LOAD') && location.pathname === '/login') {
           console.log('User signed in or updated, navigating from login to /');
           navigate('/');
         }
@@ -73,83 +71,52 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         setProfile(null);
         setProfileLoading(false);
         i18n.changeLanguage('en');
-        // Only navigate to '/login' if the event is SIGNED_OUT
-        // and the user is not already on the login page.
-        if (event === 'SIGNED_OUT' && location.pathname !== '/login') {
+        if ((event === 'SIGNED_OUT' || event === 'INITIAL_LOAD') && location.pathname !== '/login') {
           console.log('User signed out, navigating to /login');
           navigate('/login');
         }
       }
-    });
 
-    // Initial session check
+      // Only set loading to false after the very first auth state change or initial session check
+      if (isInitialLoad.current) {
+        setLoading(false);
+        isInitialLoad.current = false;
+      }
+    };
+
+    // Set up the listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+
+    // Perform initial session check immediately
     const checkInitialSession = async () => {
       try {
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
         console.log('Initial getSession result:', currentSession, 'Error:', sessionError);
-
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
-
-        if (currentSession?.user) {
-          setProfileLoading(true);
-          try {
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('id, first_name, last_name, language')
-              .eq('id', currentSession.user.id)
-              .limit(1)
-              .single();
-
-            if (profileError && profileError.code !== 'PGRST116') {
-              console.error('Error fetching initial profile:', profileError);
-              setProfile(null);
-            } else {
-              setProfile(profileData || null);
-              i18n.changeLanguage(profileData?.language || 'en');
-            }
-          } catch (err) {
-            console.error('Unexpected error during initial profile fetch:', err);
-            setProfile(null);
-          } finally {
-            setProfileLoading(false);
-          }
-          // If user is authenticated and on the login page, navigate to home
-          if (location.pathname === '/login') {
-            console.log('Initial session found, navigating from login to /');
-            navigate('/');
-          }
-        } else {
-          setProfile(null);
-          setProfileLoading(false);
-          i18n.changeLanguage('en');
-          // If no initial session and not already on login page, navigate to login
-          if (location.pathname !== '/login') {
-            console.log('No initial session found, navigating to /login');
-            navigate('/login');
-          }
-        }
+        // Manually trigger the handler for the initial session
+        await handleAuthChange('INITIAL_LOAD', currentSession); // Use a custom event type for initial load
       } catch (err) {
         console.error('Unexpected error during initial session check:', err);
+        // Ensure loading is false even if initial check fails
         setSession(null);
         setUser(null);
         setProfile(null);
         setProfileLoading(false);
+        setLoading(false); // Ensure loading is false on error
         if (location.pathname !== '/login') {
-          navigate('/login'); // Ensure navigation even on unexpected errors
+          navigate('/login');
         }
-      } finally {
-        setLoading(false); // Ensure overall loading is set to false
       }
     };
 
-    checkInitialSession();
+    if (isInitialLoad.current) { // Only run initial check once
+      checkInitialSession();
+    }
 
     return () => {
       console.log('SessionContextProvider: Unsubscribing from auth state listener.');
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname]); // Dependencies remain the same
 
   return (
     <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
