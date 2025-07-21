@@ -16,7 +16,7 @@ interface Transaction {
   id: string;
   item_id: string | null;
   worker_id: string | null;
-  type: 'takeout' | 'return' | 'restock'; // Added 'restock'
+  type: 'takeout' | 'return' | 'restock';
   quantity: number;
   timestamp: string;
   items: { name: string } | null;
@@ -45,10 +45,10 @@ const TransactionsHistory = () => {
   const [allWorkers, setAllWorkers] = useState<Worker[]>([]);
   const [allItems, setAllItems] = useState<Item[]>([]);
 
-  const [filterType, setFilterType] = useState<'' | 'takeout' | 'return' | 'restock'>('');
-  const [filterItem, setFilterItem] = useState('');
-  const [filterWorker, setFilterWorker] = useState('');
-  const [searchTerm, setSearchTerm] = useState(''); // For general search across item/worker names
+  const [filterType, setFilterType] = useState<'all' | 'takeout' | 'return' | 'restock'>('all');
+  const [filterItem, setFilterItem] = useState<string>('all');
+  const [filterWorker, setFilterWorker] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -87,13 +87,13 @@ const TransactionsHistory = () => {
       .eq('user_id', user.id)
       .order('timestamp', { ascending: false });
 
-    if (filterType) {
+    if (filterType !== 'all') {
       query = query.eq('type', filterType);
     }
-    if (filterItem) {
+    if (filterItem !== 'all') {
       query = query.eq('item_id', filterItem);
     }
-    if (filterWorker) {
+    if (filterWorker !== 'all') {
       query = query.eq('worker_id', filterWorker);
     }
     if (searchTerm) {
@@ -132,7 +132,7 @@ const TransactionsHistory = () => {
     const formattedData = transactions.map(transaction => ({
       [t('item_name')]: transaction.items?.name || 'N/A',
       [t('worker_name')]: transaction.workers?.name || 'N/A',
-      [t('transaction_type')]: t(transaction.type), // Translate type
+      [t('transaction_type')]: t(transaction.type),
       [t('quantity')]: transaction.quantity,
       [t('authorized_by')]: transaction.authorized_by || 'N/A',
       [t('given_by')]: transaction.given_by || 'N/A',
@@ -163,12 +163,12 @@ const TransactionsHistory = () => {
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filterType} onValueChange={(value: '' | 'takeout' | 'return' | 'restock') => setFilterType(value)}>
+              <Select value={filterType} onValueChange={(value: 'all' | 'takeout' | 'return' | 'restock') => setFilterType(value)}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder={t('filter_by_type')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('all_types')}</SelectItem>
+                  <SelectItem value="all">{t('all_types')}</SelectItem>
                   <SelectItem value="restock">{t('restock')}</SelectItem>
                   <SelectItem value="takeout">{t('takeout')}</SelectItem>
                   <SelectItem value="return">{t('return')}</SelectItem>
@@ -180,7 +180,7 @@ const TransactionsHistory = () => {
                   <SelectValue placeholder={t('filter_by_item')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('all_items')}</SelectItem>
+                  <SelectItem value="all">{t('all_items')}</SelectItem>
                   {allItems.map(item => (
                     <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                   ))}
@@ -192,7 +192,7 @@ const TransactionsHistory = () => {
                   <SelectValue placeholder={t('filter_by_worker')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('all_workers')}</SelectItem>
+                  <SelectItem value="all">{t('all_workers')}</SelectItem>
                   {allWorkers.map(worker => (
                     <SelectItem key={worker.id} value={worker.id}>{worker.name}</SelectItem>
                   ))}
@@ -242,7 +242,7 @@ const TransactionsHistory = () => {
                               ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
                               : transaction.type === 'return'
                               ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' // Blue for restock
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
                           }`}
                         >
                           {t(transaction.type)}
