@@ -123,25 +123,32 @@ const FiscalNotes = () => {
                   html5QrCodeScannerRef.current.clear();
                   html5QrCodeScannerRef.current = null;
                 }
-                try {
-                  const html5Qrcode = new Html5Qrcode(readerElement.id);
-                  html5QrCodeScannerRef.current = html5Qrcode;
+                let cameraStarted = false;
+                for (const camera of cameras) {
+                  try {
+                    const html5Qrcode = new Html5Qrcode(readerElement.id);
+                    html5QrCodeScannerRef.current = html5Qrcode;
 
-                  await html5Qrcode.start(
-                    cameraId,
-                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                    (decodedText) => {
-                      console.log("Web scan successful:", decodedText);
-                      setNfeKey(decodedText);
-                      playBeep();
-                      setScanning(false);
-                    },
-                    (errorMessage) => {
-                      console.warn(`QR Code Scan Error: ${errorMessage}`);
-                    }
-                  );
-                } catch (err: any) {
-                  console.error(`Failed to start camera ${cameraId}:`, err);
+                    await html5Qrcode.start(
+                      camera.id,
+                      { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                      (decodedText) => {
+                        console.log("Web scan successful:", decodedText);
+                        setNfeKey(decodedText);
+                        playBeep();
+                        setScanning(false);
+                      },
+                      (errorMessage) => {
+                        console.warn(`QR Code Scan Error: ${errorMessage}`);
+                      }
+                    );
+                    cameraStarted = true;
+                    break;
+                  } catch (err: any) {
+                    console.error(`Failed to start camera ${camera.id}:`, err);
+                  }
+                }
+                if (!cameraStarted) {
                   showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
                   setScanning(false);
                 }
@@ -257,6 +264,8 @@ const FiscalNotes = () => {
       return;
     }
 
+    console.log("Attempting to fetch and save fiscal note for key:", nfeKey);
+
     // Check if fiscal note with this key already exists for the user
     const { data: existingNote, error: existingError } = await supabase
       .from('fiscal_notes')
@@ -267,27 +276,42 @@ const FiscalNotes = () => {
 
     if (existingNote) {
       showError(t('fiscal_note_already_exists'));
+      console.log("Fiscal note already exists:", existingNote);
       return;
     }
     if (existingError && existingError.code !== 'PGRST116') { // PGRST116 means no rows found
       showError(t('error_checking_existing_fiscal_note') + existingError.message);
+      console.error("Error checking existing fiscal note:", existingError);
       return;
     }
+    console.log("No existing fiscal note found, proceeding to fetch.");
 
     // Call Edge Function to simulate fetching data
-    const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke('fetch-fiscal-note-data', {
+    const { data: edgeFunctionResponse, error: edgeFunctionInvokeError } = await supabase.functions.invoke('fetch-fiscal-note-data', {
       body: { nfe_key: nfeKey },
     });
 
-    if (edgeFunctionError) {
-      showError(t('error_fetching_fiscal_note_data') + edgeFunctionError.message);
+    if (edgeFunctionInvokeError) {
+      console.error("Edge Function invocation error:", edgeFunctionInvokeError);
+      showError(t('error_fetching_fiscal_note_data') + edgeFunctionInvokeError.message);
       return;
     }
 
-    const { data: fetchedData, error: parseError } = edgeFunctionData;
+    // The `edgeFunctionResponse.data` contains the JSON body returned by the Edge Function.
+    // Check if the Edge Function itself returned an application-level error.
+    if (edgeFunctionResponse.error) {
+      console.error("Error from Edge Function (application-level):", edgeFunctionResponse.error);
+      showError(t('error_fetching_fiscal_note_data') + edgeFunctionResponse.error);
+      return;
+    }
 
-    if (parseError) {
-      showError(t('error_parsing_fiscal_note_data') + parseError.message);
+    const fetchedData = edgeFunctionResponse; // This is the actual data object from the Edge Function's response body
+    console.log("Fetched data from Edge Function:", fetchedData);
+
+    // Validate fetchedData structure before saving
+    if (!fetchedData || !fetchedData.nfe_key || !fetchedData.issuer_name || fetchedData.total_value === undefined || !fetchedData.issue_date) {
+      showError(t('invalid_fiscal_note_data_received'));
+      console.error("Invalid data structure received from Edge Function:", fetchedData);
       return;
     }
 
@@ -298,7 +322,7 @@ const FiscalNotes = () => {
         {
           nfe_key: fetchedData.nfe_key,
           issuer_name: fetchedData.issuer_name,
-          total_value: parseFloat(fetchedData.total_value),
+          total_value: parseFloat(fetchedData.total_value), // Ensure it's a number
           issue_date: fetchedData.issue_date,
           file_url: fetchedData.file_url,
           user_id: user.id,
@@ -306,6 +330,7 @@ const FiscalNotes = () => {
       ]);
 
     if (insertError) {
+      console.error("Error saving fiscal note to Supabase:", insertError);
       showError(t('error_saving_fiscal_note') + insertError.message);
     } else {
       showSuccess(t('fiscal_note_saved_successfully'));
