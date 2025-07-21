@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button'; // Keep Button for logout
-import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon } from 'lucide-react'; // Import ClipboardList and HistoryIcon
+import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText } from 'lucide-react'; // Import FileText for Fiscal Notes
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,10 +72,16 @@ const Dashboard = () => {
               <span className="font-semibold text-center">{t('record_item_takeout')}</span>
             </Card>
           </Link>
-          <Link to="/transactions-history" className="block cursor-pointer"> {/* New link for Transactions History */}
+          <Link to="/transactions-history" className="block cursor-pointer">
             <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
               <HistoryIcon className="h-8 w-8 mb-2" />
               <span className="font-semibold text-center">{t('transactions_history_title')}</span>
+            </Card>
+          </Link>
+          <Link to="/fiscal-notes" className="block cursor-pointer"> {/* New link for Fiscal Notes */}
+            <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
+              <FileText className="h-8 w-8 mb-2" />
+              <span className="font-semibold text-center">{t('fiscal_notes')}</span>
             </Card>
           </Link>
           <Link to="/settings" className="block">
