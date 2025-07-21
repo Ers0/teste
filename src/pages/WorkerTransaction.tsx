@@ -127,6 +127,19 @@ const WorkerTransaction = () => {
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
+              let cameraId = cameras[0].id; // Default to first camera
+              // Try to find a back camera
+              const backCamera = cameras.find(camera => 
+                camera.label.toLowerCase().includes('back') || 
+                camera.label.toLowerCase().includes('environment')
+              );
+              if (backCamera) {
+                cameraId = backCamera.id;
+              } else if (cameras.length > 1) {
+                // If no explicit back camera, but more than one camera, try the second one
+                cameraId = cameras[1].id;
+              }
+
               const readerElementId = "worker-qr-reader";
               const readerElement = document.getElementById(readerElementId);
 
@@ -143,37 +156,27 @@ const WorkerTransaction = () => {
                   html5QrCodeScannerRef.current.clear();
                   html5QrCodeScannerRef.current = null;
                 }
+                try {
+                  const html5Qrcode = new Html5Qrcode(readerElement.id);
+                  html5QrCodeScannerRef.current = html5Qrcode;
 
-                let cameraStarted = false;
-                for (const camera of cameras) {
-                  try {
-                    const html5Qrcode = new Html5Qrcode(readerElement.id);
-                    html5QrCodeScannerRef.current = html5Qrcode;
-
-                    await html5Qrcode.start(
-                      camera.id,
-                      { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                      (decodedText) => {
-                        console.log("Web scan successful:", decodedText);
-                        setWorkerQrCodeInput(decodedText);
-                        handleScanWorker(decodedText);
-                        playBeep();
-                        setScanningWorker(false); // This will trigger cleanup
-                      },
-                      (errorMessage) => {
-                        console.warn(`QR Code Scan Error: ${errorMessage}`);
-                        // Do not stop scanning here, let the loop continue trying other cameras
-                      }
-                    );
-                    cameraStarted = true;
-                    break; // Break loop if camera started successfully
-                  } catch (err: any) {
-                    console.error(`Failed to start camera ${camera.id}:`, err);
-                    // Continue to next camera
-                  }
-                }
-
-                if (!cameraStarted) {
+                  await html5Qrcode.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                    (decodedText) => {
+                      console.log("Web scan successful:", decodedText);
+                      setWorkerQrCodeInput(decodedText);
+                      handleScanWorker(decodedText);
+                      playBeep();
+                      setScanningWorker(false); // This will trigger cleanup
+                    },
+                    (errorMessage) => {
+                      console.warn(`QR Code Scan Error: ${errorMessage}`);
+                      setScanningWorker(false); // This will trigger cleanup
+                    }
+                  );
+                } catch (err: any) {
+                  console.error(`Failed to start camera ${cameraId}:`, err);
                   showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
                   setScanningWorker(false);
                 }
