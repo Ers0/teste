@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, QrCode, Upload, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import QRCode from 'qrcode.react'; // Import QRCode component
 
 interface Worker {
   id: string;
@@ -23,7 +24,8 @@ const Workers = () => {
   const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: '' });
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
+  const qrCodeRef = useRef<HTMLDivElement>(null); // Ref for QR code download
 
   useEffect(() => {
     fetchWorkers();
@@ -165,6 +167,26 @@ const Workers = () => {
     setNewWorker({ name: '', company: '', photo: null, qr_code_data: '' });
   };
 
+  const handleDownloadQrCode = (workerName: string, qrData: string) => {
+    if (qrCodeRef.current) {
+      const canvas = qrCodeRef.current.querySelector('canvas');
+      if (canvas) {
+        const url = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${workerName}_QR_Code.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showSuccess('QR Code downloaded!');
+      } else {
+        showError('QR Code canvas not found.');
+      }
+    }
+  };
+
+  const currentQrCodeData = editingWorker ? editingWorker.qr_code_data : newWorker.qr_code_data;
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-4xl mx-auto">
@@ -227,15 +249,27 @@ const Workers = () => {
                     <Input
                       id="qr_code_data"
                       name="qr_code_data"
-                      value={editingWorker ? editingWorker.qr_code_data || '' : newWorker.qr_code_data}
+                      value={currentQrCodeData || ''}
                       onChange={handleInputChange}
                       className="col-span-3"
-                      placeholder="Enter QR code data or scan"
+                      placeholder="Enter data for QR code"
                     />
-                    <Button variant="outline" size="icon" className="col-span-1 ml-auto">
-                      <QrCode className="h-4 w-4" />
-                    </Button>
                   </div>
+                  {currentQrCodeData && (
+                    <div className="col-span-4 flex flex-col items-center gap-2">
+                      <div ref={qrCodeRef} className="p-2 border rounded-md bg-white">
+                        <QRCode value={currentQrCodeData} size={128} level="H" />
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadQrCode(editingWorker?.name || newWorker.name || 'worker', currentQrCodeData)}
+                        className="mt-2"
+                      >
+                        <Download className="mr-2 h-4 w-4" /> Download QR Code
+                      </Button>
+                    </div>
+                  )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="photo" className="text-right">
                       Photo
@@ -275,6 +309,11 @@ const Workers = () => {
                 </CardHeader>
                 <CardContent className="flex-grow p-0">
                   <p className="text-sm text-gray-600 dark:text-gray-400"><strong>QR Data:</strong> {worker.qr_code_data || 'N/A'}</p>
+                  {worker.qr_code_data && (
+                    <div className="mt-2 flex justify-center">
+                      <QRCode value={worker.qr_code_data} size={64} level="L" />
+                    </div>
+                  )}
                 </CardContent>
                 <div className="p-4 flex justify-center gap-2 w-full">
                   <Button variant="outline" size="icon" onClick={() => openEditDialog(worker)}>
