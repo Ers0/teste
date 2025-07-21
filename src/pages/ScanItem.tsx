@@ -76,7 +76,9 @@ const ScanItem = () => {
           }
         );
       } catch (err: any) {
-        showError('Error starting web camera scan: ' + err.message);
+        // Ensure the error message is always a string
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        showError('Error starting web camera scan: ' + errorMessage);
         setScanning(false);
       }
     } else {
