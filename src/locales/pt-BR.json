@@ -126,7 +126,7 @@
   "make_changes_to_worker": "Faça alterações no trabalhador aqui.",
   "add_new_worker_to_system": "Adicione um novo trabalhador ao sistema.",
   "qr_code_data": "Dados do Código QR",
-  "enter_qr_code_or_generate": "Digite os dados do código QR ou gere um novo",
+  "enter_qr_code_data": "Digite os dados do código QR",
   "download_qr_code": "Baixar Código QR",
   "qr_code_canvas_not_found": "Canvas do código QR não encontrado.",
   "new_qr_code_generated": "Novo código QR gerado!",

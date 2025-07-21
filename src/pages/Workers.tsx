@@ -74,7 +74,7 @@ const Workers = () => {
       if (editingWorker) {
         setEditingWorker({ ...editingWorker, photo: e.target.files[0] });
       } else {
-        setNewWorker({ ...newWorker, photo: e.target.files[0] });
+        setNewItem({ ...newWorker, photo: e.target.files[0] });
       }
     }
   };
@@ -98,7 +98,7 @@ const Workers = () => {
       return null;
     }
 
-    const { data } = supabase.storage.from('worker-photos').getPublicUrl(filePath);
+    const { data } = supabase.storage.from('inventory-images').getPublicUrl(filePath);
     return data.publicUrl;
   };
 
@@ -192,12 +192,9 @@ const Workers = () => {
   };
 
   const openEditDialog = (worker: Worker) => {
-    // If worker has no QR code data, generate one when opening for edit
-    if (!worker.qr_code_data) {
-      setEditingWorker({ ...worker, qr_code_data: crypto.randomUUID() });
-    } else {
-      setEditingWorker(worker);
-    }
+    // Simply set the worker. If qr_code_data is null, the input will show empty,
+    // allowing the user to paste an existing one or click 'Generate New QR Code'.
+    setEditingWorker(worker);
     setIsDialogOpen(true);
   };
 
@@ -301,7 +298,7 @@ const Workers = () => {
                         value={currentQrCodeData || ''}
                         onChange={handleInputChange} // Make it editable
                         className="flex-grow"
-                        placeholder={t('enter_qr_code_or_generate')}
+                        placeholder={t('enter_qr_code_data')}
                       />
                       <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode}>
                         <RefreshCw className="h-4 w-4" />
