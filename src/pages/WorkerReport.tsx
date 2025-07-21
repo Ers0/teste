@@ -21,6 +21,8 @@ interface Transaction {
   items: { name: string } | null;
   workers: { name: string } | null;
   user_id: string;
+  authorized_by: string | null; // New field
+  given_by: string | null;      // New field
 }
 
 interface Worker {
@@ -59,7 +61,7 @@ const WorkerReport = () => {
       if (!workerId || !user) return [];
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, items(name), workers(name)')
+        .select('*, items(name), workers(name), authorized_by, given_by') // Select new fields
         .eq('worker_id', workerId)
         .eq('user_id', user.id)
         .order('timestamp', { ascending: false });
@@ -89,6 +91,8 @@ const WorkerReport = () => {
       [t('worker_name')]: transaction.workers?.name || 'N/A',
       [t('transaction_type')]: transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1),
       [t('quantity')]: transaction.quantity,
+      [t('authorized_by')]: transaction.authorized_by || 'N/A', // Include in export
+      [t('given_by')]: transaction.given_by || 'N/A',           // Include in export
       [t('timestamp')]: new Date(transaction.timestamp).toLocaleString(),
     }));
 
@@ -149,6 +153,8 @@ const WorkerReport = () => {
                   <TableHead>{t('item_name')}</TableHead>
                   <TableHead>{t('transaction_type')}</TableHead>
                   <TableHead className="text-right">{t('quantity')}</TableHead>
+                  <TableHead>{t('authorized_by')}</TableHead> {/* New TableHead */}
+                  <TableHead>{t('given_by')}</TableHead>      {/* New TableHead */}
                   <TableHead className="text-right">{t('timestamp')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -169,12 +175,14 @@ const WorkerReport = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">{transaction.quantity}</TableCell>
+                      <TableCell>{transaction.authorized_by || 'N/A'}</TableCell> {/* New TableCell */}
+                      <TableCell>{transaction.given_by || 'N/A'}</TableCell>      {/* New TableCell */}
                       <TableCell className="text-right">{new Date(transaction.timestamp).toLocaleString()}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-gray-500">
+                    <TableCell colSpan={6} className="h-24 text-center text-gray-500">
                       {t('no_transactions_found_for_this_worker')}
                     </TableCell>
                   </TableRow>
