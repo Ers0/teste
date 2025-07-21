@@ -4,24 +4,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight } from 'lucide-react'; // Import Flashlight icon
+import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
-import { Capacitor } from '@capacitor/core'; // Import Capacitor to check platform
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode'; // Import Html5Qrcode
+import { Capacitor } from '@capacitor/core';
+import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import beepSound from '@/assets/beep.mp3'; // Import the beep sound
 
 const ScanItem = () => {
   const [barcode, setBarcode] = useState('');
   const [item, setItem] = useState<any>(null);
   const [quantityChange, setQuantityChange] = useState(0);
   const [scanning, setScanning] = useState(false);
-  const [isWeb, setIsWeb] = useState(false); // State to track if running on web
-  const [isTorchOn, setIsTorchOn] = useState(false); // State for flashlight
-  const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null); // Ref for web scanner instance, now Html5Qrcode
+  const [isWeb, setIsWeb] = useState(false);
+  const [isTorchOn, setIsTorchOn] = useState(false);
+  const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null); // Ref for the audio element
 
   const navigate = useNavigate();
+
+  // Function to play the beep sound
+  const playBeep = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0; // Rewind to start
+      audioRef.current.play().catch(e => console.error("Error playing sound:", e));
+    }
+  };
 
   // Determine platform and manage scanner lifecycle
   useEffect(() => {
@@ -30,16 +40,16 @@ const ScanItem = () => {
 
     const stopAllScanners = async () => {
       if (html5QrCodeScannerRef.current) {
-        await html5QrCodeScannerRef.current.stop().catch(error => { // Use .stop() for Html5Qrcode
+        await html5QrCodeScannerRef.current.stop().catch(error => {
           console.error("Failed to stop html5Qrcode: ", error);
         });
         html5QrCodeScannerRef.current = null;
       }
       try {
-        if (!currentIsWeb) { // Only stop native scanner if it was active
+        if (!currentIsWeb) {
           await BarcodeScanner.stopScan();
           await BarcodeScanner.showBackground();
-          if (isTorchOn) { // Turn off flashlight if it was on
+          if (isTorchOn) {
             await BarcodeScanner.disableTorch();
             setIsTorchOn(false);
           }
@@ -59,33 +69,31 @@ const ScanItem = () => {
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
-              let cameraId = cameras[0].id; // Default to the first camera
-              // Try to find a back camera (environment facing)
+              let cameraId = cameras[0].id;
               const backCamera = cameras.find(camera => camera.label.toLowerCase().includes('back') || camera.label.toLowerCase().includes('environment'));
               if (backCamera) {
                 cameraId = backCamera.id;
               } else if (cameras.length > 1) {
-                // If no explicit 'back' camera found, but multiple cameras exist,
-                // try to pick the second one, which is often the back camera on laptops.
                 cameraId = cameras[1].id;
               }
 
               const readerElement = document.getElementById("reader");
               if (readerElement) {
-                const html5Qrcode = new Html5Qrcode("reader"); // Use Html5Qrcode directly
+                const html5Qrcode = new Html5Qrcode("reader");
                 html5QrCodeScannerRef.current = html5Qrcode;
 
                 await html5Qrcode.start(
                   cameraId,
                   { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
                   (decodedText) => {
-                    console.log("Web scan successful:", decodedText); // Log successful scan
+                    console.log("Web scan successful:", decodedText);
                     setBarcode(decodedText);
                     fetchItemByBarcode(decodedText);
-                    setScanning(false); // Stop scanning after successful scan
+                    playBeep(); // Play beep on successful scan
+                    setScanning(false);
                   },
                   (errorMessage) => {
-                    console.warn(`QR Code Scan Error: ${errorMessage}`); // Log scan errors
+                    console.warn(`QR Code Scan Error: ${errorMessage}`);
                   }
                 );
               } else {
@@ -117,10 +125,11 @@ const ScanItem = () => {
           BarcodeScanner.hideBackground();
           const result = await BarcodeScanner.startScan();
           if (result.hasContent && result.content) {
-            console.log("Native scan successful:", result.content); // Log successful scan
+            console.log("Native scan successful:", result.content);
             setBarcode(result.content);
             await fetchItemByBarcode(result.content);
-            setScanning(false); // Stop scanning after successful scan
+            playBeep(); // Play beep on successful scan
+            setScanning(false);
           } else {
             showError('No barcode scanned or scan cancelled.');
             setScanning(false);
@@ -129,15 +138,13 @@ const ScanItem = () => {
         runNativeScan();
       }
     } else {
-      // If scanning is false, ensure all scanners are stopped
       stopAllScanners();
     }
 
-    // Cleanup function for the effect (runs on unmount or when dependencies change and effect re-runs)
     return () => {
       stopAllScanners();
     };
-  }, [scanning, isWeb]); // Dependencies: scanning and isWeb
+  }, [scanning, isWeb]);
 
   const checkPermission = async () => {
     const status = await BarcodeScanner.checkPermission({ force: true });
@@ -154,11 +161,11 @@ const ScanItem = () => {
     setBarcode('');
     setItem(null);
     setQuantityChange(0);
-    setScanning(true); // This will trigger the useEffect to start the appropriate scanner
+    setScanning(true);
   };
 
   const stopScan = () => {
-    setScanning(false); // This will trigger the useEffect cleanup to stop scanners
+    setScanning(false);
   };
 
   const toggleTorch = async () => {
@@ -229,12 +236,13 @@ const ScanItem = () => {
       showSuccess(`Quantity updated successfully! New quantity: ${newQuantity}`);
       setItem({ ...item, quantity: newQuantity });
       setQuantityChange(0);
-      setBarcode(''); // Clear barcode after successful update
+      setBarcode('');
     }
   };
 
   return (
     <React.Fragment>
+      <audio ref={audioRef} src={beepSound} preload="auto" /> {/* Audio element for beep sound */}
       <div className={`min-h-screen flex items-center justify-center p-4 ${scanning && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
         {scanning && (
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
