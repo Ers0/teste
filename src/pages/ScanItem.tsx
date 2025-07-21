@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus, ArrowLeft, Camera } from 'lucide-react';
+import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight } from 'lucide-react'; // Import Flashlight icon
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
@@ -18,6 +18,7 @@ const ScanItem = () => {
   const [quantityChange, setQuantityChange] = useState(0);
   const [scanning, setScanning] = useState(false);
   const [isWeb, setIsWeb] = useState(false); // State to track if running on web
+  const [isTorchOn, setIsTorchOn] = useState(false); // State for flashlight
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null); // Ref for web scanner instance, now Html5Qrcode
 
   const navigate = useNavigate();
@@ -38,6 +39,10 @@ const ScanItem = () => {
         if (!currentIsWeb) { // Only stop native scanner if it was active
           await BarcodeScanner.stopScan();
           await BarcodeScanner.showBackground();
+          if (isTorchOn) { // Turn off flashlight if it was on
+            await BarcodeScanner.disableTorch();
+            setIsTorchOn(false);
+          }
         }
       } catch (e) {
         console.error("Error stopping native barcode scanner:", e);
@@ -154,6 +159,26 @@ const ScanItem = () => {
     setScanning(false); // This will trigger the useEffect cleanup to stop scanners
   };
 
+  const toggleTorch = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      showError("Flashlight is only available on native mobile devices.");
+      return;
+    }
+    try {
+      if (isTorchOn) {
+        await BarcodeScanner.disableTorch();
+        setIsTorchOn(false);
+        showSuccess("Flashlight off");
+      } else {
+        await BarcodeScanner.enableTorch();
+        setIsTorchOn(true);
+        showSuccess("Flashlight on");
+      }
+    } catch (e: any) {
+      showError("Failed to toggle flashlight: " + e.message);
+    }
+  };
+
   const fetchItemByBarcode = async (scannedBarcode: string) => {
     const { data, error } = await supabase
       .from('items')
@@ -225,6 +250,11 @@ const ScanItem = () => {
                   Scanning for barcode...
                   <Button onClick={stopScan} className="mt-4 block mx-auto" variant="secondary">
                     Cancel Scan
+                  </Button>
+                  {/* Flashlight button for native mobile */}
+                  <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
+                    <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
+                    {isTorchOn ? 'Turn Flashlight Off' : 'Turn Flashlight On'}
                   </Button>
                 </div>
               </>
