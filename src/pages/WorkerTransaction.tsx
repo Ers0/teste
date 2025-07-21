@@ -89,37 +89,41 @@ const WorkerTransaction = () => {
     const currentIsWeb = !Capacitor.isNativePlatform();
     setIsWeb(currentIsWeb);
 
-    const stopAllScanners = async () => {
+    const stopWebScanner = async () => {
       if (html5QrCodeScannerRef.current) {
         try {
           await html5QrCodeScannerRef.current.stop();
-          html5QrCodeScannerRef.current.clear(); // Add clear here
+          html5QrCodeScannerRef.current.clear();
         } catch (error) {
           console.error("Failed to stop or clear html5Qrcode: ", error);
         } finally {
           html5QrCodeScannerRef.current = null;
         }
       }
+    };
+
+    const stopNativeScanner = async () => {
       try {
-        if (!currentIsWeb) {
-          await BarcodeScanner.stopScan();
-          await BarcodeScanner.showBackground();
-          if (isTorchOn) {
-            await BarcodeScanner.disableTorch();
-            setIsTorchOn(false);
-          }
+        await BarcodeScanner.stopScan();
+        await BarcodeScanner.showBackground(); // Only for native
+        if (isTorchOn) {
+          await BarcodeScanner.disableTorch();
+          setIsTorchOn(false);
         }
       } catch (e) {
         console.error("Error stopping native barcode scanner:", e);
       } finally {
-        setBodyBackground('');
-        removeCssClass('barcode-scanner-active');
+        setBodyBackground(''); // Only for native
+        removeCssClass('barcode-scanner-active'); // Only for native
       }
     };
 
     if (scanningWorker) {
       if (currentIsWeb) {
         const startWebScanner = async () => {
+          // Ensure native scanner is not interfering if it was somehow left active
+          await stopNativeScanner();
+
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
@@ -131,16 +135,16 @@ const WorkerTransaction = () => {
                 cameraId = cameras[1].id;
               }
 
-              const readerElement = document.getElementById("worker-qr-reader");
+              const readerElementId = "worker-qr-reader";
+              const readerElement = document.getElementById(readerElementId);
               if (readerElement) {
-                // Add a small delay to ensure the DOM is ready
                 setTimeout(async () => {
-                  if (html5QrCodeScannerRef.current) { // Ensure no previous instance is running
-                    await html5QrCodeScannerRef.current.stop().catch(() => {}); // Stop if somehow still running
-                    html5QrCodeScannerRef.current.clear(); // Clear it
+                  if (html5QrCodeScannerRef.current) {
+                    await html5QrCodeScannerRef.current.stop().catch(() => {});
+                    html5QrCodeScannerRef.current.clear();
                     html5QrCodeScannerRef.current = null;
                   }
-                  const html5Qrcode = new Html5Qrcode(readerElement.id);
+                  const html5Qrcode = new Html5Qrcode(readerElementId);
                   html5QrCodeScannerRef.current = html5Qrcode;
 
                   await html5Qrcode.start(
@@ -151,16 +155,16 @@ const WorkerTransaction = () => {
                       setWorkerQrCodeInput(decodedText);
                       handleScanWorker(decodedText);
                       playBeep();
-                      setScanningWorker(false); // This will trigger stopAllScanners
+                      setScanningWorker(false); // This will trigger cleanup
                     },
                     (errorMessage) => {
                       console.warn(`QR Code Scan Error: ${errorMessage}`);
-                      setScanningWorker(false); // This will trigger stopAllScanners
+                      setScanningWorker(false); // This will trigger cleanup
                     }
                   );
-                }, 200); // Increased delay
+                }, 200);
               } else {
-                console.error("HTML Element with id=worker-qr-reader not found during web scan start attempt.");
+                console.error(`HTML Element with id=${readerElementId} not found during web scan start attempt.`);
                 showError(t('camera_display_area_not_found'));
                 setScanningWorker(false);
               }
@@ -175,36 +179,41 @@ const WorkerTransaction = () => {
           }
         };
         startWebScanner();
-      } else {
+      } else { // Native path
         const runNativeScan = async () => {
+          // Ensure web scanner is not interfering
+          await stopWebScanner();
+
           const hasPermission = await checkPermission();
           if (!hasPermission) {
             setScanningWorker(false);
             return;
           }
-          setBodyBackground('transparent');
-          addCssClass('barcode-scanner-active');
-          BarcodeScanner.hideBackground();
+          setBodyBackground('transparent'); // Only for native
+          addCssClass('barcode-scanner-active'); // Only for native
+          BarcodeScanner.hideBackground(); // Only for native
           const result = await BarcodeScanner.startScan();
           if (result.hasContent && result.content) {
             console.log("Native scan successful:", result.content);
             setWorkerQrCodeInput(result.content);
             await handleScanWorker(result.content);
             playBeep();
-            setScanningWorker(false);
+            setScanningWorker(false); // This will trigger cleanup
           } else {
             showError(t('no_barcode_scanned_cancelled'));
-            setScanningWorker(false);
+            setScanningWorker(false); // This will trigger cleanup
           }
         };
         runNativeScan();
       }
-    } else {
-      stopAllScanners();
+    } else { // scanningWorker is false, stop all
+      stopWebScanner();
+      stopNativeScanner();
     }
 
     return () => {
-      stopAllScanners();
+      stopWebScanner();
+      stopNativeScanner();
     };
   }, [scanningWorker, isWeb]);
 
@@ -634,7 +643,6 @@ const WorkerTransaction = () => {
                 <CardTitle className="text-2xl">{t('record_item_transaction')}</CardTitle>
                 <CardDescription>{t('scan_worker_then_items')}</CardDescription>
               </div>
-              <div className="w-10"></div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
