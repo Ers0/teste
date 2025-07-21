@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode.react'; // Import QRCode component
+import { QRCode } from 'qrcode.react'; // Corrected import: named import
 
 interface Worker {
   id: string;
@@ -54,7 +54,7 @@ const Workers = () => {
       if (editingWorker) {
         setEditingWorker({ ...editingWorker, photo: e.target.files[0] });
       } else {
-        setNewWorker({ ...newWorker, photo: e.target.files[0] });
+        setNewItem({ ...newWorker, photo: e.target.files[0] });
       }
     }
   };
