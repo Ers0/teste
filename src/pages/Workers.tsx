@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft, RefreshCw } from 'lucide-react'; // Added RefreshCw icon
 import { useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode'; // Changed import to the core qrcode library
+import QRCode from 'qrcode';
 
 interface Worker {
   id: string;
@@ -21,7 +21,7 @@ interface Worker {
 
 const Workers = () => {
   const [workers, setWorkers] = useState<Worker[]>([]);
-  const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: '' });
+  const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: crypto.randomUUID() }); // Pre-fill with UUID
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
@@ -100,9 +100,12 @@ const Workers = () => {
       return;
     }
 
+    // Ensure QR code data is generated if not already present (e.g., if user cleared it)
+    const qrDataToUse = newWorker.qr_code_data || crypto.randomUUID();
+
     const { data: insertedWorker, error: insertError } = await supabase
       .from('workers')
-      .insert([{ name: newWorker.name, company: newWorker.company, qr_code_data: newWorker.qr_code_data }])
+      .insert([{ name: newWorker.name, company: newWorker.company, qr_code_data: qrDataToUse }])
       .select()
       .single();
 
@@ -120,7 +123,7 @@ const Workers = () => {
     }
 
     showSuccess('Worker added successfully!');
-    setNewWorker({ name: '', company: '', photo: null, qr_code_data: '' });
+    setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() }); // Reset with new UUID
     setIsDialogOpen(false);
     fetchWorkers();
   };
@@ -136,13 +139,16 @@ const Workers = () => {
       photoUrl = await uploadPhoto(editingWorker.photo, editingWorker.id);
     }
 
+    // Ensure QR code data is generated if it's empty during an update
+    const qrDataToUse = editingWorker.qr_code_data || crypto.randomUUID();
+
     const { error } = await supabase
       .from('workers')
       .update({
         name: editingWorker.name,
         company: editingWorker.company,
         photo_url: photoUrl,
-        qr_code_data: editingWorker.qr_code_data,
+        qr_code_data: qrDataToUse, // Use the potentially new QR data
       })
       .eq('id', editingWorker.id);
 
@@ -169,14 +175,19 @@ const Workers = () => {
   };
 
   const openEditDialog = (worker: Worker) => {
-    setEditingWorker(worker);
+    // If worker has no QR code data, generate one when opening for edit
+    if (!worker.qr_code_data) {
+      setEditingWorker({ ...worker, qr_code_data: crypto.randomUUID() });
+    } else {
+      setEditingWorker(worker);
+    }
     setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingWorker(null);
-    setNewWorker({ name: '', company: '', photo: null, qr_code_data: '' });
+    setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() }); // Reset with new UUID
   };
 
   const handleDownloadQrCode = (workerName: string, qrData: string) => {
@@ -195,6 +206,16 @@ const Workers = () => {
         showError('QR Code canvas not found.');
       }
     }
+  };
+
+  const handleGenerateNewQrCode = () => {
+    const newUuid = crypto.randomUUID();
+    if (editingWorker) {
+      setEditingWorker({ ...editingWorker, qr_code_data: newUuid });
+    } else {
+      setNewWorker({ ...newWorker, qr_code_data: newUuid });
+    }
+    showSuccess('New QR Code data generated!');
   };
 
   return (
@@ -216,7 +237,7 @@ const Workers = () => {
           <div className="flex justify-end mb-4">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => { setNewWorker({ name: '', company: '', photo: null, qr_code_data: '' }); setEditingWorker(null); setIsDialogOpen(true); }}>
+                <Button onClick={() => { setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() }); setEditingWorker(null); setIsDialogOpen(true); }}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Worker
                 </Button>
               </DialogTrigger>
@@ -256,14 +277,19 @@ const Workers = () => {
                     <Label htmlFor="qr_code_data" className="text-right">
                       QR Code Data
                     </Label>
-                    <Input
-                      id="qr_code_data"
-                      name="qr_code_data"
-                      value={currentQrCodeData || ''}
-                      onChange={handleInputChange}
-                      className="col-span-3"
-                      placeholder="Enter data for QR code"
-                    />
+                    <div className="col-span-3 flex items-center gap-2">
+                      <Input
+                        id="qr_code_data"
+                        name="qr_code_data"
+                        value={currentQrCodeData || ''}
+                        readOnly // Make it read-only
+                        className="flex-grow"
+                        placeholder="QR code data will be generated"
+                      />
+                      <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode}>
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   {currentQrCodeData && (
                     <div className="col-span-4 flex flex-col items-center gap-2">
