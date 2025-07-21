@@ -116,26 +116,29 @@ const Workers = () => {
 
               const readerElement = document.getElementById("external-qr-reader");
               if (readerElement) {
-                const html5Qrcode = new Html5Qrcode("external-qr-reader");
-                html5QrCodeScannerRef.current = html5Qrcode;
+                // Add a small delay to ensure the DOM is ready
+                setTimeout(async () => {
+                  const html5Qrcode = new Html5Qrcode("external-qr-reader");
+                  html5QrCodeScannerRef.current = html5Qrcode;
 
-                await html5Qrcode.start(
-                  cameraId,
-                  { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                  (decodedText) => {
-                    console.log("Web scan successful:", decodedText);
-                    if (editingWorker) {
-                      setEditingWorker({ ...editingWorker, external_qr_code_data: decodedText });
-                    } else {
-                      setNewWorker({ ...newWorker, external_qr_code_data: decodedText });
+                  await html5Qrcode.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                    (decodedText) => {
+                      console.log("Web scan successful:", decodedText);
+                      if (editingWorker) {
+                        setEditingWorker({ ...editingWorker, external_qr_code_data: decodedText });
+                      } else {
+                        setNewWorker({ ...newWorker, external_qr_code_data: decodedText });
+                      }
+                      playBeep();
+                      setIsScanningExternalQr(false);
+                    },
+                    (errorMessage) => {
+                      console.warn(`QR Code Scan Error: ${errorMessage}`);
                     }
-                    playBeep();
-                    setIsScanningExternalQr(false);
-                  },
-                  (errorMessage) => {
-                    console.warn(`QR Code Scan Error: ${errorMessage}`);
-                  }
-                );
+                  );
+                }, 100); // 100ms delay
               } else {
                 console.error("HTML Element with id=external-qr-reader not found during web scan start attempt.");
                 showError(t('camera_display_area_not_found'));
@@ -457,7 +460,7 @@ const Workers = () => {
                   <DialogHeader>
                     <DialogTitle>{editingWorker ? t('edit_worker') : t('add_new_worker')}</DialogTitle>
                     <DialogDescription>
-                      {editingWorker ? t('make_changes_to_worker') : t('add_new_worker_to_system')}
+                      {editingItem ? t('make_changes_to_worker') : t('add_new_worker_to_system')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
@@ -602,6 +605,9 @@ const Workers = () => {
           <DialogContent className="sm:max-w-[350px] text-center">
             <DialogHeader>
               <DialogTitle>{t('qr_code_for', { workerName: qrCodeWorkerName })}</DialogTitle>
+              <DialogDescription>
+                {t('scan_this_qr_code')}
+              </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center p-4 space-y-4">
               {qrCodeDataToDisplay && (

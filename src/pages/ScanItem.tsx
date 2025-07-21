@@ -111,23 +111,26 @@ const ScanItem = () => {
 
               const readerElement = document.getElementById("reader");
               if (readerElement) {
-                const html5Qrcode = new Html5Qrcode("reader");
-                html5QrCodeScannerRef.current = html5Qrcode;
+                // Add a small delay to ensure the DOM is ready
+                setTimeout(async () => {
+                  const html5Qrcode = new Html5Qrcode("reader");
+                  html5QrCodeScannerRef.current = html5Qrcode;
 
-                await html5Qrcode.start(
-                  cameraId,
-                  { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                  (decodedText) => {
-                    console.log("Web scan successful:", decodedText);
-                    setBarcode(decodedText);
-                    fetchItemByBarcode(decodedText);
-                    playBeep();
-                    setScanning(false);
-                  },
-                  (errorMessage) => {
-                    console.warn(`QR Code Scan Error: ${errorMessage}`);
-                  }
-                );
+                  await html5Qrcode.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                    (decodedText) => {
+                      console.log("Web scan successful:", decodedText);
+                      setBarcode(decodedText);
+                      fetchItemByBarcode(decodedText);
+                      playBeep();
+                      setScanning(false);
+                    },
+                    (errorMessage) => {
+                      console.warn(`QR Code Scan Error: ${errorMessage}`);
+                    }
+                  );
+                }, 100); // 100ms delay
               } else {
                 console.error("HTML Element with id=reader not found during web scan start attempt.");
                 showError(t('camera_display_area_not_found'));
@@ -395,6 +398,9 @@ const ScanItem = () => {
     setAuthorizedBy('');
     setGivenBy('');
   };
+
+  const [showNewItemDialog, setShowNewItemDialog] = useState(false); // Define this state
+  const [newItemDetails, setNewItemDetails] = useState(initialNewItemState); // Define this state
 
   const handleNewItemInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

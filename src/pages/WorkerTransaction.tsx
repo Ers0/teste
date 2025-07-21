@@ -129,23 +129,26 @@ const WorkerTransaction = () => {
 
               const readerElement = document.getElementById("worker-qr-reader");
               if (readerElement) {
-                const html5Qrcode = new Html5Qrcode("worker-qr-reader");
-                html5QrCodeScannerRef.current = html5Qrcode;
+                // Add a small delay to ensure the DOM is ready
+                setTimeout(async () => {
+                  const html5Qrcode = new Html5Qrcode("worker-qr-reader");
+                  html5QrCodeScannerRef.current = html5Qrcode;
 
-                await html5Qrcode.start(
-                  cameraId,
-                  { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                  (decodedText) => {
-                    console.log("Web scan successful:", decodedText);
-                    setWorkerQrCodeInput(decodedText);
-                    handleScanWorker(decodedText);
-                    playBeep();
-                    setScanningWorker(false);
-                  },
-                  (errorMessage) => {
-                    console.warn(`QR Code Scan Error: ${errorMessage}`);
-                  }
-                );
+                  await html5Qrcode.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                    (decodedText) => {
+                      console.log("Web scan successful:", decodedText);
+                      setWorkerQrCodeInput(decodedText);
+                      handleScanWorker(decodedText);
+                      playBeep();
+                      setScanningWorker(false);
+                    },
+                    (errorMessage) => {
+                      console.warn(`QR Code Scan Error: ${errorMessage}`);
+                    }
+                  );
+                }, 100); // 100ms delay
               } else {
                 console.error("HTML Element with id=worker-qr-reader not found during web scan start attempt.");
                 showError(t('camera_display_area_not_found'));
