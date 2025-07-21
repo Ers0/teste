@@ -492,7 +492,7 @@ const Workers = () => {
                     <DialogDescription>
                       {editingWorker ? t('make_changes_to_worker') : t('add_new_worker_to_system')}
                     </DialogDescription>
-                  </DialogDescription>
+                  </DialogHeader> {/* Corrected closing tag */}
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="name" className="text-right">
