@@ -19,7 +19,8 @@ interface Worker {
   name: string;
   company: string | null;
   photo_url: string | null;
-  qr_code_data: string | null;
+  qr_code_data: string | null; // System generated QR
+  external_qr_code_data: string | null; // New field for pre-existing QR
   user_id: string;
   photo?: File | null; // For file upload
 }
@@ -29,6 +30,7 @@ const initialNewWorkerState = {
   company: '',
   photo: null as File | null,
   qr_code_data: '',
+  external_qr_code_data: '', // Initialize new field
 };
 
 const Workers = () => {
@@ -40,6 +42,7 @@ const Workers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
   const [qrCodeDataToDisplay, setQrCodeDataToDisplay] = useState('');
+  const [externalQrCodeDataToDisplay, setExternalQrCodeDataToDisplay] = useState('');
   const [qrCodeWorkerName, setQrCodeWorkerName] = useState('');
   const navigate = useNavigate();
 
@@ -54,7 +57,7 @@ const Workers = () => {
 
     const { data, error } = await supabase
       .from('workers')
-      .select('*')
+      .select('*, external_qr_code_data') // Select new field
       .eq('user_id', user.id)
       .order('name', { ascending: true });
 
@@ -125,6 +128,7 @@ const Workers = () => {
         name: newWorker.name, 
         company: newWorker.company, 
         qr_code_data: generatedQrCodeData,
+        external_qr_code_data: newWorker.external_qr_code_data.trim() || null, // Save new field
         user_id: user.id 
       }])
       .select()
@@ -170,7 +174,8 @@ const Workers = () => {
         name: editingWorker.name,
         company: editingWorker.company,
         photo_url: photoUrl,
-        qr_code_data: editingWorker.qr_code_data, // Keep existing QR code data
+        qr_code_data: editingWorker.qr_code_data, // Keep existing system-generated QR code data
+        external_qr_code_data: editingWorker.external_qr_code_data?.trim() || null, // Update new field
         user_id: user.id
       })
       .eq('id', editingWorker.id);
@@ -208,8 +213,9 @@ const Workers = () => {
     setNewWorker(initialNewWorkerState);
   };
 
-  const openQrCodeDialog = (qrData: string, workerName: string) => {
-    setQrCodeDataToDisplay(qrData);
+  const openQrCodeDialog = (systemQrData: string | null, externalQrData: string | null, workerName: string) => {
+    setQrCodeDataToDisplay(systemQrData || '');
+    setExternalQrCodeDataToDisplay(externalQrData || '');
     setQrCodeWorkerName(workerName);
     setIsQrCodeDialogOpen(true);
   };
@@ -217,6 +223,7 @@ const Workers = () => {
   const closeQrCodeDialog = () => {
     setIsQrCodeDialogOpen(false);
     setQrCodeDataToDisplay('');
+    setExternalQrCodeDataToDisplay('');
     setQrCodeWorkerName('');
   };
 
@@ -273,6 +280,19 @@ const Workers = () => {
                       value={editingWorker ? editingWorker.company || '' : newWorker.company}
                       onChange={handleInputChange}
                       className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="external_qr_code_data" className="text-right">
+                      {t('external_qr_code')}
+                    </Label>
+                    <Input
+                      id="external_qr_code_data"
+                      name="external_qr_code_data"
+                      value={editingWorker ? editingWorker.external_qr_code_data || '' : newWorker.external_qr_code_data}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                      placeholder={t('optional_pre_existing_qr')}
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -339,8 +359,8 @@ const Workers = () => {
                       <TableCell className="font-medium">{worker.name}</TableCell>
                       <TableCell>{worker.company || 'N/A'}</TableCell>
                       <TableCell className="text-center">
-                        {worker.qr_code_data ? (
-                          <Button variant="outline" size="sm" onClick={() => openQrCodeDialog(worker.qr_code_data!, worker.name)}>
+                        {(worker.qr_code_data || worker.external_qr_code_data) ? (
+                          <Button variant="outline" size="sm" onClick={() => openQrCodeDialog(worker.qr_code_data, worker.external_qr_code_data, worker.name)}>
                             <QrCode className="h-4 w-4 mr-2" /> {t('view_qr')}
                           </Button>
                         ) : (
@@ -380,9 +400,21 @@ const Workers = () => {
               {t('scan_this_qr_code')}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-center p-4">
+          <div className="flex flex-col items-center justify-center p-4 space-y-4">
             {qrCodeDataToDisplay && (
-              <QRCode value={qrCodeDataToDisplay} size={256} level="H" includeMargin={true} />
+              <div className="border p-2 rounded-md">
+                <p className="text-sm font-semibold mb-2">{t('system_generated_qr')}</p>
+                <QRCode value={qrCodeDataToDisplay} size={200} level="H" />
+              </div>
+            )}
+            {externalQrCodeDataToDisplay && (
+              <div className="border p-2 rounded-md">
+                <p className="text-sm font-semibold mb-2">{t('external_qr_code')}</p>
+                <QRCode value={externalQrCodeDataToDisplay} size={200} level="H" />
+              </div>
+            )}
+            {!qrCodeDataToDisplay && !externalQrCodeDataToDisplay && (
+              <p className="text-gray-500">{t('no_qr_codes_available')}</p>
             )}
           </div>
           <DialogFooter className="flex justify-center">

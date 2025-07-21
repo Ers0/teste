@@ -23,6 +23,7 @@ interface Worker {
   name: string;
   company: string | null;
   qr_code_data: string | null;
+  external_qr_code_data: string | null; // New field
   user_id: string; // Added user_id
 }
 
@@ -64,7 +65,7 @@ const WorkerTransaction = () => {
   const [quantityToChange, setQuantityToChange] = useState(1);
   const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
   const [authorizedBy, setAuthorizedBy] = useState(''); // New state for authorized_by
-  const [givenBy, setGivenBy] = useState('');           // New state for given_by
+  const [givenBy, setGivenBy] = '';           // New state for given_by
   const [activeTab, setActiveTab] = useState('transaction-form'); // State for active tab
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -303,10 +304,11 @@ const WorkerTransaction = () => {
       return;
     }
 
+    // Try to find worker by system-generated QR code or external QR code
     const { data, error } = await supabase
       .from('workers')
       .select('*')
-      .eq('qr_code_data', qrCodeData)
+      .or(`qr_code_data.eq.${qrCodeData},external_qr_code_data.eq.${qrCodeData}`) // Search both fields
       .eq('user_id', user.id) // Filter by user_id
       .single();
 
@@ -316,7 +318,7 @@ const WorkerTransaction = () => {
     } else {
       setScannedWorker(data);
       showSuccess(t('worker_found', { workerName: data.name }));
-      setWorkerQrCodeInput(data.qr_code_data || ''); // Ensure input reflects found QR data
+      setWorkerQrCodeInput(qrCodeData); // Ensure input reflects found QR data
       setWorkerSearchTerm(''); // Clear search term
       setWorkerSearchResults([]); // Clear search results
     }
@@ -345,7 +347,7 @@ const WorkerTransaction = () => {
       if (data.length === 1) {
         setScannedWorker(data[0]);
         showSuccess(t('worker_found', { workerName: data[0].name }));
-        setWorkerQrCodeInput(data[0].qr_code_data || ''); // Update QR input
+        setWorkerQrCodeInput(data[0].qr_code_data || data[0].external_qr_code_data || ''); // Update QR input with either
         setWorkerSearchTerm(''); // Clear search term
         setWorkerSearchResults([]); // Clear results
       } else {
@@ -360,7 +362,7 @@ const WorkerTransaction = () => {
 
   const handleSelectWorker = (worker: Worker) => {
     setScannedWorker(worker);
-    setWorkerQrCodeInput(worker.qr_code_data || '');
+    setWorkerQrCodeInput(worker.qr_code_data || worker.external_qr_code_data || '');
     setWorkerSearchTerm(worker.name);
     setWorkerSearchResults([]);
     showSuccess(t('worker_selected', { workerName: worker.name }));

@@ -29,6 +29,8 @@ interface Worker {
   id: string;
   name: string;
   company: string | null;
+  qr_code_data: string | null; // System generated QR
+  external_qr_code_data: string | null; // New field for pre-existing QR
 }
 
 const WorkerReport = () => {
@@ -44,7 +46,7 @@ const WorkerReport = () => {
       if (!workerId || !user) throw new Error(t('worker_id_or_user_missing'));
       const { data, error } = await supabase
         .from('workers')
-        .select('id, name, company')
+        .select('id, name, company, qr_code_data, external_qr_code_data') // Select new field
         .eq('id', workerId)
         .eq('user_id', user.id)
         .single();
