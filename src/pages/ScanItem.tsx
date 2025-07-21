@@ -179,92 +179,94 @@ const ScanItem = () => {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 ${scanning && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
-      {scanning && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
-          {isWeb ? (
-            <>
-              <div id="reader" className="w-full max-w-md h-auto aspect-video bg-black rounded-lg overflow-hidden"></div>
-              <Button onClick={stopScan} className="mt-4" variant="secondary">
-                Cancel Scan
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="absolute inset-0 bg-black opacity-50"></div>
-              <div className="relative z-10 text-white text-lg">
-                Scanning for barcode...
-                <Button onClick={stopScan} className="mt-4 block mx-auto" variant="secondary">
+    <React.Fragment>
+      <div className={`min-h-screen flex items-center justify-center p-4 ${scanning && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
+        {scanning && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
+            {isWeb ? (
+              <>
+                <div id="reader" className="w-full max-w-md h-auto aspect-video bg-black rounded-lg overflow-hidden"></div>
+                <Button onClick={stopScan} className="mt-4" variant="secondary">
                   Cancel Scan
                 </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      <Card className={`w-full max-w-md ${scanning ? 'hidden' : ''}`}>
-        <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-grow text-center">
-              <CardTitle className="text-2xl">Scan Item</CardTitle>
-              <CardDescription>Scan an item to add or remove quantity.</CardDescription>
-            </CardTitle>
-            <div className="w-10"></div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Input
-              type="text"
-              placeholder="Enter barcode manually"
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              className="flex-grow"
-            />
-            <Button onClick={startScan}>
-              <Camera className="mr-2 h-4 w-4" /> Scan with Camera
-            </Button>
-          </div>
-          {barcode && !item && (
-            <Button onClick={() => fetchItemByBarcode(barcode)} className="w-full">
-              <Barcode className="mr-2 h-4 w-4" /> Search Item by Barcode
-            </Button>
-          )}
-
-          {item && (
-            <div className="border p-4 rounded-md space-y-2">
-              <h3 className="text-lg font-semibold">{item.name}</h3>
-              <p><strong>Description:</strong> {item.description || 'N/A'}</p>
-              <p><strong>Current Quantity:</strong> {item.quantity}</p>
-              <p><strong>Barcode:</strong> {item.barcode}</p>
-
-              <div className="space-y-2 mt-4">
-                <Label htmlFor="quantityChange">Change Quantity By:</Label>
-                <Input
-                  id="quantityChange"
-                  type="number"
-                  value={quantityChange}
-                  onChange={(e) => setQuantityChange(parseInt(e.target.value) || 0)}
-                  min="0"
-                />
-                <div className="flex gap-2">
-                  <Button onClick={() => handleQuantityUpdate('add')} className="flex-1">
-                    <Plus className="mr-2 h-4 w-4" /> Add
-                  </Button>
-                  <Button onClick={() => handleQuantityUpdate('remove')} variant="destructive" className="flex-1">
-                    <Minus className="mr-2 h-4 w-4" /> Remove
+              </>
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-black opacity-50"></div>
+                <div className="relative z-10 text-white text-lg">
+                  Scanning for barcode...
+                  <Button onClick={stopScan} className="mt-4 block mx-auto" variant="secondary">
+                    Cancel Scan
                   </Button>
                 </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <Card className={`w-full max-w-md ${scanning ? 'hidden' : ''}`}>
+          <CardHeader>
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex-grow text-center">
+                <CardTitle className="text-2xl">Scan Item</CardTitle>
+                <CardDescription>Scan an item to add or remove quantity.</CardDescription>
               </div>
+              <div className="w-10"></div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Input
+                type="text"
+                placeholder="Enter barcode manually"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                className="flex-grow"
+              />
+              <Button onClick={startScan}>
+                <Camera className="mr-2 h-4 w-4" /> Scan with Camera
+              </Button>
+            </div>
+            {barcode && !item && (
+              <Button onClick={() => fetchItemByBarcode(barcode)} className="w-full">
+                <Barcode className="mr-2 h-4 w-4" /> Search Item by Barcode
+              </Button>
+            )}
+
+            {item && (
+              <div className="border p-4 rounded-md space-y-2">
+                <h3 className="text-lg font-semibold">{item.name}</h3>
+                <p><strong>Description:</strong> {item.description || 'N/A'}</p>
+                <p><strong>Current Quantity:</strong> {item.quantity}</p>
+                <p><strong>Barcode:</strong> {item.barcode}</p>
+
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="quantityChange">Change Quantity By:</Label>
+                  <Input
+                    id="quantityChange"
+                    type="number"
+                    value={quantityChange}
+                    onChange={(e) => setQuantityChange(parseInt(e.target.value) || 0)}
+                    min="0"
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleQuantityUpdate('add')} className="flex-1">
+                      <Plus className="mr-2 h-4 w-4" /> Add
+                    </Button>
+                    <Button onClick={() => handleQuantityUpdate('remove')} variant="destructive" className="flex-1">
+                      <Minus className="mr-2 h-4 w-4" /> Remove
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </React.Fragment>
   );
 };
 
