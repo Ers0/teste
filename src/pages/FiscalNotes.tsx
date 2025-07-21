@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download } from 'lucide-react';
+import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
@@ -123,32 +123,25 @@ const FiscalNotes = () => {
                   html5QrCodeScannerRef.current.clear();
                   html5QrCodeScannerRef.current = null;
                 }
-                let cameraStarted = false;
-                for (const camera of cameras) {
-                  try {
-                    const html5Qrcode = new Html5Qrcode(readerElement.id);
-                    html5QrCodeScannerRef.current = html5Qrcode;
+                try {
+                  const html5Qrcode = new Html5Qrcode(readerElement.id);
+                  html5QrCodeScannerRef.current = html5Qrcode;
 
-                    await html5Qrcode.start(
-                      camera.id,
-                      { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                      (decodedText) => {
-                        console.log("Web scan successful:", decodedText);
-                        setNfeKey(decodedText);
-                        playBeep();
-                        setScanning(false);
-                      },
-                      (errorMessage) => {
-                        console.warn(`QR Code Scan Error: ${errorMessage}`);
-                      }
-                    );
-                    cameraStarted = true;
-                    break;
-                  } catch (err: any) {
-                    console.error(`Failed to start camera ${camera.id}:`, err);
-                  }
-                }
-                if (!cameraStarted) {
+                  await html5Qrcode.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                    (decodedText) => {
+                      console.log("Web scan successful:", decodedText);
+                      setNfeKey(decodedText);
+                      playBeep();
+                      setScanning(false);
+                    },
+                    (errorMessage) => {
+                      console.warn(`QR Code Scan Error: ${errorMessage}`);
+                    }
+                  );
+                } catch (err: any) {
+                  console.error(`Failed to start camera ${cameraId}:`, err);
                   showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
                   setScanning(false);
                 }
