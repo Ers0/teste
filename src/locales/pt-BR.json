@@ -185,5 +185,8 @@
   "loading_outstanding_takeouts": "Carregando retiradas pendentes...",
   "no_outstanding_takeouts": "Nenhuma retirada pendente encontrada.",
   "taken_on": "Retirado em",
-  "loading_application": "Carregando aplicativo..."
+  "loading_application": "Carregando aplicativo...",
+  "scan_worker_qr": "Escanear QR do Trabalhador",
+  "search_worker_by_qr": "Buscar Trabalhador por QR",
+  "scanning_for_qr_code": "Escaneando código QR..."
 }

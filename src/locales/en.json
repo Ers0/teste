@@ -185,5 +185,8 @@
   "loading_outstanding_takeouts": "Loading outstanding takeouts...",
   "no_outstanding_takeouts": "No outstanding takeouts found.",
   "taken_on": "Taken On",
-  "loading_application": "Loading application..."
+  "loading_application": "Loading application...",
+  "scan_worker_qr": "Scan Worker QR",
+  "search_worker_by_qr": "Search Worker by QR",
+  "scanning_for_qr_code": "Scanning for QR code..."
 }
