@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,23 +9,31 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
+import { Capacitor } from '@capacitor/core'; // Import Capacitor to check platform
+import { Html5QrcodeScanner } from 'html5-qrcode'; // Import html5-qrcode
 
 const ScanItem = () => {
   const [barcode, setBarcode] = useState('');
   const [item, setItem] = useState<any>(null);
   const [quantityChange, setQuantityChange] = useState(0);
-  const [scanning, setScanning] = useState(false); // New state for scanning status
+  const [scanning, setScanning] = useState(false);
+  const [isWeb, setIsWeb] = useState(false); // State to track if running on web
+  const html5QrCodeScannerRef = useRef<Html5QrcodeScanner | null>(null); // Ref for web scanner instance
   const navigate = useNavigate();
 
   useEffect(() => {
+    setIsWeb(!Capacitor.isNativePlatform()); // Determine platform on component mount
+
     // Cleanup function to stop scanning and reset body background when component unmounts
     return () => {
-      stopScan();
+      if (scanning) {
+        stopScan();
+      }
     };
-  }, []);
+  }, [scanning]); // Depend on scanning state to ensure cleanup runs if scanning is active
 
   const checkPermission = async () => {
-    // check or request permission
+    // check or request permission for native
     const status = await BarcodeScanner.checkPermission({ force: true });
 
     if (status.granted) {
@@ -40,45 +48,82 @@ const ScanItem = () => {
   };
 
   const startScan = async () => {
-    const hasPermission = await checkPermission();
-    if (!hasPermission) {
-      return;
-    }
-
     setBarcode(''); // Clear previous barcode
     setItem(null); // Clear previous item
     setQuantityChange(0); // Reset quantity change
-
     setScanning(true);
-    setBodyBackground('transparent'); // Make body transparent for camera feed
-    addCssClass('barcode-scanner-active'); // Add class to body for styling
 
-    BarcodeScanner.hideBackground(); // make background of WebView transparent
+    if (isWeb) {
+      // Web scanning logic using html5-qrcode
+      try {
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+          "reader", // ID of the HTML element where the scanner will be rendered
+          { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false }, // disableFlip for better mobile experience
+          /* verbose= */ false
+        );
+        html5QrcodeScannerRef.current = html5QrcodeScanner;
 
-    const result = await BarcodeScanner.startScan(); // start scanning and wait for a result
-
-    if (result.hasContent && result.content) { // Corrected: hasResult to hasContent, barcode.displayValue to content
-      setBarcode(result.content);
-      await fetchItemByBarcode(result.content);
-      stopScan();
+        html5QrcodeScanner.render(
+          (decodedText, decodedResult) => {
+            // onScanSuccess
+            setBarcode(decodedText);
+            fetchItemByBarcode(decodedText);
+            stopScan(); // Stop scanning after successful scan
+          },
+          (errorMessage) => {
+            // onScanError (optional, can be noisy)
+            // console.warn(`QR Code Scan Error: ${errorMessage}`);
+          }
+        );
+      } catch (err: any) {
+        showError('Error starting web camera scan: ' + err.message);
+        setScanning(false);
+      }
     } else {
-      showError('No barcode scanned or scan cancelled.');
-      stopScan();
+      // Native scanning logic (existing)
+      const hasPermission = await checkPermission();
+      if (!hasPermission) {
+        setScanning(false); // Stop scanning state if no permission
+        return;
+      }
+
+      setBodyBackground('transparent'); // Make body transparent for camera feed
+      addCssClass('barcode-scanner-active'); // Add class to body for styling
+
+      BarcodeScanner.hideBackground(); // make background of WebView transparent
+
+      const result = await BarcodeScanner.startScan(); // start scanning and wait for a result
+
+      if (result.hasContent && result.content) {
+        setBarcode(result.content);
+        await fetchItemByBarcode(result.content);
+        stopScan();
+      } else {
+        showError('No barcode scanned or scan cancelled.');
+        stopScan();
+      }
     }
   };
 
   const stopScan = () => {
-    try {
-      BarcodeScanner.stopScan();
-      BarcodeScanner.showBackground(); // Ensure background is shown again
-    } catch (e) {
-      console.error("Error stopping barcode scanner:", e);
-      // We catch the error but still proceed to reset our component's state
-    } finally {
-      setScanning(false);
-      setBodyBackground(''); // Reset body background
-      removeCssClass('barcode-scanner-active'); // Remove class from body
+    if (isWeb) {
+      if (html5QrCodeScannerRef.current) {
+        html5QrCodeScannerRef.current.clear().catch(error => {
+          console.error("Failed to clear html5QrcodeScanner: ", error);
+        });
+      }
+    } else {
+      try {
+        BarcodeScanner.stopScan();
+        BarcodeScanner.showBackground(); // Ensure background is shown again
+      } catch (e) {
+        console.error("Error stopping barcode scanner:", e);
+      } finally {
+        setBodyBackground(''); // Reset body background
+        removeCssClass('barcode-scanner-active'); // Remove class from body
+      }
     }
+    setScanning(false);
   };
 
   const fetchItemByBarcode = async (scannedBarcode: string) => {
@@ -134,16 +179,27 @@ const ScanItem = () => {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 ${scanning ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
+    <div className={`min-h-screen flex items-center justify-center p-4 ${scanning && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
       {scanning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black opacity-50"></div>
-          <div className="relative z-10 text-white text-lg">
-            Scanning for barcode...
-            <Button onClick={stopScan} className="mt-4 block mx-auto" variant="secondary">
-              Cancel Scan
-            </Button>
-          </div>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
+          {isWeb ? (
+            <>
+              <div id="reader" className="w-full max-w-md h-auto aspect-video bg-black rounded-lg overflow-hidden"></div>
+              <Button onClick={stopScan} className="mt-4" variant="secondary">
+                Cancel Scan
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-black opacity-50"></div>
+              <div className="relative z-10 text-white text-lg">
+                Scanning for barcode...
+                <Button onClick={stopScan} className="mt-4 block mx-auto" variant="secondary">
+                  Cancel Scan
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -156,7 +212,7 @@ const ScanItem = () => {
             <div className="flex-grow text-center">
               <CardTitle className="text-2xl">Scan Item</CardTitle>
               <CardDescription>Scan an item to add or remove quantity.</CardDescription>
-            </div>
+            </CardTitle>
             <div className="w-10"></div>
           </div>
         </CardHeader>
