@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, type NavigateFunction } from 'react-router-dom'; // Importando NavigateFunction
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { Capacitor } from '@capacitor/core';
@@ -59,6 +59,7 @@ const ScanItem = () => {
   const [isTorchOn, setIsTorchOn] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const navigate: NavigateFunction = useNavigate(); // Adicionando anotação de tipo explícita
 
   const playBeep = () => {
     if (audioRef.current) {

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2 } from 'lucide-react';
+import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2, CalendarIcon } from 'lucide-react'; // Import CalendarIcon from lucide-react
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
@@ -17,7 +17,6 @@ import { useTranslation } from 'react-i18next';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { exportToCsv } from '@/utils/export';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "@radix-ui/react-icons";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
