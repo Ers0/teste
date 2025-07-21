@@ -69,9 +69,9 @@ const Workers = () => {
         if (error) console.error(error);
       });
     }
-  }, [currentQrCodeData]);
+  }, [qrCodeRef.current, currentQrCodeData]); // Added qrCodeRef.current to dependencies
 
-  // Effect for QR scanning within the dialog
+  // Effect for QR scanning
   useEffect(() => {
     const currentIsWeb = !Capacitor.isNativePlatform();
     setIsWeb(currentIsWeb);
@@ -127,52 +127,55 @@ const Workers = () => {
               const readerElement = document.getElementById("worker-qr-scanner-reader");
               if (readerElement) {
                 console.log("Found worker-qr-scanner-reader element.");
-                // Add a small delay to ensure the DOM element is fully rendered and ready
-                setTimeout(async () => {
-                    const html5Qrcode = new Html5Qrcode("worker-qr-scanner-reader");
-                    html5QrCodeScannerRef.current = html5Qrcode;
+                // No setTimeout needed here, as the element is now guaranteed to be in DOM when scanningQr is true
+                const html5Qrcode = new Html5Qrcode("worker-qr-scanner-reader");
+                html5QrCodeScannerRef.current = html5Qrcode;
 
-                    try {
-                        await html5Qrcode.start(
-                            cameraId,
-                            { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                            (decodedText) => {
-                                console.log("Web QR scan successful:", decodedText);
-                                if (editingWorker) {
-                                    setEditingWorker({ ...editingWorker, qr_code_data: decodedText as UUID });
-                                } else {
-                                    setNewWorker({ ...newWorker, qr_code_data: decodedText as UUID });
-                                }
-                                playBeep();
-                                setScanningQr(false);
-                            },
-                            (errorMessage) => {
-                                console.warn(`QR Code Scan Error: ${errorMessage}`);
+                try {
+                    await html5Qrcode.start(
+                        cameraId,
+                        { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                        (decodedText) => {
+                            console.log("Web QR scan successful:", decodedText);
+                            if (editingWorker) {
+                                setEditingWorker({ ...editingWorker, qr_code_data: decodedText as UUID });
+                            } else {
+                                setNewWorker({ ...newWorker, qr_code_data: decodedText as UUID });
                             }
-                        );
-                        console.log("Html5Qrcode.start() called.");
-                    } catch (err: any) {
-                        const errorMessage = err instanceof Error ? err.message : String(err);
-                        console.error("Caught error during Html5Qrcode.start():", err);
-                        showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
-                        setScanningQr(false);
-                    }
-                }, 100); // 100ms delay
+                            playBeep();
+                            setScanningQr(false);
+                            setIsDialogOpen(true); // Re-open dialog after scan
+                        },
+                        (errorMessage) => {
+                            console.warn(`QR Code Scan Error: ${errorMessage}`);
+                        }
+                    );
+                    console.log("Html5Qrcode.start() called.");
+                } catch (err: any) {
+                    const errorMessage = err instanceof Error ? err.message : String(err);
+                    console.error("Caught error during Html5Qrcode.start():", err);
+                    showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
+                    setScanningQr(false);
+                    setIsDialogOpen(true); // Re-open dialog even on error
+                }
               } else {
                 console.error("HTML Element with id=worker-qr-scanner-reader not found during web scan start attempt.");
                 showError(t('camera_display_area_not_found'));
                 setScanningQr(false);
+                setIsDialogOpen(true); // Re-open dialog if element not found
               }
             } else {
               console.warn("No cameras found by Html5Qrcode.getCameras().");
               showError(t('no_camera_found_access_denied'));
               setScanningQr(false);
+              setIsDialogOpen(true); // Re-open dialog if no camera
             }
           } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : String(err);
             console.error("Caught error during web camera start:", err);
             showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
             setScanningQr(false);
+            setIsDialogOpen(true); // Re-open dialog on general error
           }
         };
         startWebScanner();
@@ -181,6 +184,7 @@ const Workers = () => {
           const hasPermission = await checkPermission();
           if (!hasPermission) {
             setScanningQr(false);
+            setIsDialogOpen(true); // Re-open dialog if no permission
             return;
           }
           setBodyBackground('transparent');
@@ -196,9 +200,11 @@ const Workers = () => {
             }
             playBeep();
             setScanningQr(false);
+            setIsDialogOpen(true); // Re-open dialog after scan
           } else {
             showError(t('no_barcode_scanned_cancelled'));
             setScanningQr(false);
+            setIsDialogOpen(true); // Re-open dialog if cancelled
           }
         };
         runNativeScan();
@@ -210,7 +216,7 @@ const Workers = () => {
     return () => {
       stopAllScanners();
     };
-  }, [scanningQr, isWeb, isTorchOn, t]); // Optimized dependencies
+  }, [scanningQr, isWeb, isTorchOn, t, editingWorker, newWorker]); // Optimized dependencies
 
   const checkPermission = async () => {
     const status = await BarcodeScanner.checkPermission({ force: true });
@@ -224,11 +230,13 @@ const Workers = () => {
   };
 
   const startQrScan = () => {
+    setIsDialogOpen(false); // Close dialog before starting full-screen scan
     setScanningQr(true);
   };
 
   const stopQrScan = () => {
     setScanningQr(false);
+    setIsDialogOpen(true); // Re-open dialog when scan is cancelled
   };
 
   const toggleTorch = async () => {
@@ -328,7 +336,7 @@ const Workers = () => {
 
     let photoUrl = null;
     if (newWorker.photo && insertedWorker) {
-      photoUrl = await uploadPhoto(newWorker.photo, insertedWorker.id);
+      photoUrl = await uploadImage(newWorker.photo, insertedWorker.id);
       if (photoUrl) {
         await supabase.from('workers').update({ photo_url: photoUrl }).eq('id', insertedWorker.id);
       }
@@ -433,35 +441,35 @@ const Workers = () => {
   return (
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
-      <div className={`min-h-screen flex items-center justify-center p-4 ${scanningQr && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
-        {scanningQr && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
-            {isWeb ? (
-              <>
-                <div id="worker-qr-scanner-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
-                <Button onClick={stopQrScan} className="mt-4" variant="secondary">
+      {scanningQr && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
+          {isWeb ? (
+            <>
+              <div id="worker-qr-scanner-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
+              <Button onClick={stopQrScan} className="mt-4" variant="secondary">
+                {t('cancel_scan')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-black opacity-50"></div>
+              <div className="relative z-10 text-white text-lg">
+                {t('scanning_for_qr_code')}
+                <Button onClick={stopQrScan} className="mt-4 block mx-auto" variant="secondary">
                   {t('cancel_scan')}
                 </Button>
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 bg-black opacity-50"></div>
-                <div className="relative z-10 text-white text-lg">
-                  {t('scanning_for_qr_code')}
-                  <Button onClick={stopQrScan} className="mt-4 block mx-auto" variant="secondary">
-                    {t('cancel_scan')}
-                  </Button>
-                  <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
-                    <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
-                    {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
+                  <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
+                  {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
-        <Card className={`w-full max-w-4xl mx-auto ${scanningQr ? 'hidden' : ''}`}>
+      <div className={`min-h-screen flex items-center justify-center p-4 ${scanningQr ? 'hidden' : 'bg-gray-100 dark:bg-gray-900'}`}>
+        <Card className="w-full max-w-4xl mx-auto">
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
               <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
@@ -526,21 +534,16 @@ const Workers = () => {
                           onChange={handleInputChange}
                           className="flex-grow"
                           placeholder={t('enter_qr_code_data')}
-                          readOnly={scanningQr}
+                          readOnly={true} {/* Make input read-only as it's filled by scan or generation */}
                         />
-                        <Button type="button" variant="outline" size="icon" onClick={startQrScan} disabled={scanningQr}>
+                        <Button type="button" variant="outline" size="icon" onClick={startQrScan}>
                           <Camera className="h-4 w-4" />
                         </Button>
-                        <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode} disabled={scanningQr}>
+                        <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode}>
                           <RefreshCw className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                    {scanningQr && (
-                      <p className="col-span-4 text-center text-sm text-muted-foreground">
-                        {t('scanning_external_qr_code_note')}
-                      </p>
-                    )}
                     {currentQrCodeData && (
                       <div className="col-span-4 flex flex-col items-center gap-2">
                         <div className="p-2 border rounded-md bg-white">
