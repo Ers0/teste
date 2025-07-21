@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle, History as HistoryIcon } from 'lucide-react';
+import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
@@ -47,6 +47,8 @@ const ScanItem = () => {
   const { t } = useTranslation(); // Initialize useTranslation
   const { user } = useAuth(); // Get the current user
   const [barcode, setBarcode] = useState('');
+  const [itemSearchTerm, setItemSearchTerm] = useState(''); // New state for item name search
+  const [itemSearchResults, setItemSearchResults] = useState<Item[]>([]); // New state for item search results
   const [item, setItem] = useState<Item | null>(null);
   const [quantityChange, setQuantityChange] = useState(1); // Default to 1 for restock
   const [transactionMode, setTransactionMode] = useState<'restock' | 'takeout'>('restock'); // New state for transaction mode
@@ -198,6 +200,8 @@ const ScanItem = () => {
     setTransactionMode('restock'); // Default to restock
     setAuthorizedBy('');
     setGivenBy('');
+    setItemSearchTerm(''); // Clear search term
+    setItemSearchResults([]); // Clear search results
     setScanning(true);
     setShowNewItemDialog(false);
   };
@@ -260,7 +264,72 @@ const ScanItem = () => {
       setTransactionMode('restock'); // Automatically mark as restock
       setQuantityChange(1); // Default restock quantity to 1
       setShowNewItemDialog(false);
+      setItemSearchTerm(''); // Clear search term
+      setItemSearchResults([]); // Clear search results
     }
+  };
+
+  const handleSearchItemByName = async () => {
+    if (!itemSearchTerm.trim()) {
+      showError(t('enter_item_name_search'));
+      return;
+    }
+    if (!user) {
+      showError(t('user_not_authenticated_login'));
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('items')
+      .select('*, one_time_use')
+      .ilike('name', `%${itemSearchTerm.trim()}%`) // Case-insensitive partial match
+      .eq('user_id', user.id); // Filter by user_id
+
+    if (error) {
+      showError(t('error_searching_items') + error.message);
+      setItemSearchResults([]);
+    } else if (data && data.length > 0) {
+      if (data.length === 1) {
+        setItem(data[0]);
+        showSuccess(t('item_found', { itemName: data[0].name }));
+        setBarcode(data[0].barcode || ''); // Update barcode input
+        setItemSearchResults([]); // Clear results
+        if (data[0].one_time_use) {
+          setTransactionMode('takeout');
+          showError(t('this_is_one_time_use_item_takeout_only'));
+        }
+      } else {
+        setItemSearchResults(data);
+        showSuccess(t('multiple_items_found_select'));
+      }
+    } else {
+      showError(t('no_items_found_for_name'));
+      setItemSearchResults([]);
+    }
+  };
+
+  const handleSelectItem = (selectedItem: Item) => {
+    setItem(selectedItem);
+    setBarcode(selectedItem.barcode || '');
+    setItemSearchTerm(selectedItem.name);
+    setItemSearchResults([]);
+    showSuccess(t('item_selected', { itemName: selectedItem.name }));
+    if (selectedItem.one_time_use) {
+      setTransactionMode('takeout');
+      showError(t('this_is_one_time_use_item_takeout_only'));
+    }
+  };
+
+  const handleClearItem = () => {
+    setItem(null);
+    setBarcode('');
+    setItemSearchTerm('');
+    setItemSearchResults([]);
+    setQuantityChange(1);
+    setTransactionMode('restock');
+    setAuthorizedBy('');
+    setGivenBy('');
+    showSuccess(t('item_selection_cleared'));
   };
 
   const handleRecordTransaction = async () => {
@@ -326,6 +395,8 @@ const ScanItem = () => {
     setItem({ ...item, quantity: newQuantity });
     setQuantityChange(1);
     setBarcode('');
+    setItemSearchTerm(''); // Clear search term
+    setItemSearchResults([]); // Clear search results
     setAuthorizedBy('');
     setGivenBy('');
   };
@@ -411,6 +482,8 @@ const ScanItem = () => {
     setNewItemDetails(initialNewItemState);
     setShowNewItemDialog(false);
     setBarcode('');
+    setItemSearchTerm(''); // Clear search term
+    setItemSearchResults([]); // Clear search results
     setItem(null);
   };
 
@@ -467,42 +540,92 @@ const ScanItem = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Input
-                type="text"
-                placeholder={t('enter_barcode_manually')}
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-                className="flex-grow"
-              />
-              <Button onClick={startScan}>
-                <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}
-              </Button>
-            </div>
-            {barcode && !item && !showNewItemDialog && (
-              <Button onClick={() => fetchItemByBarcode(barcode)} className="w-full">
-                <Barcode className="mr-2 h-4 w-4" /> {t('search_item_by_barcode')}
-              </Button>
-            )}
+            {!item ? (
+              <>
+                <div className="space-y-4 border-b pb-4">
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <Barcode className="mr-2 h-5 w-5" /> {t('scan_by_barcode')}
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="text"
+                      placeholder={t('enter_barcode_manually')}
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      className="flex-grow"
+                    />
+                    <Button onClick={startScan}>
+                      <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}
+                    </Button>
+                  </div>
+                  {barcode && (
+                    <Button onClick={() => fetchItemByBarcode(barcode)} className="w-full">
+                      <Barcode className="mr-2 h-4 w-4" /> {t('search_item_by_barcode')}
+                    </Button>
+                  )}
+                </div>
 
-            {item && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <Search className="mr-2 h-5 w-5" /> {t('search_by_name')}
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="text"
+                      placeholder={t('enter_item_name')}
+                      value={itemSearchTerm}
+                      onChange={(e) => setItemSearchTerm(e.target.value)}
+                      className="flex-grow"
+                    />
+                    <Button onClick={handleSearchItemByName}>
+                      <Search className="mr-2 h-4 w-4" /> {t('search_item_by_name')}
+                    </Button>
+                  </div>
+                  {itemSearchResults.length > 0 && (
+                    <div className="mt-4 space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                      <p className="text-sm font-medium">{t('select_item_from_results')}:</p>
+                      {itemSearchResults.map((resultItem) => (
+                        <Button
+                          key={resultItem.id}
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => handleSelectItem(resultItem)}
+                        >
+                          {resultItem.name} ({resultItem.barcode || t('no_barcode')})
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
               <div className="border p-4 rounded-md space-y-2">
                 <h3 className="text-lg font-semibold">{item.name}</h3>
                 <p><strong>{t('description')}:</strong> {item.description || 'N/A'}</p>
                 <p><strong>{t('current_quantity')}:</strong> {item.quantity}</p>
                 <p><strong>{t('barcode')}:</strong> {item.barcode}</p>
+                {item.one_time_use && (
+                  <p className="text-sm text-red-500 font-semibold">{t('this_is_one_time_use_item')}</p>
+                )}
 
                 <div className="space-y-2 mt-4">
                   <Label htmlFor="transactionMode">{t('transaction_type')}:</Label>
                   <ToggleGroup
                     type="single"
                     value={transactionMode}
-                    onValueChange={(value: 'restock' | 'takeout') => value && setTransactionMode(value)}
+                    onValueChange={(value: 'restock' | 'takeout') => {
+                      if (item.one_time_use && value === 'restock') {
+                        showError(t('cannot_restock_one_time_use'));
+                        return;
+                      }
+                      value && setTransactionMode(value);
+                    }}
                     className="flex justify-center gap-4"
                   >
                     <ToggleGroupItem
                       value="restock"
                       aria-label="Toggle restock"
+                      disabled={item.one_time_use}
                       className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200"
                     >
                       {t('restock')}
@@ -560,6 +683,9 @@ const ScanItem = () => {
 
                 <Button onClick={handleRecordTransaction} className="w-full">
                   {t('record')} {t(transactionMode)}
+                </Button>
+                <Button variant="outline" onClick={handleClearItem} className="w-full mt-2">
+                  {t('clear_item_selection')}
                 </Button>
               </div>
             )}
