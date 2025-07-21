@@ -65,7 +65,7 @@ const WorkerTransaction = () => {
   const [quantityToChange, setQuantityToChange] = useState(1);
   const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
   const [authorizedBy, setAuthorizedBy] = useState(''); // New state for authorized_by
-  const [givenBy, setGivenBy] = '';           // New state for given_by
+  const [givenBy, setGivenBy] = useState('');           // New state for given_by
   const [activeTab, setActiveTab] = useState('transaction-form'); // State for active tab
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -584,33 +584,32 @@ const WorkerTransaction = () => {
   return (
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
-      <div className={`min-h-screen flex items-center justify-center p-4 ${scanningWorker && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
-        {scanningWorker && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
-            {isWeb ? (
-              <>
-                <div id="worker-qr-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
-                <Button onClick={stopWorkerScan} className="mt-4" variant="secondary">
+      <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
+        {/* Scanner overlay, always rendered but conditionally visible */}
+        <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanningWorker ? '' : 'hidden'}`}>
+          {isWeb ? (
+            <>
+              <div id="worker-qr-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
+              <Button onClick={stopWorkerScan} className="mt-4" variant="secondary">
+                {t('cancel_scan')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-black opacity-50"></div>
+              <div className="relative z-10 text-white text-lg">
+                {t('scanning_for_qr_code')}
+                <Button onClick={stopWorkerScan} className="mt-4 block mx-auto" variant="secondary">
                   {t('cancel_scan')}
                 </Button>
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 bg-black opacity-50"></div>
-                <div className="relative z-10 text-white text-lg">
-                  {t('scanning_for_qr_code')}
-                  <Button onClick={stopWorkerScan} className="mt-4 block mx-auto" variant="secondary">
-                    {t('cancel_scan')}
-                  </Button>
-                  <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
-                    <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
-                    {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
+                  <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
+                  {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
 
         <Card className={`w-full max-w-md ${scanningWorker ? 'hidden' : ''}`}>
           <CardHeader>

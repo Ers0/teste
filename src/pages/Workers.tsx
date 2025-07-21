@@ -405,33 +405,32 @@ const Workers = () => {
   return (
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
-      <div className={`min-h-screen flex items-center justify-center p-4 ${isScanningExternalQr && !isWeb ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
-        {isScanningExternalQr && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
-            {isWeb ? (
-              <>
-                <div id="external-qr-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
-                <Button onClick={stopExternalQrScan} className="mt-4" variant="secondary">
+      <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
+        {/* Scanner overlay, always rendered but conditionally visible */}
+        <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${isScanningExternalQr ? '' : 'hidden'}`}>
+          {isWeb ? (
+            <>
+              <div id="external-qr-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
+              <Button onClick={stopExternalQrScan} className="mt-4" variant="secondary">
+                {t('cancel_scan')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-black opacity-50"></div>
+              <div className="relative z-10 text-white text-lg">
+                {t('scanning_for_qr_code')}
+                <Button onClick={stopExternalQrScan} className="mt-4 block mx-auto" variant="secondary">
                   {t('cancel_scan')}
                 </Button>
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 bg-black opacity-50"></div>
-                <div className="relative z-10 text-white text-lg">
-                  {t('scanning_for_qr_code')}
-                  <Button onClick={stopExternalQrScan} className="mt-4 block mx-auto" variant="secondary">
-                    {t('cancel_scan')}
-                  </Button>
-                  <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
-                    <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
-                    {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
+                  <Flashlight className={`mr-2 h-4 w-4 ${isTorchOn ? 'text-yellow-400' : ''}`} />
+                  {isTorchOn ? t('turn_flashlight_off') : t('turn_flashlight_on')}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
 
         <Card className={`w-full max-w-4xl mx-auto ${isScanningExternalQr ? 'hidden' : ''}`}>
           <CardHeader>
@@ -603,9 +602,6 @@ const Workers = () => {
           <DialogContent className="sm:max-w-[350px] text-center">
             <DialogHeader>
               <DialogTitle>{t('qr_code_for', { workerName: qrCodeWorkerName })}</DialogTitle>
-              <DialogDescription>
-                {t('scan_this_qr_code')}
-              </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center p-4 space-y-4">
               {qrCodeDataToDisplay && (
