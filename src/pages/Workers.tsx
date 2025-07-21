@@ -460,7 +460,7 @@ const Workers = () => {
                   <DialogHeader>
                     <DialogTitle>{editingWorker ? t('edit_worker') : t('add_new_worker')}</DialogTitle>
                     <DialogDescription>
-                      {editingItem ? t('make_changes_to_worker') : t('add_new_worker_to_system')}
+                      {editingWorker ? t('make_changes_to_worker') : t('add_new_worker_to_system')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
