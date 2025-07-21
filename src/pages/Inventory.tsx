@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch'; // Import Switch component
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -19,13 +20,14 @@ interface Item {
   quantity: number;
   image_url: string | null;
   image?: File | null;
-  low_stock_threshold: number | null; // New field
-  critical_stock_threshold: number | null; // New field
+  low_stock_threshold: number | null;
+  critical_stock_threshold: number | null;
+  one_time_use: boolean; // New field
 }
 
 const Inventory = () => {
   const [items, setItems] = useState<Item[]>([]);
-  const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null, low_stock_threshold: 10, critical_stock_threshold: 5 });
+  const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sortKey, setSortKey] = useState<'name' | 'quantity' | 'movement'>('name');
@@ -43,7 +45,7 @@ const Inventory = () => {
     if (sortKey === 'movement') {
       const { data: itemsData, error: itemsError } = await supabase
         .from('items')
-        .select('*, low_stock_threshold, critical_stock_threshold'); // Select new fields
+        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use'); // Select new fields
 
       if (itemsError) {
         showError('Error fetching items: ' + itemsError.message);
@@ -79,7 +81,7 @@ const Inventory = () => {
     } else {
       const { data: directData, error: directError } = await supabase
         .from('items')
-        .select('*, low_stock_threshold, critical_stock_threshold') // Select new fields
+        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use') // Select new fields
         .order(sortKey, { ascending: sortDirection === 'asc' });
       data = directData;
       error = directError;
@@ -100,6 +102,14 @@ const Inventory = () => {
       setEditingItem({ ...editingItem, [name]: parsedValue });
     } else {
       setNewItem({ ...newItem, [name]: parsedValue });
+    }
+  };
+
+  const handleToggleChange = (checked: boolean) => {
+    if (editingItem) {
+      setEditingItem({ ...editingItem, one_time_use: checked });
+    } else {
+      setNewItem({ ...newItem, one_time_use: checked });
     }
   };
 
@@ -149,8 +159,9 @@ const Inventory = () => {
         description: newItem.description, 
         barcode: newItem.barcode, 
         quantity: newItem.quantity,
-        low_stock_threshold: newItem.low_stock_threshold, // Save new field
-        critical_stock_threshold: newItem.critical_stock_threshold // Save new field
+        low_stock_threshold: newItem.low_stock_threshold,
+        critical_stock_threshold: newItem.critical_stock_threshold,
+        one_time_use: newItem.one_time_use // Save new field
       }])
       .select()
       .single();
@@ -169,7 +180,7 @@ const Inventory = () => {
     }
 
     showSuccess('Item added successfully!');
-    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5 });
+    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
     setIsDialogOpen(false);
     fetchItems();
   };
@@ -193,8 +204,9 @@ const Inventory = () => {
         barcode: editingItem.barcode,
         quantity: editingItem.quantity,
         image_url: imageUrl,
-        low_stock_threshold: editingItem.low_stock_threshold, // Update new field
-        critical_stock_threshold: editingItem.critical_stock_threshold // Update new field
+        low_stock_threshold: editingItem.low_stock_threshold,
+        critical_stock_threshold: editingItem.critical_stock_threshold,
+        one_time_use: editingItem.one_time_use // Update new field
       })
       .eq('id', editingItem.id);
 
@@ -228,7 +240,7 @@ const Inventory = () => {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingItem(null);
-    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5 });
+    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
   };
 
   const getQuantityColorClass = (item: Item) => {
@@ -294,7 +306,7 @@ const Inventory = () => {
             </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => { setEditingItem(null); setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5 }); setIsDialogOpen(true); }}>
+                <Button onClick={() => { setEditingItem(null); setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false }); setIsDialogOpen(true); }}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
                 </Button>
               </DialogTrigger>
@@ -386,6 +398,18 @@ const Inventory = () => {
                       onChange={handleInputChange}
                       className="col-span-3"
                       placeholder="e.g., 5"
+                    />
+                  </div>
+                  {/* One-Time Use Toggle */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="one_time_use" className="text-right">
+                      One-Time Use
+                    </Label>
+                    <Switch
+                      id="one_time_use"
+                      checked={editingItem ? editingItem.one_time_use : newItem.one_time_use}
+                      onCheckedChange={handleToggleChange}
+                      className="col-span-3"
                     />
                   </div>
                   {/* End New Threshold Inputs */}

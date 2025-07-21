@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'; // Import ToggleGroup components
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { showSuccess, showError } from '@/utils/toast';
 import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,13 +23,14 @@ interface Item {
   description: string | null;
   barcode: string | null;
   quantity: number;
+  one_time_use: boolean; // Added one_time_use to Item interface
 }
 
 interface Transaction {
   id: string;
   item_id: string;
   worker_id: string;
-  type: 'takeout' | 'return'; // Explicitly define type
+  type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
   items: { name: string };
@@ -42,7 +43,7 @@ const WorkerTransaction = () => {
   const [itemBarcodeInput, setItemBarcodeInput] = useState('');
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
   const [quantityToChange, setQuantityToChange] = useState(1);
-  const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout'); // New state for transaction type
+  const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -54,14 +55,14 @@ const WorkerTransaction = () => {
         .from('transactions')
         .select('*, items(name), workers(name)')
         .order('timestamp', { ascending: false })
-        .limit(5); // Show last 5 transactions
+        .limit(5);
 
       if (error) {
         throw new Error(error.message);
       }
       return data as Transaction[];
     },
-    staleTime: 1000 * 10, // Refresh history every 10 seconds
+    staleTime: 1000 * 10,
   });
 
   useEffect(() => {
@@ -99,7 +100,7 @@ const WorkerTransaction = () => {
 
     const { data, error } = await supabase
       .from('items')
-      .select('*')
+      .select('*, one_time_use') // Select one_time_use
       .eq('barcode', itemBarcodeInput)
       .single();
 
@@ -109,6 +110,11 @@ const WorkerTransaction = () => {
     } else {
       setScannedItem(data);
       showSuccess(`Item "${data.name}" found!`);
+      // If item is one-time use, force transaction type to takeout
+      if (data.one_time_use) {
+        setTransactionType('takeout');
+        showError('This is a one-time use item, only takeout is allowed.');
+      }
     }
   };
 
@@ -123,6 +129,12 @@ const WorkerTransaction = () => {
     }
     if (quantityToChange <= 0) {
       showError('Quantity must be greater than zero.');
+      return;
+    }
+
+    // Prevent return if item is one-time use
+    if (scannedItem.one_time_use && transactionType === 'return') {
+      showError('Cannot return a one-time use item.');
       return;
     }
 
@@ -155,33 +167,29 @@ const WorkerTransaction = () => {
         {
           worker_id: scannedWorker.id,
           item_id: scannedItem.id,
-          type: transactionType, // Use the selected transaction type
+          type: transactionType,
           quantity: quantityToChange,
         },
       ])
-      .select('*, items(name), workers(name)') // Select the joined data immediately
-      .single(); // Expect a single result
+      .select('*, items(name), workers(name)')
+      .single();
 
     if (transactionError) {
       showError('Error recording transaction: ' + transactionError.message);
-      // Optionally, revert item quantity if transaction fails
       await supabase.from('items').update({ quantity: scannedItem.quantity }).eq('id', scannedItem.id);
       return;
     }
 
     showSuccess(`Recorded ${quantityToChange} of "${scannedItem.name}" ${transactionType === 'takeout' ? 'taken by' : 'returned by'} "${scannedWorker.name}".`);
-    // Update local state for current item
     setScannedItem({ ...scannedItem, quantity: newQuantity });
 
-    // Optimistically update the query cache for transactions history
     if (insertedTransaction) {
       queryClient.setQueryData<Transaction[]>(['transactions'], (oldData) => {
         const updatedData = oldData ? [insertedTransaction, ...oldData] : [insertedTransaction];
-        return updatedData.slice(0, 5); // Maintain the limit of 5
+        return updatedData.slice(0, 5);
       });
     }
 
-    // Still refetch as a fallback for consistency
     queryClient.refetchQueries({ queryKey: ['transactions'] });
   };
 
@@ -191,9 +199,9 @@ const WorkerTransaction = () => {
     setItemBarcodeInput('');
     setScannedItem(null);
     setQuantityToChange(1);
-    setTransactionType('takeout'); // Reset to default
+    setTransactionType('takeout');
     showSuccess('Transaction session cleared. Ready for new entry!');
-    queryClient.refetchQueries({ queryKey: ['transactions'] }); // Refetch history on done
+    queryClient.refetchQueries({ queryKey: ['transactions'] });
   };
 
   const incrementQuantity = () => {
@@ -201,7 +209,7 @@ const WorkerTransaction = () => {
   };
 
   const decrementQuantity = () => {
-    setQuantityToChange(prev => Math.max(1, prev - 1)); // Ensure quantity doesn't go below 1
+    setQuantityToChange(prev => Math.max(1, prev - 1));
   };
 
   return (
@@ -226,7 +234,13 @@ const WorkerTransaction = () => {
             <ToggleGroup
               type="single"
               value={transactionType}
-              onValueChange={(value: 'takeout' | 'return') => value && setTransactionType(value)}
+              onValueChange={(value: 'takeout' | 'return') => {
+                if (scannedItem?.one_time_use && value === 'return') {
+                  showError('Cannot set to return for a one-time use item.');
+                  return;
+                }
+                value && setTransactionType(value);
+              }}
               className="flex justify-center gap-4"
             >
               <ToggleGroupItem 
@@ -239,6 +253,7 @@ const WorkerTransaction = () => {
               <ToggleGroupItem 
                 value="return" 
                 aria-label="Toggle return" 
+                disabled={scannedItem?.one_time_use} // Disable if one-time use
                 className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200"
               >
                 Return
@@ -299,6 +314,9 @@ const WorkerTransaction = () => {
                 <p><strong>Description:</strong> {scannedItem.description || 'N/A'}</p>
                 <p><strong>Current Quantity:</strong> {scannedItem.quantity}</p>
                 <p><strong>Barcode:</strong> {scannedItem.barcode}</p>
+                {scannedItem.one_time_use && (
+                  <p className="text-sm text-red-500 font-semibold">This is a ONE-TIME USE item.</p>
+                )}
 
                 <div className="space-y-2 mt-4">
                   <Label htmlFor="quantityToChange">Quantity to {transactionType === 'takeout' ? 'Take' : 'Return'}:</Label>
