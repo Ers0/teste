@@ -58,7 +58,7 @@ const ScanItem = () => {
                 { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
                 /* verbose= */ false
               );
-              html5QrCodeScannerRef.current = html5QrcodeScanner;
+              html5QrcodeScannerRef.current = html5QrcodeScanner;
 
               html5QrcodeScanner.render(
                 (decodedText) => {
@@ -196,7 +196,8 @@ const ScanItem = () => {
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
             {isWeb ? (
               <>
-                <div id="reader" className="w-full max-w-md h-auto aspect-video bg-black rounded-lg overflow-hidden"></div>
+                {/* Removed bg-black and added min-h-[250px] for visibility */}
+                <div id="reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
                 <Button onClick={stopScan} className="mt-4" variant="secondary">
                   Cancel Scan
                 </Button>
