@@ -238,6 +238,7 @@ const ScanItem = () => {
   };
 
   const fetchItemByBarcode = async (scannedBarcode: string) => {
+    console.log("Attempting to fetch item with barcode:", scannedBarcode);
     const { data, error } = await supabase
       .from('items')
       .select('*')
@@ -245,11 +246,21 @@ const ScanItem = () => {
       .single();
 
     if (error) {
-      showError('Item not found. You can add it as a new item.');
-      setItem(null);
-      setNewItemDetails({ ...initialNewItemState, barcode: scannedBarcode });
-      setShowNewItemDialog(true);
+      console.error("Error fetching item:", error);
+      // Check if the error is specifically because no rows were found (PGRST116)
+      if (error.code === 'PGRST116') {
+        showError('Item not found. You can add it as a new item.');
+        setItem(null);
+        setNewItemDetails({ ...initialNewItemState, barcode: scannedBarcode });
+        setShowNewItemDialog(true);
+      } else {
+        // For other types of errors (e.g., network, database issues), just show an error toast
+        showError('Error fetching item: ' + error.message);
+        setItem(null);
+        setShowNewItemDialog(false); // Ensure dialog is not shown for other errors
+      }
     } else {
+      console.log("Item found:", data);
       setItem(data);
       showSuccess(`Item "${data.name}" found!`);
       setShowNewItemDialog(false);
