@@ -74,15 +74,21 @@ const Workers = () => {
     setIsWeb(currentIsWeb);
 
     const stopAllScanners = async () => {
+      console.log("Stopping all scanners...");
       if (html5QrCodeScannerRef.current) {
-        await html5QrCodeScannerRef.current.stop().catch(error => {
+        try {
+          await html5QrCodeScannerRef.current.stop();
+          console.log("Html5Qrcode stopped.");
+        } catch (error) {
           console.error("Failed to stop html5Qrcode: ", error);
-        });
-        html5QrCodeScannerRef.current = null;
+        } finally {
+          html5QrCodeScannerRef.current = null;
+        }
       }
       try {
         if (!currentIsWeb) {
           await BarcodeScanner.stopScan();
+          console.log("Native BarcodeScanner stopped.");
           await BarcodeScanner.showBackground();
           if (isTorchOn) {
             await BarcodeScanner.disableTorch();
@@ -94,56 +100,74 @@ const Workers = () => {
       } finally {
         setBodyBackground('');
         removeCssClass('barcode-scanner-active');
+        console.log("Scanner cleanup complete.");
       }
     };
 
     if (scanningQr) {
+      console.log("Starting QR scan...");
       if (currentIsWeb) {
         const startWebScanner = async () => {
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
+              console.log("Cameras found:", cameras);
               let cameraId = cameras[0].id;
               const backCamera = cameras.find(camera => camera.label.toLowerCase().includes('back') || camera.label.toLowerCase().includes('environment'));
               if (backCamera) {
                 cameraId = backCamera.id;
+                console.log("Using back camera:", backCamera.label);
               } else if (cameras.length > 1) {
                 cameraId = cameras[1].id;
               }
 
               const readerElement = document.getElementById("worker-qr-scanner-reader");
               if (readerElement) {
-                const html5Qrcode = new Html5Qrcode("worker-qr-scanner-reader");
-                html5QrCodeScannerRef.current = html5Qrcode;
+                console.log("Found worker-qr-scanner-reader element.");
+                // Add a small delay to ensure the DOM element is fully rendered and ready
+                setTimeout(async () => {
+                    const html5Qrcode = new Html5Qrcode("worker-qr-scanner-reader");
+                    html5QrCodeScannerRef.current = html5Qrcode;
 
-                await html5Qrcode.start(
-                  cameraId,
-                  { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                  (decodedText) => {
-                    console.log("Web QR scan successful:", decodedText);
-                    if (editingWorker) {
-                      setEditingWorker({ ...editingWorker, qr_code_data: decodedText });
-                    } else {
-                      setNewWorker({ ...newWorker, qr_code_data: decodedText });
+                    try {
+                        await html5Qrcode.start(
+                            cameraId,
+                            { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                            (decodedText) => {
+                                console.log("Web QR scan successful:", decodedText);
+                                if (editingWorker) {
+                                    setEditingWorker({ ...editingWorker, qr_code_data: decodedText });
+                                } else {
+                                    setNewWorker({ ...newWorker, qr_code_data: decodedText });
+                                }
+                                playBeep();
+                                setScanningQr(false);
+                            },
+                            (errorMessage) => {
+                                console.warn(`QR Code Scan Error: ${errorMessage}`);
+                            }
+                        );
+                        console.log("Html5Qrcode.start() called.");
+                    } catch (err: any) {
+                        const errorMessage = err instanceof Error ? err.message : String(err);
+                        console.error("Caught error during Html5Qrcode.start():", err);
+                        showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
+                        setScanningQr(false);
                     }
-                    playBeep();
-                    setScanningQr(false);
-                  },
-                  (errorMessage) => {
-                    console.warn(`QR Code Scan Error: ${errorMessage}`);
-                  }
-                );
+                }, 100); // 100ms delay
               } else {
                 console.error("HTML Element with id=worker-qr-scanner-reader not found during web scan start attempt.");
                 showError(t('camera_display_area_not_found'));
                 setScanningQr(false);
               }
             } else {
+              console.warn("No cameras found by Html5Qrcode.getCameras().");
               showError(t('no_camera_found_access_denied'));
               setScanningQr(false);
             }
           } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : String(err);
+            console.error("Caught error during web camera start:", err);
             showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
             setScanningQr(false);
           }
@@ -183,7 +207,7 @@ const Workers = () => {
     return () => {
       stopAllScanners();
     };
-  }, [scanningQr, isWeb, editingWorker, newWorker]); // Added editingWorker and newWorker to dependencies
+  }, [scanningQr, isWeb, isTorchOn, t]); // Optimized dependencies
 
   const checkPermission = async () => {
     const status = await BarcodeScanner.checkPermission({ force: true });
