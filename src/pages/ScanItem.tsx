@@ -58,7 +58,7 @@ const ScanItem = () => {
                 { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
                 /* verbose= */ false
               );
-              html5QrcodeScannerRef.current = html5QrcodeScanner;
+              html5QrCodeScannerRef.current = html5QrcodeScanner;
 
               html5QrcodeScanner.render(
                 (decodedText) => {
