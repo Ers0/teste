@@ -46,6 +46,8 @@ interface Transaction {
   items: { name: string };
   workers: { name: string };
   user_id: string; // Added user_id
+  authorized_by: string | null; // New field
+  given_by: string | null;      // New field
 }
 
 const WorkerTransaction = () => {
@@ -61,6 +63,8 @@ const WorkerTransaction = () => {
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
   const [quantityToChange, setQuantityToChange] = useState(1);
   const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
+  const [authorizedBy, setAuthorizedBy] = useState(''); // New state for authorized_by
+  const [givenBy, setGivenBy] = useState('');           // New state for given_by
   const [activeTab, setActiveTab] = useState('transaction-form'); // State for active tab
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -520,7 +524,9 @@ const WorkerTransaction = () => {
           item_id: scannedItem.id,
           type: transactionType,
           quantity: quantityToChange,
-          user_id: user.id // Set user_id
+          user_id: user.id, // Set user_id
+          authorized_by: authorizedBy.trim() || null, // Include new fields
+          given_by: givenBy.trim() || null,           // Include new fields
         },
       ])
       .select('*, items(name), workers(name)')
@@ -558,6 +564,8 @@ const WorkerTransaction = () => {
     setScannedItem(null);
     setQuantityToChange(1);
     setTransactionType('takeout');
+    setAuthorizedBy(''); // Clear new fields
+    setGivenBy('');       // Clear new fields
     showSuccess(t('transaction_session_cleared'));
     queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
     queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user?.id] }); // Refetch outstanding takeouts
@@ -722,7 +730,7 @@ const WorkerTransaction = () => {
                 </div>
 
                 {/* Item Scan Section */}
-                <div className="space-y-4">
+                <div className="space-y-4 border-b pb-4">
                   <h3 className="text-lg font-semibold flex items-center">
                     <Package className="mr-2 h-5 w-5" /> {t('item_information')}
                   </h3>
@@ -799,15 +807,44 @@ const WorkerTransaction = () => {
                             <Plus className="h-4 w-4" />
                           </Button>
                         </div>
-                        <Button onClick={handleRecordTransaction} className="w-full" disabled={!scannedWorker || !scannedItem}>
-                          {t(transactionType === 'takeout' ? 'record_takeout' : 'record_return')}
-                        </Button>
                       </div>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleClearItem}>
                         {t('change_item')}
                       </Button>
                     </div>
                   )}
+                </div>
+
+                {/* New Fields: Authorized By and Given By */}
+                <div className="space-y-4 border-b pb-4">
+                  <h3 className="text-lg font-semibold">{t('transaction_details')}</h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="authorizedBy">{t('authorized_by')}</Label>
+                    <Input
+                      id="authorizedBy"
+                      type="text"
+                      placeholder={t('enter_authorizer_name')}
+                      value={authorizedBy}
+                      onChange={(e) => setAuthorizedBy(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="givenBy">{t('given_by')}</Label>
+                    <Input
+                      id="givenBy"
+                      type="text"
+                      placeholder={t('enter_giver_name')}
+                      value={givenBy}
+                      onChange={(e) => setGivenBy(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Record Transaction Button */}
+                <div className="pt-4">
+                  <Button onClick={handleRecordTransaction} className="w-full" disabled={!scannedWorker || !scannedItem}>
+                    {t(transactionType === 'takeout' ? 'record_takeout' : 'record_return')}
+                  </Button>
                 </div>
 
                 {/* Done Button */}
@@ -843,6 +880,8 @@ const WorkerTransaction = () => {
                             </span>
                           </p>
                           <p><strong>{t('quantity')}:</strong> {transaction.quantity}</p>
+                          {transaction.authorized_by && <p><strong>{t('authorized_by')}:</strong> {transaction.authorized_by}</p>}
+                          {transaction.given_by && <p><strong>{t('given_by')}:</strong> {transaction.given_by}</p>}
                           <p className="text-xs text-gray-500">
                             {new Date(transaction.timestamp).toLocaleString()}
                           </p>
@@ -870,6 +909,8 @@ const WorkerTransaction = () => {
                         <p><strong>{t('worker')}:</strong> {transaction.workers?.name || 'N/A'}</p>
                         <p><strong>{t('item')}:</strong> {transaction.items?.name || 'N/A'}</p>
                         <p><strong>{t('quantity')}:</strong> {transaction.quantity}</p>
+                        {transaction.authorized_by && <p><strong>{t('authorized_by')}:</strong> {transaction.authorized_by}</p>}
+                        {transaction.given_by && <p><strong>{t('given_by')}:</strong> {transaction.given_by}</p>}
                         <p className="text-xs text-gray-500">
                           {t('taken_on')}: {new Date(transaction.timestamp).toLocaleString()}
                         </p>

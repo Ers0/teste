@@ -215,5 +215,10 @@
   "select_item_from_results": "Select an item from the results",
   "item_selected": "Item selected: {{itemName}}",
   "item_selection_cleared": "Item selection cleared.",
-  "no_barcode": "No Barcode"
+  "no_barcode": "No Barcode",
+  "transaction_details": "Transaction Details",
+  "authorized_by": "Authorized By",
+  "enter_authorizer_name": "Enter name of person who authorized",
+  "given_by": "Given By",
+  "enter_giver_name": "Enter name of person who gave item"
 }
