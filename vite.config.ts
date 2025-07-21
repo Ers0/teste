@@ -15,6 +15,6 @@ export default defineConfig(() => ({
     },
   },
   optimizeDeps: {
-    exclude: ['qrcode.react'], // Exclude qrcode.react from dependency pre-bundling
+    exclude: [], // Removed 'qrcode.react' from exclusion
   },
 }));
