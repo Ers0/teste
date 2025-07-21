@@ -299,9 +299,9 @@ const Workers = () => {
                         id="qr_code_data"
                         name="qr_code_data"
                         value={currentQrCodeData || ''}
-                        readOnly // Make it read-only
+                        onChange={handleInputChange} // Make it editable
                         className="flex-grow"
-                        placeholder={t('qr_code_data_generated')}
+                        placeholder={t('enter_qr_code_or_generate')}
                       />
                       <Button type="button" variant="outline" size="icon" onClick={handleGenerateNewQrCode}>
                         <RefreshCw className="h-4 w-4" />

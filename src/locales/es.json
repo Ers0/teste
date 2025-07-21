@@ -62,7 +62,7 @@
   "add_new_worker_to_system": "Añade un nuevo trabajador a tu sistema.",
   "company": "Empresa",
   "qr_code_data": "Datos de Código QR",
-  "qr_code_data_generated": "Los datos del código QR se generarán",
+  "enter_qr_code_or_generate": "Introducir datos de código QR o generar nuevo",
   "download_qr_code": "Descargar Código QR",
   "generate_new_qr_code": "Generar Nuevo Código QR",
   "photo": "Foto",
