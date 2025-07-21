@@ -11,7 +11,7 @@ import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon } from 
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
-import QRCode from 'qrcode.react';
+import { QRCode } from 'qrcode.react'; // Corrected import: named import
 import { v4 as uuidv4 } from 'uuid'; // For generating unique QR code data
 
 interface Worker {
