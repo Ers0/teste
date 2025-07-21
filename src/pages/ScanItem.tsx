@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { Capacitor } from '@capacitor/core'; // Import Capacitor to check platform
-import { Html5QrcodeScanner } from 'html5-qrcode'; // Import html5-qrcode
+import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode'; // Import Html5Qrcode
 
 const ScanItem = () => {
   const [barcode, setBarcode] = useState('');
@@ -51,32 +51,40 @@ const ScanItem = () => {
         // Web scanning logic using html5-qrcode
         const startWebScanner = async () => {
           try {
-            const readerElement = document.getElementById("reader");
-            if (readerElement) {
-              const html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader",
-                { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                /* verbose= */ false
-              );
-              html5QrCodeScannerRef.current = html5QrcodeScanner;
+            // Explicitly check for camera permissions and availability
+            const cameras = await Html5Qrcode.getCameras();
+            if (cameras && cameras.length > 0) {
+              const readerElement = document.getElementById("reader");
+              if (readerElement) {
+                const html5QrcodeScanner = new Html5QrcodeScanner(
+                  "reader",
+                  { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                  /* verbose= */ false
+                );
+                html5QrCodeScannerRef.current = html5QrcodeScanner;
 
-              html5QrcodeScanner.render(
-                (decodedText) => {
-                  setBarcode(decodedText);
-                  fetchItemByBarcode(decodedText);
-                  setScanning(false); // Stop scanning after successful scan
-                },
-                (errorMessage) => {
-                  // console.warn(`QR Code Scan Error: ${errorMessage}`);
-                }
-              );
+                html5QrcodeScanner.render(
+                  (decodedText) => {
+                    setBarcode(decodedText);
+                    fetchItemByBarcode(decodedText);
+                    setScanning(false); // Stop scanning after successful scan
+                  },
+                  (errorMessage) => {
+                    // console.warn(`QR Code Scan Error: ${errorMessage}`);
+                  }
+                );
+              } else {
+                console.error("HTML Element with id=reader not found during web scan start attempt.");
+                showError("Camera display area not found. Please try again.");
+                setScanning(false);
+              }
             } else {
-              console.error("HTML Element with id=reader not found during web scan start attempt.");
+              showError("No camera found or camera access denied. Please ensure you have a camera and grant permission.");
               setScanning(false);
             }
           } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            showError('Error starting web camera scan: ' + errorMessage);
+            showError('Error starting web camera scan: ' + errorMessage + '. Please check camera permissions and ensure no other app is using the camera.');
             setScanning(false);
           }
         };
