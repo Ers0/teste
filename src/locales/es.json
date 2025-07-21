@@ -220,5 +220,21 @@
   "authorized_by": "Autorizado Por",
   "enter_authorizer_name": "Introduce el nombre de la persona que autorizó",
   "given_by": "Dado Por",
-  "enter_giver_name": "Introduce el nombre de la persona que entregó el artículo"
+  "enter_giver_name": "Introduce el nombre de la persona que entregó el artículo",
+  "restock": "Reabastecimiento",
+  "record": "Registrar",
+  "recorded_transaction_success_general": "Registrado {{quantity}} {{itemName}} {{type}}.",
+  "transactions_history_title": "Historial de Transacciones",
+  "all_transactions_overview": "Resumen de todas las transacciones de inventario.",
+  "filter_by_type": "Filtrar por Tipo",
+  "all_types": "Todos los Tipos",
+  "filter_by_item": "Filtrar por Artículo",
+  "all_items": "Todos los Artículos",
+  "filter_by_worker": "Filtrar por Trabajador",
+  "all_workers": "Todos los Trabajadores",
+  "search_transactions": "Buscar transacciones",
+  "item_name": "Nombre del Artículo",
+  "worker_name": "Nombre del Trabajador",
+  "timestamp": "Fecha y Hora",
+  "no_transactions_found": "No se encontraron transacciones."
 }

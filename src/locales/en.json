@@ -220,5 +220,21 @@
   "authorized_by": "Authorized By",
   "enter_authorizer_name": "Enter name of person who authorized",
   "given_by": "Given By",
-  "enter_giver_name": "Enter name of person who gave item"
+  "enter_giver_name": "Enter name of person who gave item",
+  "restock": "Restock",
+  "record": "Record",
+  "recorded_transaction_success_general": "Recorded {{quantity}} {{itemName}} {{type}}.",
+  "transactions_history_title": "Transactions History",
+  "all_transactions_overview": "Overview of all inventory transactions.",
+  "filter_by_type": "Filter by Type",
+  "all_types": "All Types",
+  "filter_by_item": "Filter by Item",
+  "all_items": "All Items",
+  "filter_by_worker": "Filter by Worker",
+  "all_workers": "All Workers",
+  "search_transactions": "Search transactions",
+  "item_name": "Item Name",
+  "worker_name": "Worker Name",
+  "timestamp": "Timestamp",
+  "no_transactions_found": "No transactions found."
 }

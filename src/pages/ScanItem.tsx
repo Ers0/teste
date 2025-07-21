@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle } from 'lucide-react';
+import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle, History as HistoryIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
 import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'; // Import ToggleGroup
 
 interface Item {
   id: string;
@@ -47,7 +48,10 @@ const ScanItem = () => {
   const { user } = useAuth(); // Get the current user
   const [barcode, setBarcode] = useState('');
   const [item, setItem] = useState<Item | null>(null);
-  const [quantityChange, setQuantityChange] = useState(0);
+  const [quantityChange, setQuantityChange] = useState(1); // Default to 1 for restock
+  const [transactionMode, setTransactionMode] = useState<'restock' | 'takeout'>('restock'); // New state for transaction mode
+  const [authorizedBy, setAuthorizedBy] = useState('');
+  const [givenBy, setGivenBy] = useState('');
   const [scanning, setScanning] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -64,29 +68,6 @@ const ScanItem = () => {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(e => console.error("Error playing sound:", e));
     }
-  };
-
-  const uploadImage = async (file: File | null, itemId: string) => {
-    if (!file) return null;
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${itemId}.${fileExt}`;
-    const filePath = `item_images/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('inventory-images')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      showError(t('error_uploading_image') + uploadError.message);
-      return null;
-    }
-
-    const { data } = supabase.storage.from('inventory-images').getPublicUrl(filePath);
-    return data.publicUrl;
   };
 
   useEffect(() => {
@@ -213,7 +194,10 @@ const ScanItem = () => {
   const startScan = () => {
     setBarcode('');
     setItem(null);
-    setQuantityChange(0);
+    setQuantityChange(1); // Reset quantity change to 1
+    setTransactionMode('restock'); // Default to restock
+    setAuthorizedBy('');
+    setGivenBy('');
     setScanning(true);
     setShowNewItemDialog(false);
   };
@@ -273,11 +257,13 @@ const ScanItem = () => {
       console.log("Item found:", data);
       setItem(data);
       showSuccess(t('item_found', { itemName: data.name }));
+      setTransactionMode('restock'); // Automatically mark as restock
+      setQuantityChange(1); // Default restock quantity to 1
       setShowNewItemDialog(false);
     }
   };
 
-  const handleQuantityUpdate = async (type: 'add' | 'remove') => {
+  const handleRecordTransaction = async () => {
     if (!item) {
       showError(t('no_item_selected_update'));
       return;
@@ -292,9 +278,9 @@ const ScanItem = () => {
     }
 
     let newQuantity = item.quantity;
-    if (type === 'add') {
+    if (transactionMode === 'restock') {
       newQuantity += quantityChange;
-    } else {
+    } else { // transactionMode === 'takeout'
       if (item.quantity < quantityChange) {
         showError(t('cannot_remove_more_than_available', { available: item.quantity }));
         return;
@@ -302,20 +288,46 @@ const ScanItem = () => {
       newQuantity -= quantityChange;
     }
 
-    const { error } = await supabase
+    // Update item quantity
+    const { error: updateError } = await supabase
       .from('items')
       .update({ quantity: newQuantity })
       .eq('id', item.id)
-      .eq('user_id', user.id); // Ensure user_id is maintained/updated
+      .eq('user_id', user.id);
 
-    if (error) {
-      showError(t('error_updating_quantity') + error.message);
-    } else {
-      showSuccess(t('quantity_updated_successfully', { newQuantity }));
-      setItem({ ...item, quantity: newQuantity });
-      setQuantityChange(0);
-      setBarcode('');
+    if (updateError) {
+      showError(t('error_updating_item_quantity') + updateError.message);
+      return;
     }
+
+    // Record transaction
+    const { error: transactionError } = await supabase
+      .from('transactions')
+      .insert([
+        {
+          item_id: item.id,
+          worker_id: null, // No worker for general restock/takeout from this page
+          type: transactionMode, // 'restock' or 'takeout'
+          quantity: quantityChange,
+          user_id: user.id,
+          authorized_by: authorizedBy.trim() || null,
+          given_by: givenBy.trim() || null,
+        },
+      ]);
+
+    if (transactionError) {
+      showError(t('error_recording_transaction') + transactionError.message);
+      // Rollback item quantity if transaction fails
+      await supabase.from('items').update({ quantity: item.quantity }).eq('id', item.id).eq('user_id', user.id);
+      return;
+    }
+
+    showSuccess(t('recorded_transaction_success_general', { quantity: quantityChange, itemName: item.name, type: t(transactionMode) }));
+    setItem({ ...item, quantity: newQuantity });
+    setQuantityChange(1);
+    setBarcode('');
+    setAuthorizedBy('');
+    setGivenBy('');
   };
 
   const handleNewItemInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -332,6 +344,29 @@ const ScanItem = () => {
     if (e.target.files && e.target.files[0]) {
       setNewItemDetails({ ...newItemDetails, image: e.target.files[0] });
     }
+  };
+
+  const uploadImage = async (file: File | null, itemId: string) => {
+    if (!file) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${itemId}.${fileExt}`;
+    const filePath = `item_images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('inventory-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      showError(t('error_uploading_image') + uploadError.message);
+      return null;
+    }
+
+    const { data } = supabase.storage.from('inventory-images').getPublicUrl(filePath);
+    return data.publicUrl;
   };
 
   const handleAddNewItem = async () => {
@@ -377,6 +412,14 @@ const ScanItem = () => {
     setShowNewItemDialog(false);
     setBarcode('');
     setItem(null);
+  };
+
+  const incrementQuantity = () => {
+    setQuantityChange(prev => prev + 1);
+  };
+
+  const decrementQuantity = () => {
+    setQuantityChange(prev => Math.max(1, prev - 1));
   };
 
   return (
@@ -450,23 +493,74 @@ const ScanItem = () => {
                 <p><strong>{t('barcode')}:</strong> {item.barcode}</p>
 
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="quantityChange">{t('change_quantity_by')}</Label>
-                  <Input
-                    id="quantityChange"
-                    type="number"
-                    value={quantityChange}
-                    onChange={(e) => setQuantityChange(parseInt(e.target.value) || 0)}
-                    min="0"
-                  />
-                  <div className="flex gap-2">
-                    <Button onClick={() => handleQuantityUpdate('add')} className="flex-1">
-                      <Plus className="mr-2 h-4 w-4" /> {t('add')}
+                  <Label htmlFor="transactionMode">{t('transaction_type')}:</Label>
+                  <ToggleGroup
+                    type="single"
+                    value={transactionMode}
+                    onValueChange={(value: 'restock' | 'takeout') => value && setTransactionMode(value)}
+                    className="flex justify-center gap-4"
+                  >
+                    <ToggleGroupItem
+                      value="restock"
+                      aria-label="Toggle restock"
+                      className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200"
+                    >
+                      {t('restock')}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                      value="takeout"
+                      aria-label="Toggle takeout"
+                      className="flex-1 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:dark:bg-red-900 data-[state=on]:dark:text-red-200"
+                    >
+                      {t('takeout')}
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="quantityChange">{t('quantity_to_change', { type: t(transactionMode) })}</Label>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={decrementQuantity} disabled={quantityChange <= 1}>
+                      <Minus className="h-4 w-4" />
                     </Button>
-                    <Button onClick={() => handleQuantityUpdate('remove')} variant="destructive" className="flex-1">
-                      <Minus className="mr-2 h-4 w-4" /> {t('remove')}
+                    <Input
+                      id="quantityChange"
+                      type="number"
+                      value={quantityChange}
+                      onChange={(e) => setQuantityChange(parseInt(e.target.value) || 1)}
+                      min="1"
+                      className="text-center"
+                    />
+                    <Button variant="outline" size="icon" onClick={incrementQuantity}>
+                      <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="authorizedBy">{t('authorized_by')}</Label>
+                  <Input
+                    id="authorizedBy"
+                    type="text"
+                    placeholder={t('enter_authorizer_name')}
+                    value={authorizedBy}
+                    onChange={(e) => setAuthorizedBy(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="givenBy">{t('given_by')}</Label>
+                  <Input
+                    id="givenBy"
+                    type="text"
+                    placeholder={t('enter_giver_name')}
+                    value={givenBy}
+                    onChange={(e) => setGivenBy(e.target.value)}
+                  />
+                </div>
+
+                <Button onClick={handleRecordTransaction} className="w-full">
+                  {t('record')} {t(transactionMode)}
+                </Button>
               </div>
             )}
 
