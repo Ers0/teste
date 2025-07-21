@@ -68,10 +68,17 @@ const ScanItem = () => {
   };
 
   const stopScan = () => {
-    BarcodeScanner.stopScan();
-    setScanning(false);
-    setBodyBackground(''); // Reset body background
-    removeCssClass('barcode-scanner-active'); // Remove class from body
+    try {
+      BarcodeScanner.stopScan();
+      BarcodeScanner.showBackground(); // Ensure background is shown again
+    } catch (e) {
+      console.error("Error stopping barcode scanner:", e);
+      // We catch the error but still proceed to reset our component's state
+    } finally {
+      setScanning(false);
+      setBodyBackground(''); // Reset body background
+      removeCssClass('barcode-scanner-active'); // Remove class from body
+    }
   };
 
   const fetchItemByBarcode = async (scannedBarcode: string) => {
