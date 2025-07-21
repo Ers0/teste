@@ -184,5 +184,6 @@
   "outstanding_takeouts_description": "Estes são itens que foram retirados há mais de 24 horas.",
   "loading_outstanding_takeouts": "Carregando retiradas pendentes...",
   "no_outstanding_takeouts": "Nenhuma retirada pendente encontrada.",
-  "taken_on": "Retirado em"
+  "taken_on": "Retirado em",
+  "loading_application": "Carregando aplicativo..."
 }

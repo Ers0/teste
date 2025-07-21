@@ -10,9 +10,10 @@ import Inventory from "./pages/Inventory";
 import Workers from "./pages/Workers";
 import ScanItem from "./pages/ScanItem";
 import Settings from "./pages/Settings";
-import WorkerTransaction from "./pages/WorkerTransaction"; // Import the new WorkerTransaction page
+import WorkerTransaction from "./pages/WorkerTransaction";
 import { SessionContextProvider } from "./integrations/supabase/auth";
-import React, { useEffect } from "react"; // Import useEffect
+import ProtectedRoute from "./components/ProtectedRoute"; // Import ProtectedRoute
+import React, { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
@@ -33,15 +34,16 @@ const App = () => {
         <BrowserRouter>
           <SessionContextProvider>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/workers" element={<Workers />} />
-              <Route path="/scan-item" element={<ScanItem />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/record-takeout" element={<WorkerTransaction />} /> {/* Add the new WorkerTransaction route */}
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
+              <Route path="/login" element={<Login />} /> {/* Login page is not protected */}
+              <Route path="*" element={<NotFound />} /> {/* Catch-all for non-existent routes */}
+              
+              {/* Protected Routes */}
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+              <Route path="/workers" element={<ProtectedRoute><Workers /></ProtectedRoute>} />
+              <Route path="/scan-item" element={<ProtectedRoute><ScanItem /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/record-takeout" element={<ProtectedRoute><WorkerTransaction /></ProtectedRoute>} />
             </Routes>
           </SessionContextProvider>
         </BrowserRouter>
