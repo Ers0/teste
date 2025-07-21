@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode.react'; // Corrected import: default import
+import QRCode from 'qrcode'; // Changed import to the core qrcode library
 
 interface Worker {
   id: string;
@@ -25,11 +25,20 @@ const Workers = () => {
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
-  const qrCodeRef = useRef<HTMLDivElement>(null); // Ref for QR code download
+  const qrCodeRef = useRef<HTMLCanvasElement>(null); // Ref for QR code canvas
 
   useEffect(() => {
     fetchWorkers();
   }, []);
+
+  // Effect to draw QR code on canvas when currentQrCodeData changes
+  useEffect(() => {
+    if (qrCodeRef.current && currentQrCodeData) {
+      QRCode.toCanvas(qrCodeRef.current, currentQrCodeData, { scale: 4 }, function (error) {
+        if (error) console.error(error);
+      });
+    }
+  }, [currentQrCodeData]);
 
   const fetchWorkers = async () => {
     const { data, error } = await supabase.from('workers').select('*');
@@ -169,7 +178,7 @@ const Workers = () => {
 
   const handleDownloadQrCode = (workerName: string, qrData: string) => {
     if (qrCodeRef.current) {
-      const canvas = qrCodeRef.current.querySelector('canvas');
+      const canvas = qrCodeRef.current; // Direct reference to the canvas
       if (canvas) {
         const url = canvas.toDataURL('image/png');
         const link = document.createElement('a');
@@ -257,8 +266,8 @@ const Workers = () => {
                   </div>
                   {currentQrCodeData && (
                     <div className="col-span-4 flex flex-col items-center gap-2">
-                      <div ref={qrCodeRef} className="p-2 border rounded-md bg-white">
-                        <QRCode value={currentQrCodeData} size={128} level="H" />
+                      <div className="p-2 border rounded-md bg-white">
+                        <canvas ref={qrCodeRef} /> {/* Render QR code on canvas */}
                       </div>
                       <Button
                         variant="outline"
@@ -311,7 +320,18 @@ const Workers = () => {
                   <p className="text-sm text-gray-600 dark:text-gray-400"><strong>QR Data:</strong> {worker.qr_code_data || 'N/A'}</p>
                   {worker.qr_code_data && (
                     <div className="mt-2 flex justify-center">
-                      <QRCode value={worker.qr_code_data} size={64} level="L" />
+                      {/* Render QR code for display in the list */}
+                      <canvas
+                        ref={(el) => {
+                          if (el && worker.qr_code_data) {
+                            QRCode.toCanvas(el, worker.qr_code_data, { scale: 2 }, function (error) {
+                              if (error) console.error(error);
+                            });
+                          }
+                        }}
+                        width={64}
+                        height={64}
+                      />
                     </div>
                   )}
                 </CardContent>
