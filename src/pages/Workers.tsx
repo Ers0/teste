@@ -336,7 +336,7 @@ const Workers = () => {
 
     let photoUrl = null;
     if (newWorker.photo && insertedWorker) {
-      photoUrl = await uploadImage(newWorker.photo, insertedWorker.id);
+      photoUrl = await uploadPhoto(newWorker.photo, insertedWorker.id); // Changed from uploadImage to uploadPhoto
       if (photoUrl) {
         await supabase.from('workers').update({ photo_url: photoUrl }).eq('id', insertedWorker.id);
       }
@@ -439,7 +439,7 @@ const Workers = () => {
   };
 
   return (
-    <>
+    <div> {/* Changed from <> to <div> */}
       <audio ref={audioRef} src={beepSound} preload="auto" />
       {scanningQr && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
@@ -636,7 +636,7 @@ const Workers = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div> // Changed from </> to </div>
   );
 };
 
