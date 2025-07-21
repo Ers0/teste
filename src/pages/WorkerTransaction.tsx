@@ -91,10 +91,14 @@ const WorkerTransaction = () => {
 
     const stopAllScanners = async () => {
       if (html5QrCodeScannerRef.current) {
-        await html5QrCodeScannerRef.current.stop().catch(error => {
-          console.error("Failed to stop html5Qrcode: ", error);
-        });
-        html5QrCodeScannerRef.current = null;
+        try {
+          await html5QrCodeScannerRef.current.stop();
+          html5QrCodeScannerRef.current.clear(); // Add clear here
+        } catch (error) {
+          console.error("Failed to stop or clear html5Qrcode: ", error);
+        } finally {
+          html5QrCodeScannerRef.current = null;
+        }
       }
       try {
         if (!currentIsWeb) {
@@ -131,7 +135,12 @@ const WorkerTransaction = () => {
               if (readerElement) {
                 // Add a small delay to ensure the DOM is ready
                 setTimeout(async () => {
-                  const html5Qrcode = new Html5Qrcode("worker-qr-reader");
+                  if (html5QrCodeScannerRef.current) { // Ensure no previous instance is running
+                    await html5QrCodeScannerRef.current.stop().catch(() => {}); // Stop if somehow still running
+                    html5QrCodeScannerRef.current.clear(); // Clear it
+                    html5QrCodeScannerRef.current = null;
+                  }
+                  const html5Qrcode = new Html5Qrcode(readerElement.id);
                   html5QrCodeScannerRef.current = html5Qrcode;
 
                   await html5Qrcode.start(
@@ -142,13 +151,14 @@ const WorkerTransaction = () => {
                       setWorkerQrCodeInput(decodedText);
                       handleScanWorker(decodedText);
                       playBeep();
-                      setScanningWorker(false);
+                      setScanningWorker(false); // This will trigger stopAllScanners
                     },
                     (errorMessage) => {
                       console.warn(`QR Code Scan Error: ${errorMessage}`);
+                      setScanningWorker(false); // This will trigger stopAllScanners
                     }
                   );
-                }, 100); // 100ms delay
+                }, 200); // Increased delay
               } else {
                 console.error("HTML Element with id=worker-qr-reader not found during web scan start attempt.");
                 showError(t('camera_display_area_not_found'));
