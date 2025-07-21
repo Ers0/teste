@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/client';
-import i18n from '@/i18n'; // Import i18n
+import i18n from '@/i18n';
 
 interface Profile {
   id: string;
@@ -14,9 +14,9 @@ interface Profile {
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  profile: Profile | null; // Add profile to context
-  loading: boolean; // Overall loading for auth and initial profile fetch
-  profileLoading: boolean; // Specific loading for profile
+  profile: Profile | null;
+  loading: boolean;
+  profileLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,9 +24,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null); // State for profile
-  const [loading, setLoading] = useState(true); // Overall loading for auth and initial profile fetch
-  const [profileLoading, setProfileLoading] = useState(true); // Specific loading for profile
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,76 +35,100 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('Auth State Change Event:', event, 'Session:', currentSession);
       setSession(currentSession);
       setUser(currentSession?.user || null);
-      setLoading(false); // Auth state is resolved
+      // setLoading(false); // Moved to finally block for initial check
 
       if (currentSession?.user) {
-        // User is logged in, fetch profile
         setProfileLoading(true);
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, language')
-          .eq('id', currentSession.user.id)
-          .limit(1)
-          .single(); // Use single to get object directly or null/error
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, language')
+            .eq('id', currentSession.user.id)
+            .limit(1)
+            .single();
 
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for new users
-          console.error('Error fetching profile:', profileError);
+          if (profileError && profileError.code !== 'PGRST116') {
+            console.error('Error fetching profile:', profileError);
+            setProfile(null);
+          } else {
+            setProfile(profileData || null);
+            i18n.changeLanguage(profileData?.language || 'en');
+          }
+        } catch (err) {
+          console.error('Unexpected error during profile fetch:', err);
           setProfile(null);
-        } else {
-          setProfile(profileData || null);
-          // Set language from profile or default to 'en'
-          i18n.changeLanguage(profileData?.language || 'en');
+        } finally {
+          setProfileLoading(false);
         }
-        setProfileLoading(false);
 
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           console.log('User signed in or updated, navigating to /');
-          navigate('/'); // Redirect authenticated users to the main page
+          navigate('/');
         }
       } else {
-        // User is signed out or no user
         setProfile(null);
         setProfileLoading(false);
-        i18n.changeLanguage('en'); // Reset language to default on sign out
+        i18n.changeLanguage('en');
         if (event === 'SIGNED_OUT') {
           console.log('User signed out, navigating to /login');
-          navigate('/login'); // Redirect unauthenticated users to the login page
+          navigate('/login');
         }
       }
     });
 
     // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      console.log('Initial getSession result:', currentSession);
-      setSession(currentSession);
-      setUser(currentSession?.user || null);
-      setLoading(false); // Auth state is resolved
+    const checkInitialSession = async () => {
+      try {
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        console.log('Initial getSession result:', currentSession, 'Error:', sessionError);
 
-      if (currentSession?.user) {
-        setProfileLoading(true);
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, language')
-          .eq('id', currentSession.user.id)
-          .limit(1)
-          .single();
+        setSession(currentSession);
+        setUser(currentSession?.user || null);
 
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Error fetching initial profile:', profileError);
-          setProfile(null);
+        if (currentSession?.user) {
+          setProfileLoading(true);
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, language')
+              .eq('id', currentSession.user.id)
+              .limit(1)
+              .single();
+
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.error('Error fetching initial profile:', profileError);
+              setProfile(null);
+            } else {
+              setProfile(profileData || null);
+              i18n.changeLanguage(profileData?.language || 'en');
+            }
+          } catch (err) {
+            console.error('Unexpected error during initial profile fetch:', err);
+            setProfile(null);
+          } finally {
+            setProfileLoading(false);
+          }
         } else {
-          setProfile(profileData || null);
-          i18n.changeLanguage(profileData?.language || 'en');
+          setProfile(null);
+          setProfileLoading(false);
+          i18n.changeLanguage('en');
+          console.log('No initial session found, navigating to /login');
+          navigate('/login');
         }
-        setProfileLoading(false);
-      } else {
+      } catch (err) {
+        console.error('Unexpected error during initial session check:', err);
+        setSession(null);
+        setUser(null);
         setProfile(null);
         setProfileLoading(false);
         i18n.changeLanguage('en');
-        console.log('No initial session found, navigating to /login');
-        navigate('/login');
+        navigate('/login'); // Ensure navigation even on unexpected errors
+      } finally {
+        setLoading(false); // Ensure overall loading is set to false
       }
-    });
+    };
+
+    checkInitialSession();
 
     return () => {
       console.log('SessionContextProvider: Unsubscribing from auth state listener.');
