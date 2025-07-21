@@ -196,5 +196,15 @@
   "worker_details_could_not_be_loaded": "Worker details could not be loaded.",
   "go_back": "Go Back",
   "loading_report": "Loading report...",
-  "scanning_external_qr_code_note": "Scanning external QR code. The scanned value will appear here."
+  "scanning_external_qr_code_note": "Scanning external QR code. The scanned value will appear here.",
+  "enter_worker_name": "Enter worker name",
+  "search_worker_by_name": "Search Worker by Name",
+  "or": "OR",
+  "error_searching_workers": "Error searching workers: ",
+  "multiple_workers_found_select": "Multiple workers found. Please select one.",
+  "no_workers_found_for_name": "No workers found with that name.",
+  "select_worker_from_results": "Select a worker from the results",
+  "worker_selected": "Worker selected: {{workerName}}",
+  "worker_selection_cleared": "Worker selection cleared.",
+  "no_company": "No Company"
 }

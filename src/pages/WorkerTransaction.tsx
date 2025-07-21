@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { showSuccess, showError } from '@/utils/toast';
-import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Flashlight } from 'lucide-react';
+import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Flashlight, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -52,6 +52,8 @@ const WorkerTransaction = () => {
   const { t } = useTranslation(); // Initialize useTranslation
   const { user } = useAuth(); // Get the current user
   const [workerQrCodeInput, setWorkerQrCodeInput] = useState('');
+  const [workerSearchTerm, setWorkerSearchTerm] = useState(''); // New state for worker name search
+  const [workerSearchResults, setWorkerSearchResults] = useState<Worker[]>([]); // New state for search results
   const [scannedWorker, setScannedWorker] = useState<Worker | null>(null);
   const [itemBarcodeInput, setItemBarcodeInput] = useState('');
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
@@ -201,6 +203,8 @@ const WorkerTransaction = () => {
     setWorkerQrCodeInput('');
     setScannedWorker(null);
     setScanningWorker(true);
+    setWorkerSearchTerm(''); // Clear search term when scanning
+    setWorkerSearchResults([]); // Clear search results when scanning
   };
 
   const stopWorkerScan = () => {
@@ -283,7 +287,7 @@ const WorkerTransaction = () => {
     }
   }, [outstandingError, t]);
 
-  const handleScanWorker = async (qrCodeData: string = workerQrCodeInput) => {
+  const handleScanWorker = async (qrCodeData: string) => {
     if (!qrCodeData) {
       showError(t('enter_worker_qr_code_scan'));
       return;
@@ -306,7 +310,61 @@ const WorkerTransaction = () => {
     } else {
       setScannedWorker(data);
       showSuccess(t('worker_found', { workerName: data.name }));
+      setWorkerQrCodeInput(data.qr_code_data || ''); // Ensure input reflects found QR data
+      setWorkerSearchTerm(''); // Clear search term
+      setWorkerSearchResults([]); // Clear search results
     }
+  };
+
+  const handleSearchWorkerByName = async () => {
+    if (!workerSearchTerm.trim()) {
+      showError(t('enter_worker_name_search'));
+      return;
+    }
+    if (!user) {
+      showError(t('user_not_authenticated_login'));
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('workers')
+      .select('*')
+      .ilike('name', `%${workerSearchTerm.trim()}%`) // Case-insensitive partial match
+      .eq('user_id', user.id); // Filter by user_id
+
+    if (error) {
+      showError(t('error_searching_workers') + error.message);
+      setWorkerSearchResults([]);
+    } else if (data && data.length > 0) {
+      if (data.length === 1) {
+        setScannedWorker(data[0]);
+        showSuccess(t('worker_found', { workerName: data[0].name }));
+        setWorkerQrCodeInput(data[0].qr_code_data || ''); // Update QR input
+        setWorkerSearchResults([]); // Clear results
+      } else {
+        setWorkerSearchResults(data);
+        showSuccess(t('multiple_workers_found_select'));
+      }
+    } else {
+      showError(t('no_workers_found_for_name'));
+      setWorkerSearchResults([]);
+    }
+  };
+
+  const handleSelectWorker = (worker: Worker) => {
+    setScannedWorker(worker);
+    setWorkerQrCodeInput(worker.qr_code_data || '');
+    setWorkerSearchTerm(worker.name);
+    setWorkerSearchResults([]);
+    showSuccess(t('worker_selected', { workerName: worker.name }));
+  };
+
+  const handleClearWorker = () => {
+    setScannedWorker(null);
+    setWorkerQrCodeInput('');
+    setWorkerSearchTerm('');
+    setWorkerSearchResults([]);
+    showSuccess(t('worker_selection_cleared'));
   };
 
   const handleScanItem = async () => {
@@ -425,6 +483,8 @@ const WorkerTransaction = () => {
 
   const handleDone = () => {
     setWorkerQrCodeInput('');
+    setWorkerSearchTerm('');
+    setWorkerSearchResults([]);
     setScannedWorker(null);
     setItemBarcodeInput('');
     setScannedItem(null);
@@ -527,34 +587,66 @@ const WorkerTransaction = () => {
                   </ToggleGroup>
                 </div>
 
-                {/* Worker Scan Section */}
+                {/* Worker Scan/Search Section */}
                 <div className="space-y-4 border-b pb-4">
                   <h3 className="text-lg font-semibold flex items-center">
                     <Users className="mr-2 h-5 w-5" /> {t('worker_information')}
                   </h3>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="text"
-                      placeholder={t('enter_worker_qr_code')}
-                      value={workerQrCodeInput}
-                      onChange={(e) => setWorkerQrCodeInput(e.target.value)}
-                      className="flex-grow"
-                      disabled={!!scannedWorker}
-                    />
-                    <Button onClick={startWorkerScan} disabled={!!scannedWorker}>
-                      <Camera className="mr-2 h-4 w-4" /> {t('scan_worker_qr')}
-                    </Button>
-                  </div>
-                  {workerQrCodeInput && !scannedWorker && (
-                    <Button onClick={() => handleScanWorker()} className="w-full">
-                      <QrCode className="mr-2 h-4 w-4" /> {t('search_worker_by_qr')}
-                    </Button>
-                  )}
-                  {scannedWorker && (
+                  {!scannedWorker ? (
+                    <>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="text"
+                          placeholder={t('enter_worker_qr_code')}
+                          value={workerQrCodeInput}
+                          onChange={(e) => setWorkerQrCodeInput(e.target.value)}
+                          className="flex-grow"
+                        />
+                        <Button onClick={startWorkerScan}>
+                          <Camera className="mr-2 h-4 w-4" /> {t('scan_worker_qr')}
+                        </Button>
+                      </div>
+                      {workerQrCodeInput && (
+                        <Button onClick={() => handleScanWorker(workerQrCodeInput)} className="w-full">
+                          <QrCode className="mr-2 h-4 w-4" /> {t('search_worker_by_qr')}
+                        </Button>
+                      )}
+                      <div className="text-center text-sm text-muted-foreground my-2">
+                        {t('or')}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="text"
+                          placeholder={t('enter_worker_name')}
+                          value={workerSearchTerm}
+                          onChange={(e) => setWorkerSearchTerm(e.target.value)}
+                          className="flex-grow"
+                        />
+                        <Button onClick={handleSearchWorkerByName}>
+                          <Search className="mr-2 h-4 w-4" /> {t('search_worker_by_name')}
+                        </Button>
+                      </div>
+                      {workerSearchResults.length > 0 && (
+                        <div className="mt-4 space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                          <p className="text-sm font-medium">{t('select_worker_from_results')}:</p>
+                          {workerSearchResults.map((worker) => (
+                            <Button
+                              key={worker.id}
+                              variant="outline"
+                              className="w-full justify-start"
+                              onClick={() => handleSelectWorker(worker)}
+                            >
+                              {worker.name} ({worker.company || t('no_company')})
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
                     <div className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">
                       <p><strong>{t('name')}:</strong> {scannedWorker.name}</p>
                       <p><strong>{t('company')}:</strong> {scannedWorker.company || 'N/A'}</p>
-                      <Button variant="outline" size="sm" className="mt-2" onClick={() => { setScannedWorker(null); setWorkerQrCodeInput(''); }}>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={handleClearWorker}>
                         {t('change_worker')}
                       </Button>
                     </div>
