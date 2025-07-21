@@ -114,49 +114,61 @@ const Workers = () => {
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
-              let cameraId = cameras[0].id;
-              const backCamera = cameras.find(camera => camera.label.toLowerCase().includes('back') || camera.label.toLowerCase().includes('environment'));
-              if (backCamera) {
-                cameraId = backCamera.id;
-              } else if (cameras.length > 1) {
-                cameraId = cameras[1].id;
-              }
+              const readerElementId = "external-qr-reader";
+              const readerElement = document.getElementById(readerElementId);
 
-              const readerElement = document.getElementById("external-qr-reader");
-              if (readerElement) {
-                setTimeout(async () => {
-                  if (html5QrCodeScannerRef.current) {
-                    await html5QrCodeScannerRef.current.stop().catch(() => {});
-                    html5QrCodeScannerRef.current.clear();
-                    html5QrCodeScannerRef.current = null;
-                  }
-                  const html5Qrcode = new Html5Qrcode(readerElement.id);
-                  html5QrCodeScannerRef.current = html5Qrcode;
-
-                  await html5Qrcode.start(
-                    cameraId,
-                    { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-                    (decodedText) => {
-                      console.log("Web scan successful:", decodedText);
-                      if (editingWorker) {
-                        setEditingWorker({ ...editingWorker, external_qr_code_data: decodedText });
-                      } else {
-                        setNewWorker({ ...newWorker, external_qr_code_data: decodedText });
-                      }
-                      playBeep();
-                      setIsScanningExternalQr(false); // This will trigger cleanup
-                    },
-                    (errorMessage) => {
-                      console.warn(`QR Code Scan Error: ${errorMessage}`);
-                      setIsScanningExternalQr(false); // This will trigger cleanup
-                    }
-                  );
-                }, 200);
-              } else {
-                console.error("HTML Element with id=external-qr-reader not found during web scan start attempt.");
+              if (!readerElement) {
+                console.error(`HTML Element with id=${readerElementId} not found during web scan start attempt.`);
                 showError(t('camera_display_area_not_found'));
                 setIsScanningExternalQr(false);
+                return;
               }
+
+              // Add a small delay to ensure the DOM is ready
+              setTimeout(async () => {
+                if (html5QrCodeScannerRef.current) { // Ensure no previous instance is running
+                  await html5QrCodeScannerRef.current.stop().catch(() => {}); // Stop if somehow still running
+                  html5QrCodeScannerRef.current.clear(); // Clear it
+                  html5QrCodeScannerRef.current = null;
+                }
+
+                let cameraStarted = false;
+                for (const camera of cameras) {
+                  try {
+                    const html5Qrcode = new Html5Qrcode(readerElement.id);
+                    html5QrCodeScannerRef.current = html5Qrcode;
+
+                    await html5Qrcode.start(
+                      camera.id,
+                      { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
+                      (decodedText) => {
+                        console.log("Web scan successful:", decodedText);
+                        if (editingWorker) {
+                          setEditingWorker({ ...editingWorker, external_qr_code_data: decodedText });
+                        } else {
+                          setNewWorker({ ...newWorker, external_qr_code_data: decodedText });
+                        }
+                        playBeep();
+                        setIsScanningExternalQr(false); // This will trigger cleanup
+                      },
+                      (errorMessage) => {
+                        console.warn(`QR Code Scan Error: ${errorMessage}`);
+                        // Do not stop scanning here, let the loop continue trying other cameras
+                      }
+                    );
+                    cameraStarted = true;
+                    break; // Break loop if camera started successfully
+                  } catch (err: any) {
+                    console.error(`Failed to start camera ${camera.id}:`, err);
+                    // Continue to next camera
+                  }
+                }
+
+                if (!cameraStarted) {
+                  showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
+                  setIsScanningExternalQr(false);
+                }
+              }, 200); // Increased delay
             } else {
               showError(t('no_camera_found_access_denied'));
               setIsScanningExternalQr(false);
