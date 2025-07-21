@@ -17,12 +17,15 @@ import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode'; // Import for we
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils'; // Import camera utility functions
 import beepSound from '/beep.mp3'; // Import beep sound
 
+// Define a UUID type for clarity and to satisfy strict type checking
+type UUID = `${string}-${string}-${string}-${string}-${string}`;
+
 interface Worker {
   id: string;
   name: string;
   company: string | null;
   photo_url: string | null;
-  qr_code_data: string | null;
+  qr_code_data: UUID | null; // Use the UUID type here
   photo?: File | null; // Added for temporary file storage
   user_id: string;
 }
@@ -31,7 +34,7 @@ const Workers = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [workers, setWorkers] = useState<Worker[]>([]);
-  const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: crypto.randomUUID() });
+  const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: crypto.randomUUID() as UUID });
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
@@ -136,9 +139,9 @@ const Workers = () => {
                             (decodedText) => {
                                 console.log("Web QR scan successful:", decodedText);
                                 if (editingWorker) {
-                                    setEditingWorker({ ...editingWorker, qr_code_data: decodedText });
+                                    setEditingWorker({ ...editingWorker, qr_code_data: decodedText as UUID });
                                 } else {
-                                    setNewWorker({ ...newWorker, qr_code_data: decodedText });
+                                    setNewWorker({ ...newWorker, qr_code_data: decodedText as UUID });
                                 }
                                 playBeep();
                                 setScanningQr(false);
@@ -187,9 +190,9 @@ const Workers = () => {
           if (result.hasContent && result.content) {
             console.log("Native QR scan successful:", result.content);
             if (editingWorker) {
-              setEditingWorker({ ...editingWorker, qr_code_data: result.content });
+              setEditingWorker({ ...editingWorker, qr_code_data: result.content as UUID });
             } else {
-              setNewWorker({ ...newWorker, qr_code_data: result.content });
+              setNewWorker({ ...newWorker, qr_code_data: result.content as UUID });
             }
             playBeep();
             setScanningQr(false);
@@ -310,7 +313,7 @@ const Workers = () => {
       return;
     }
 
-    const qrDataToUse = newWorker.qr_code_data || crypto.randomUUID();
+    const qrDataToUse = newWorker.qr_code_data || (crypto.randomUUID() as UUID);
 
     const { data: insertedWorker, error: insertError } = await supabase
       .from('workers')
@@ -332,7 +335,7 @@ const Workers = () => {
     }
 
     showSuccess(t('worker_added_successfully'));
-    setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() });
+    setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() as UUID });
     setIsDialogOpen(false);
     fetchWorkers();
   };
@@ -352,7 +355,7 @@ const Workers = () => {
       photoUrl = await uploadPhoto(editingWorker.photo, editingWorker.id);
     }
 
-    const qrDataToUse = editingWorker.qr_code_data || crypto.randomUUID();
+    const qrDataToUse = editingWorker.qr_code_data || (crypto.randomUUID() as UUID);
 
     const { error } = await supabase
       .from('workers')
@@ -395,7 +398,7 @@ const Workers = () => {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingWorker(null);
-    setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() });
+    setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() as UUID });
     setScanningQr(false); // Ensure scanner is off when dialog closes
   };
 
@@ -418,7 +421,7 @@ const Workers = () => {
   };
 
   const handleGenerateNewQrCode = () => {
-    const newUuid = crypto.randomUUID();
+    const newUuid = crypto.randomUUID() as UUID;
     if (editingWorker) {
       setEditingWorker({ ...editingWorker, qr_code_data: newUuid });
     } else {
@@ -475,7 +478,7 @@ const Workers = () => {
             <div className="flex justify-end mb-4">
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => { setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() }); setEditingWorker(null); setIsDialogOpen(true); }}>
+                  <Button onClick={() => { setNewWorker({ name: '', company: '', photo: null, qr_code_data: crypto.randomUUID() as UUID }); setEditingWorker(null); setIsDialogOpen(true); }}>
                     <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_worker')}
                   </Button>
                 </DialogTrigger>
