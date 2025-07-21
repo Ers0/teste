@@ -27,6 +27,9 @@ const Workers = () => {
   const navigate = useNavigate();
   const qrCodeRef = useRef<HTMLCanvasElement>(null); // Ref for QR code canvas
 
+  // Moved currentQrCodeData declaration here
+  const currentQrCodeData = editingWorker ? editingWorker.qr_code_data : newWorker.qr_code_data;
+
   useEffect(() => {
     fetchWorkers();
   }, []);
@@ -193,8 +196,6 @@ const Workers = () => {
       }
     }
   };
-
-  const currentQrCodeData = editingWorker ? editingWorker.qr_code_data : newWorker.qr_code_data;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
