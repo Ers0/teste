@@ -64,13 +64,9 @@ const Settings = () => {
     }
   }, [profile, profileLoading, i18n]);
 
-  // Theme effect
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'black');
-    root.classList.add(theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  // Theme effect - This useEffect is now removed as it's handled in App.tsx
+  // However, the setTheme and localStorage.setItem calls in the Select's onValueChange
+  // will still correctly update the stored theme, which App.tsx will then pick up.
 
   const handleSaveProfile = async () => {
     if (!user) {
@@ -266,7 +262,13 @@ const Settings = () => {
             <h3 className="text-lg font-semibold">{t('app_theme')}</h3>
             <div className="space-y-2">
               <Label htmlFor="theme">{t('select_theme')}</Label>
-              <Select value={theme} onValueChange={(value: 'light' | 'dark' | 'black') => setTheme(value)}>
+              <Select value={theme} onValueChange={(value: 'light' | 'dark' | 'black') => {
+                setTheme(value);
+                const root = window.document.documentElement;
+                root.classList.remove('light', 'dark', 'black');
+                root.classList.add(value);
+                localStorage.setItem('theme', value);
+              }}>
                 <SelectTrigger id="theme">
                   <SelectValue placeholder={t('select_theme')} />
                 </SelectTrigger>
