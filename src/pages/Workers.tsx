@@ -9,6 +9,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft, RefreshCw } from 'lucide-react'; // Added RefreshCw icon
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
+import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
 
 interface Worker {
   id: string;
@@ -17,9 +18,11 @@ interface Worker {
   photo_url: string | null;
   qr_code_data: string | null;
   photo?: File | null; // Added for temporary file storage
+  user_id: string; // Added user_id
 }
 
 const Workers = () => {
+  const { user } = useAuth(); // Get the current user
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [newWorker, setNewWorker] = useState({ name: '', company: '', photo: null as File | null, qr_code_data: crypto.randomUUID() }); // Pre-fill with UUID
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
@@ -31,8 +34,10 @@ const Workers = () => {
   const currentQrCodeData = editingWorker ? editingWorker.qr_code_data : newWorker.qr_code_data;
 
   useEffect(() => {
-    fetchWorkers();
-  }, []);
+    if (user) { // Only fetch if user is logged in
+      fetchWorkers();
+    }
+  }, [user]);
 
   // Effect to draw QR code on canvas when currentQrCodeData changes
   useEffect(() => {
@@ -44,7 +49,8 @@ const Workers = () => {
   }, [currentQrCodeData]);
 
   const fetchWorkers = async () => {
-    const { data, error } = await supabase.from('workers').select('*');
+    if (!user) return; // Ensure user is available
+    const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id); // Filter by user_id
     if (error) {
       showError('Error fetching workers: ' + error.message);
     } else {
@@ -99,13 +105,17 @@ const Workers = () => {
       showError('Please fill in worker name.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     // Ensure QR code data is generated if not already present (e.g., if user cleared it)
     const qrDataToUse = newWorker.qr_code_data || crypto.randomUUID();
 
     const { data: insertedWorker, error: insertError } = await supabase
       .from('workers')
-      .insert([{ name: newWorker.name, company: newWorker.company, qr_code_data: qrDataToUse }])
+      .insert([{ name: newWorker.name, company: newWorker.company, qr_code_data: qrDataToUse, user_id: user.id }]) // Set user_id
       .select()
       .single();
 
@@ -133,6 +143,10 @@ const Workers = () => {
       showError('Please fill in worker name.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     let photoUrl = editingWorker.photo_url;
     if (editingWorker.photo instanceof File) {
@@ -149,6 +163,7 @@ const Workers = () => {
         company: editingWorker.company,
         photo_url: photoUrl,
         qr_code_data: qrDataToUse, // Use the potentially new QR data
+        user_id: user.id // Ensure user_id is maintained/updated
       })
       .eq('id', editingWorker.id);
 

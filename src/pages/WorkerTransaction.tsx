@@ -9,12 +9,14 @@ import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plu
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
 
 interface Worker {
   id: string;
   name: string;
   company: string | null;
   qr_code_data: string | null;
+  user_id: string; // Added user_id
 }
 
 interface Item {
@@ -24,6 +26,7 @@ interface Item {
   barcode: string | null;
   quantity: number;
   one_time_use: boolean; // Added one_time_use to Item interface
+  user_id: string; // Added user_id
 }
 
 interface Transaction {
@@ -35,9 +38,11 @@ interface Transaction {
   timestamp: string;
   items: { name: string };
   workers: { name: string };
+  user_id: string; // Added user_id
 }
 
 const WorkerTransaction = () => {
+  const { user } = useAuth(); // Get the current user
   const [workerQrCodeInput, setWorkerQrCodeInput] = useState('');
   const [scannedWorker, setScannedWorker] = useState<Worker | null>(null);
   const [itemBarcodeInput, setItemBarcodeInput] = useState('');
@@ -49,11 +54,13 @@ const WorkerTransaction = () => {
 
   // Fetch transaction history
   const { data: transactionsHistory, isLoading: isHistoryLoading, error: historyError } = useQuery<Transaction[], Error>({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', user?.id], // Include user.id in query key
     queryFn: async () => {
+      if (!user) return []; // Return empty if no user
       const { data, error } = await supabase
         .from('transactions')
         .select('*, items(name), workers(name)')
+        .eq('user_id', user.id) // Filter by user_id
         .order('timestamp', { ascending: false })
         .limit(5);
 
@@ -62,6 +69,7 @@ const WorkerTransaction = () => {
       }
       return data as Transaction[];
     },
+    enabled: !!user, // Only run query if user is logged in
     staleTime: 1000 * 10,
   });
 
@@ -76,11 +84,16 @@ const WorkerTransaction = () => {
       showError('Please enter a worker QR code to scan.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     const { data, error } = await supabase
       .from('workers')
       .select('*')
       .eq('qr_code_data', workerQrCodeInput)
+      .eq('user_id', user.id) // Filter by user_id
       .single();
 
     if (error) {
@@ -97,11 +110,16 @@ const WorkerTransaction = () => {
       showError('Please enter an item barcode to scan.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     const { data, error } = await supabase
       .from('items')
       .select('*, one_time_use') // Select one_time_use
       .eq('barcode', itemBarcodeInput)
+      .eq('user_id', user.id) // Filter by user_id
       .single();
 
     if (error) {
@@ -131,6 +149,10 @@ const WorkerTransaction = () => {
       showError('Quantity must be greater than zero.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     // Prevent return if item is one-time use
     if (scannedItem.one_time_use && transactionType === 'return') {
@@ -153,7 +175,8 @@ const WorkerTransaction = () => {
     const { error: updateError } = await supabase
       .from('items')
       .update({ quantity: newQuantity })
-      .eq('id', scannedItem.id);
+      .eq('id', scannedItem.id)
+      .eq('user_id', user.id); // Ensure user_id is maintained/updated
 
     if (updateError) {
       showError('Error updating item quantity: ' + updateError.message);
@@ -169,6 +192,7 @@ const WorkerTransaction = () => {
           item_id: scannedItem.id,
           type: transactionType,
           quantity: quantityToChange,
+          user_id: user.id // Set user_id
         },
       ])
       .select('*, items(name), workers(name)')
@@ -176,7 +200,8 @@ const WorkerTransaction = () => {
 
     if (transactionError) {
       showError('Error recording transaction: ' + transactionError.message);
-      await supabase.from('items').update({ quantity: scannedItem.quantity }).eq('id', scannedItem.id);
+      // Rollback item quantity if transaction fails
+      await supabase.from('items').update({ quantity: scannedItem.quantity }).eq('id', scannedItem.id).eq('user_id', user.id);
       return;
     }
 
@@ -184,13 +209,13 @@ const WorkerTransaction = () => {
     setScannedItem({ ...scannedItem, quantity: newQuantity });
 
     if (insertedTransaction) {
-      queryClient.setQueryData<Transaction[]>(['transactions'], (oldData) => {
+      queryClient.setQueryData<Transaction[]>(['transactions', user.id], (oldData) => {
         const updatedData = oldData ? [insertedTransaction, ...oldData] : [insertedTransaction];
         return updatedData.slice(0, 5);
       });
     }
 
-    queryClient.refetchQueries({ queryKey: ['transactions'] });
+    queryClient.refetchQueries({ queryKey: ['transactions', user.id] });
   };
 
   const handleDone = () => {
@@ -201,7 +226,7 @@ const WorkerTransaction = () => {
     setQuantityToChange(1);
     setTransactionType('takeout');
     showSuccess('Transaction session cleared. Ready for new entry!');
-    queryClient.refetchQueries({ queryKey: ['transactions'] });
+    queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
   };
 
   const incrementQuantity = () => {

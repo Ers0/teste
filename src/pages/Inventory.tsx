@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'; // Import Switch component
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
 
 interface Item {
   id: string;
@@ -23,9 +24,11 @@ interface Item {
   low_stock_threshold: number | null;
   critical_stock_threshold: number | null;
   one_time_use: boolean; // New field
+  user_id: string; // Added user_id
 }
 
 const Inventory = () => {
+  const { user } = useAuth(); // Get the current user
   const [items, setItems] = useState<Item[]>([]);
   const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -35,17 +38,22 @@ const Inventory = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchItems();
-  }, [sortKey, sortDirection]);
+    if (user) { // Only fetch if user is logged in
+      fetchItems();
+    }
+  }, [user, sortKey, sortDirection]);
 
   const fetchItems = async () => {
+    if (!user) return; // Ensure user is available
+
     let data: Item[] | null = null;
     let error: Error | null = null;
 
     if (sortKey === 'movement') {
       const { data: itemsData, error: itemsError } = await supabase
         .from('items')
-        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use'); // Select new fields
+        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use') // Select new fields
+        .eq('user_id', user.id); // Filter by user_id
 
       if (itemsError) {
         showError('Error fetching items: ' + itemsError.message);
@@ -54,7 +62,7 @@ const Inventory = () => {
 
       const { data: movementData, error: movementError } = await supabase
         .from('item_movement_counts')
-        .select('*');
+        .select('*'); // Note: item_movement_counts might need user_id filtering too if it's per-user
 
       if (movementError) {
         showError('Error fetching item movement counts: ' + movementError.message);
@@ -82,6 +90,7 @@ const Inventory = () => {
       const { data: directData, error: directError } = await supabase
         .from('items')
         .select('*, low_stock_threshold, critical_stock_threshold, one_time_use') // Select new fields
+        .eq('user_id', user.id) // Filter by user_id
         .order(sortKey, { ascending: sortDirection === 'asc' });
       data = directData;
       error = directError;
@@ -151,6 +160,10 @@ const Inventory = () => {
       showError('Please fill in item name and ensure quantity is not negative.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     const { data: insertedItem, error: insertError } = await supabase
       .from('items')
@@ -161,7 +174,8 @@ const Inventory = () => {
         quantity: newItem.quantity,
         low_stock_threshold: newItem.low_stock_threshold,
         critical_stock_threshold: newItem.critical_stock_threshold,
-        one_time_use: newItem.one_time_use // Save new field
+        one_time_use: newItem.one_time_use,
+        user_id: user.id // Set user_id
       }])
       .select()
       .single();
@@ -190,6 +204,10 @@ const Inventory = () => {
       showError('Please fill in item name and ensure quantity is not negative.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     let imageUrl = editingItem.image_url;
     if (editingItem.image instanceof File) {
@@ -206,7 +224,8 @@ const Inventory = () => {
         image_url: imageUrl,
         low_stock_threshold: editingItem.low_stock_threshold,
         critical_stock_threshold: editingItem.critical_stock_threshold,
-        one_time_use: editingItem.one_time_use // Update new field
+        one_time_use: editingItem.one_time_use,
+        user_id: user.id // Ensure user_id is maintained/updated
       })
       .eq('id', editingItem.id);
 

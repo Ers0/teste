@@ -14,6 +14,7 @@ import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import beepSound from '/beep.mp3';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
 
 interface Item {
   id: string;
@@ -26,6 +27,7 @@ interface Item {
   low_stock_threshold: number | null;
   critical_stock_threshold: number | null;
   one_time_use: boolean;
+  user_id: string; // Added user_id
 }
 
 const initialNewItemState = {
@@ -40,6 +42,7 @@ const initialNewItemState = {
 };
 
 const ScanItem = () => {
+  const { user } = useAuth(); // Get the current user
   const [barcode, setBarcode] = useState('');
   const [item, setItem] = useState<Item | null>(null);
   const [quantityChange, setQuantityChange] = useState(0);
@@ -238,11 +241,16 @@ const ScanItem = () => {
   };
 
   const fetchItemByBarcode = async (scannedBarcode: string) => {
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
     console.log("Attempting to fetch item with barcode:", scannedBarcode);
     const { data, error } = await supabase
       .from('items')
       .select('*')
       .eq('barcode', scannedBarcode)
+      .eq('user_id', user.id) // Filter by user_id
       .single();
 
     if (error) {
@@ -276,6 +284,10 @@ const ScanItem = () => {
       showError('Quantity change must be greater than zero.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     let newQuantity = item.quantity;
     if (type === 'add') {
@@ -291,7 +303,8 @@ const ScanItem = () => {
     const { error } = await supabase
       .from('items')
       .update({ quantity: newQuantity })
-      .eq('id', item.id);
+      .eq('id', item.id)
+      .eq('user_id', user.id); // Ensure user_id is maintained/updated
 
     if (error) {
       showError('Error updating quantity: ' + error.message);
@@ -324,6 +337,10 @@ const ScanItem = () => {
       showError('Please fill in item name and ensure quantity is not negative.');
       return;
     }
+    if (!user) {
+      showError('User not authenticated. Please log in.');
+      return;
+    }
 
     const { data: insertedItem, error: insertError } = await supabase
       .from('items')
@@ -334,7 +351,8 @@ const ScanItem = () => {
         quantity: newItemDetails.quantity,
         low_stock_threshold: newItemDetails.low_stock_threshold,
         critical_stock_threshold: newItemDetails.critical_stock_threshold,
-        one_time_use: newItemDetails.one_time_use
+        one_time_use: newItemDetails.one_time_use,
+        user_id: user.id // Set user_id
       }])
       .select()
       .single();
