@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">lunar-walrus-roam</string>
+    <string name="title_activity_main">lunar-walrus-roam</string>
+    <string name="package_name">com.example.lunarwalrusroam</string>
+    <string name="custom_url_scheme">com.example.lunarwalrusroam</string>
+</resources>
