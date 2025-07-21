@@ -206,5 +206,14 @@
   "select_worker_from_results": "Select a worker from the results",
   "worker_selected": "Worker selected: {{workerName}}",
   "worker_selection_cleared": "Worker selection cleared.",
-  "no_company": "No Company"
+  "no_company": "No Company",
+  "enter_item_name": "Enter item name",
+  "search_item_by_name": "Search Item by Name",
+  "error_searching_items": "Error searching items: ",
+  "multiple_items_found_select": "Multiple items found. Please select one.",
+  "no_items_found_for_name": "No items found with that name.",
+  "select_item_from_results": "Select an item from the results",
+  "item_selected": "Item selected: {{itemName}}",
+  "item_selection_cleared": "Item selection cleared.",
+  "no_barcode": "No Barcode"
 }

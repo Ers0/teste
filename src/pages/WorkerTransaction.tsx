@@ -56,6 +56,8 @@ const WorkerTransaction = () => {
   const [workerSearchResults, setWorkerSearchResults] = useState<Worker[]>([]); // New state for search results
   const [scannedWorker, setScannedWorker] = useState<Worker | null>(null);
   const [itemBarcodeInput, setItemBarcodeInput] = useState('');
+  const [itemSearchTerm, setItemSearchTerm] = useState(''); // New state for item name search
+  const [itemSearchResults, setItemSearchResults] = useState<Item[]>([]); // New state for item search results
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
   const [quantityToChange, setQuantityToChange] = useState(1);
   const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
@@ -340,6 +342,7 @@ const WorkerTransaction = () => {
         setScannedWorker(data[0]);
         showSuccess(t('worker_found', { workerName: data[0].name }));
         setWorkerQrCodeInput(data[0].qr_code_data || ''); // Update QR input
+        setWorkerSearchTerm(''); // Clear search term
         setWorkerSearchResults([]); // Clear results
       } else {
         setWorkerSearchResults(data);
@@ -387,15 +390,78 @@ const WorkerTransaction = () => {
     if (error) {
       showError(t('item_not_found_error') + error.message);
       setScannedItem(null);
+      setItemSearchTerm(''); // Clear item search term
+      setItemSearchResults([]); // Clear item search results
     } else {
       setScannedItem(data);
       showSuccess(t('item_found', { itemName: data.name }));
+      setItemSearchTerm(data.name); // Update item search term
+      setItemSearchResults([]); // Clear item search results
       // If item is one-time use, force transaction type to takeout
       if (data.one_time_use) {
         setTransactionType('takeout');
         showError(t('this_is_one_time_use_item_takeout_only'));
       }
     }
+  };
+
+  const handleSearchItemByName = async () => {
+    if (!itemSearchTerm.trim()) {
+      showError(t('enter_item_name_search'));
+      return;
+    }
+    if (!user) {
+      showError(t('user_not_authenticated_login'));
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('items')
+      .select('*, one_time_use')
+      .ilike('name', `%${itemSearchTerm.trim()}%`) // Case-insensitive partial match
+      .eq('user_id', user.id); // Filter by user_id
+
+    if (error) {
+      showError(t('error_searching_items') + error.message);
+      setItemSearchResults([]);
+    } else if (data && data.length > 0) {
+      if (data.length === 1) {
+        setScannedItem(data[0]);
+        showSuccess(t('item_found', { itemName: data[0].name }));
+        setItemBarcodeInput(data[0].barcode || ''); // Update barcode input
+        setItemSearchResults([]); // Clear results
+        if (data[0].one_time_use) {
+          setTransactionType('takeout');
+          showError(t('this_is_one_time_use_item_takeout_only'));
+        }
+      } else {
+        setItemSearchResults(data);
+        showSuccess(t('multiple_items_found_select'));
+      }
+    } else {
+      showError(t('no_items_found_for_name'));
+      setItemSearchResults([]);
+    }
+  };
+
+  const handleSelectItem = (item: Item) => {
+    setScannedItem(item);
+    setItemBarcodeInput(item.barcode || '');
+    setItemSearchTerm(item.name);
+    setItemSearchResults([]);
+    showSuccess(t('item_selected', { itemName: item.name }));
+    if (item.one_time_use) {
+      setTransactionType('takeout');
+      showError(t('this_is_one_time_use_item_takeout_only'));
+    }
+  };
+
+  const handleClearItem = () => {
+    setScannedItem(null);
+    setItemBarcodeInput('');
+    setItemSearchTerm('');
+    setItemSearchResults([]);
+    showSuccess(t('item_selection_cleared'));
   };
 
   const handleRecordTransaction = async () => {
@@ -487,6 +553,8 @@ const WorkerTransaction = () => {
     setWorkerSearchResults([]);
     setScannedWorker(null);
     setItemBarcodeInput('');
+    setItemSearchTerm(''); // Clear item search term
+    setItemSearchResults([]); // Clear item search results
     setScannedItem(null);
     setQuantityToChange(1);
     setTransactionType('takeout');
@@ -658,20 +726,52 @@ const WorkerTransaction = () => {
                   <h3 className="text-lg font-semibold flex items-center">
                     <Package className="mr-2 h-5 w-5" /> {t('item_information')}
                   </h3>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="text"
-                      placeholder={t('enter_item_barcode')}
-                      value={itemBarcodeInput}
-                      onChange={(e) => setItemBarcodeInput(e.target.value)}
-                      className="flex-grow"
-                    />
-                    <Button onClick={handleScanItem}>
-                      <Barcode className="mr-2 h-4 w-4" /> {t('scan_item')}
-                    </Button>
-                  </div>
-
-                  {scannedItem && (
+                  {!scannedItem ? (
+                    <>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="text"
+                          placeholder={t('enter_item_barcode')}
+                          value={itemBarcodeInput}
+                          onChange={(e) => setItemBarcodeInput(e.target.value)}
+                          className="flex-grow"
+                        />
+                        <Button onClick={handleScanItem}>
+                          <Barcode className="mr-2 h-4 w-4" /> {t('scan_item')}
+                        </Button>
+                      </div>
+                      <div className="text-center text-sm text-muted-foreground my-2">
+                        {t('or')}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="text"
+                          placeholder={t('enter_item_name')}
+                          value={itemSearchTerm}
+                          onChange={(e) => setItemSearchTerm(e.target.value)}
+                          className="flex-grow"
+                        />
+                        <Button onClick={handleSearchItemByName}>
+                          <Search className="mr-2 h-4 w-4" /> {t('search_item_by_name')}
+                        </Button>
+                      </div>
+                      {itemSearchResults.length > 0 && (
+                        <div className="mt-4 space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                          <p className="text-sm font-medium">{t('select_item_from_results')}:</p>
+                          {itemSearchResults.map((item) => (
+                            <Button
+                              key={item.id}
+                              variant="outline"
+                              className="w-full justify-start"
+                              onClick={() => handleSelectItem(item)}
+                            >
+                              {item.name} ({item.barcode || t('no_barcode')})
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
                     <div className="border p-3 rounded-md space-y-2 bg-gray-50 dark:bg-gray-800">
                       <h4 className="text-md font-semibold">{scannedItem.name}</h4>
                       <p><strong>{t('description')}:</strong> {scannedItem.description || 'N/A'}</p>
@@ -703,6 +803,9 @@ const WorkerTransaction = () => {
                           {t(transactionType === 'takeout' ? 'record_takeout' : 'record_return')}
                         </Button>
                       </div>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={handleClearItem}>
+                        {t('change_item')}
+                      </Button>
                     </div>
                   )}
                 </div>
