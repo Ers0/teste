@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft, RefreshCw, Camera, Flashlight } from 'lucide-react'; // Added Camera and Flashlight icons
-import { useNavigate } from 'react-router-dom';
+import { PlusCircle, Edit, Trash2, QrCode, Download, ArrowLeft, RefreshCw, Camera, Flashlight, ClipboardList } from 'lucide-react'; // Added ClipboardList icon
+import { useNavigate, Link } from 'react-router-dom'; // Import Link
 import QRCode from 'qrcode';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -609,6 +609,11 @@ const Workers = () => {
                     <Button variant="destructive" size="icon" onClick={() => handleDeleteWorker(worker.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                    <Link to={`/worker-report/${worker.id}`}>
+                      <Button variant="outline" size="icon">
+                        <ClipboardList className="h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                 </Card>
               ))}
