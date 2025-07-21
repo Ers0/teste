@@ -1,5 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 
 interface Profile {
@@ -10,33 +9,19 @@ interface Profile {
 }
 
 export const useProfile = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, profileLoading } = useAuth(); // Get profile from useAuth
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading, error } = useQuery<Profile | null, Error>({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, language')
-        .eq('id', user.id)
-        .limit(1);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data && data.length > 0 ? data[0] : null;
-    },
-    enabled: !!user && !authLoading, // Only run query if user is logged in and auth is not loading
-    staleTime: 1000 * 60 * 5, // Data considered fresh for 5 minutes
-  });
+  // The profile is now managed by SessionContextProvider.
+  // This hook primarily provides access to it and the invalidate function.
 
   const invalidateProfile = () => {
+    // Invalidate the query key that useProfile *used* to use,
+    // in case other parts of the app still rely on it or if we reintroduce a query here.
+    // The primary mechanism for profile updates will be through the SessionContextProvider's
+    // onAuthStateChange listener, which will re-fetch the profile if the user's session updates.
     queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
   };
 
-  return { profile, isLoading: isLoading || authLoading, error, invalidateProfile };
+  return { profile, isLoading: authLoading || profileLoading, error: null, invalidateProfile };
 };
