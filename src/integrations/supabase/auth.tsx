@@ -149,11 +149,19 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('SessionContextProvider: Unsubscribing from auth state listener.');
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]); // Re-added location.pathname to dependencies for correct navigation logic.
+  }, [navigate, location.pathname]);
 
   return (
     <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within a SessionContextProvider');
+  }
+  return context;
 };
