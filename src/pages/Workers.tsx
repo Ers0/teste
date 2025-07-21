@@ -439,7 +439,7 @@ const Workers = () => {
   };
 
   return (
-    <React.Fragment>
+    <>
       <audio ref={audioRef} src={beepSound} preload="auto" />
       {scanningQr && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
@@ -636,7 +636,7 @@ const Workers = () => {
           </CardContent>
         </Card>
       </div>
-    </React.Fragment>
+    </>
   );
 };
 
