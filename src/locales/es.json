@@ -177,5 +177,12 @@
   "worker_qr_code_data": "Datos QR del Trabajador",
   "current_quantity": "Cantidad Actual",
   "timestamp": "Marca de Tiempo",
-  "most_movemented": "Más Movimentado"
+  "most_movemented": "Más Movimentado",
+  "record_transaction_tab": "Registrar Transacción",
+  "outstanding_takeouts_tab": "Retiradas Pendientes",
+  "outstanding_takeouts_title": "Retiradas Pendientes (Más de 24h)",
+  "outstanding_takeouts_description": "Estos son artículos que fueron retirados hace más de 24 horas.",
+  "loading_outstanding_takeouts": "Cargando retiradas pendientes...",
+  "no_outstanding_takeouts": "No se encontraron retiradas pendientes.",
+  "taken_on": "Retirado el"
 }

@@ -177,5 +177,12 @@
   "worker_qr_code_data": "Worker QR Code Data",
   "current_quantity": "Current Quantity",
   "timestamp": "Timestamp",
-  "most_movemented": "Most Movemented"
+  "most_movemented": "Most Movemented",
+  "record_transaction_tab": "Record Transaction",
+  "outstanding_takeouts_tab": "Outstanding Takeouts",
+  "outstanding_takeouts_title": "Outstanding Takeouts (Older than 24h)",
+  "outstanding_takeouts_description": "These are items that were taken out more than 24 hours ago.",
+  "loading_outstanding_takeouts": "Loading outstanding takeouts...",
+  "no_outstanding_takeouts": "No outstanding takeouts found.",
+  "taken_on": "Taken On"
 }
