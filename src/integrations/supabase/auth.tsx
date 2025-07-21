@@ -149,4 +149,11 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('SessionContextProvider: Unsubscribing from auth state listener.');
       subscription.unsubscribe();
     };
-  }, [navigate]); // Removed location.pathname from dependencies
+  }, [navigate, location.pathname]); // Re-added location.pathname to dependencies for correct navigation logic.
+
+  return (
+    <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
