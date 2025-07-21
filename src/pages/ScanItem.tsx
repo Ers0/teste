@@ -11,7 +11,7 @@ import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { Capacitor } from '@capacitor/core';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
-import beepSound from '@/assets/beep.mp3'; // Import the beep sound
+import beepSound from '/beep.mp3'; // Updated import path to public directory
 
 const ScanItem = () => {
   const [barcode, setBarcode] = useState('');
