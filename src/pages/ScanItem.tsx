@@ -196,7 +196,6 @@ const ScanItem = () => {
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
             {isWeb ? (
               <>
-                {/* Removed bg-black and added min-h-[250px] for visibility */}
                 <div id="reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
                 <Button onClick={stopScan} className="mt-4" variant="secondary">
                   Cancel Scan
