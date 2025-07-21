@@ -79,12 +79,13 @@ const ScanItem = () => {
                   cameraId,
                   { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
                   (decodedText) => {
+                    console.log("Web scan successful:", decodedText); // Log successful scan
                     setBarcode(decodedText);
                     fetchItemByBarcode(decodedText);
                     setScanning(false); // Stop scanning after successful scan
                   },
                   (errorMessage) => {
-                    // console.warn(`QR Code Scan Error: ${errorMessage}`);
+                    console.warn(`QR Code Scan Error: ${errorMessage}`); // Log scan errors
                   }
                 );
               } else {
@@ -116,6 +117,7 @@ const ScanItem = () => {
           BarcodeScanner.hideBackground();
           const result = await BarcodeScanner.startScan();
           if (result.hasContent && result.content) {
+            console.log("Native scan successful:", result.content); // Log successful scan
             setBarcode(result.content);
             await fetchItemByBarcode(result.content);
             setScanning(false); // Stop scanning after successful scan
