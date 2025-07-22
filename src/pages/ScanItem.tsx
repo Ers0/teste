@@ -135,7 +135,7 @@ const ScanItem = () => {
                     html5QrCodeScannerRef.current = null;
                   }
                   try {
-                    const html5Qrcode = new Html5Qrcode(readerElementId, { verbose: false });
+                    const html5Qrcode = new Html5Qrcode(readerElementId);
                     html5QrCodeScannerRef.current = html5Qrcode;
 
                     await html5Qrcode.start(
