@@ -120,7 +120,7 @@
   "enter_worker_qr_code_scan": "Please enter or scan a worker's QR code.",
   "worker_not_found_error": "Worker not found. Error: ",
   "worker_found": "Worker found: {{workerName}}",
-  "enter_worker_name": "Enter worker name to search",
+  "enter_worker_name_to_search": "Enter worker name to search",
   "error_searching_workers": "Error searching for workers: ",
   "multiple_workers_found_select": "Multiple workers found. Please select one from the list.",
   "no_workers_found_for_name": "No workers found with that name.",
@@ -130,7 +130,7 @@
   "item_not_found_error": "Item not found. Error: ",
   "item_found": "Item found: {{itemName}}",
   "this_is_one_time_use_item_takeout_only": "This is a one-time use item. It can only be taken out.",
-  "enter_item_name": "Enter item name to search",
+  "enter_item_name_to_search": "Enter item name to search",
   "error_searching_items": "Error searching for items: ",
   "multiple_items_found_select": "Multiple items found. Please select one from the list.",
   "no_items_found_for_name": "No items found with that name.",
@@ -167,8 +167,8 @@
   "change_worker": "Change Worker",
   "select_a_company": "Select a company",
   "item_information": "Item Information",
-  "enter_item_barcode": "Enter item barcode",
-  "search_by_barcode": "Search by Barcode",
+  "enter_item_barcode_manually": "Enter item barcode manually",
+  "search_item_by_barcode": "Search Item by Barcode",
   "scan_with_camera": "Scan with Camera",
   "search_item_by_name": "Search Item by Name",
   "select_item_from_results": "Select an item from the results",
@@ -340,5 +340,7 @@
   "checking_worker_balance": "Checking recipient's balance...",
   "cannot_return_more_than_taken": "Cannot return more than taken out. Current balance: {{balance}}",
   "error_checking_balance": "Error checking balance: ",
-  "this_is_one_time_use_item": "This is a one-time use item."
+  "this_is_one_time_use_item": "This is a one-time use item.",
+  "scan_by_barcode": "Scan by Barcode",
+  "search_by_name": "Search by Name"
 }

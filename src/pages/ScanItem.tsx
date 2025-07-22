@@ -299,7 +299,7 @@ const ScanItem = () => {
 
   const handleSearchItemByName = async () => {
     if (!itemSearchTerm.trim()) {
-      showError(t('enter_item_name_search'));
+      showError(t('enter_item_name_to_search'));
       return;
     }
     if (!user) {
@@ -608,7 +608,7 @@ const ScanItem = () => {
                   <div className="flex items-center space-x-2">
                     <Input
                       type="text"
-                      placeholder={t('enter_item_name')}
+                      placeholder={t('enter_item_name_to_search')}
                       value={itemSearchTerm}
                       onChange={(e) => setItemSearchTerm(e.target.value)}
                       className="flex-grow"

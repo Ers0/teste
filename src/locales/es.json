@@ -120,7 +120,7 @@
   "enter_worker_qr_code_scan": "Por favor, ingrese o escanee el código QR de un trabajador.",
   "worker_not_found_error": "Trabajador no encontrado. Error: ",
   "worker_found": "Trabajador encontrado: {{workerName}}",
-  "enter_worker_name": "Ingrese el nombre del trabajador para buscar",
+  "enter_worker_name_to_search": "Ingrese el nombre del trabajador para buscar",
   "error_searching_workers": "Error al buscar trabajadores: ",
   "multiple_workers_found_select": "Se encontraron varios trabajadores. Por favor, seleccione uno de la lista.",
   "no_workers_found_for_name": "No se encontraron trabajadores con ese nombre.",
@@ -130,7 +130,7 @@
   "item_not_found_error": "Ítem no encontrado. Error: ",
   "item_found": "Ítem encontrado: {{itemName}}",
   "this_is_one_time_use_item_takeout_only": "Este es un ítem de un solo uso. Solo se puede retirar.",
-  "enter_item_name": "Ingrese el nombre del ítem para buscar",
+  "enter_item_name_to_search": "Ingrese el nombre del ítem para buscar",
   "error_searching_items": "Error al buscar ítems: ",
   "multiple_items_found_select": "Se encontraron varios ítems. Por favor, seleccione uno de la lista.",
   "no_items_found_for_name": "No se encontraron ítems con ese nombre.",
@@ -167,8 +167,8 @@
   "change_worker": "Cambiar Trabajador",
   "select_a_company": "Seleccione una empresa",
   "item_information": "Información del Ítem",
-  "enter_item_barcode": "Ingresar código de barras del ítem",
-  "search_by_barcode": "Buscar por Código de Barras",
+  "enter_item_barcode_manually": "Ingresar código de barras del ítem manualmente",
+  "search_item_by_barcode": "Buscar Ítem por Código de Barras",
   "scan_with_camera": "Escanear con Cámara",
   "search_item_by_name": "Buscar Ítem por Nombre",
   "select_item_from_results": "Seleccione un ítem de los resultados",
@@ -340,5 +340,7 @@
   "checking_worker_balance": "Verificando el saldo del destinatario...",
   "cannot_return_more_than_taken": "No se puede devolver más de lo retirado. Saldo actual: {{balance}}",
   "error_checking_balance": "Error al verificar el saldo: ",
-  "this_is_one_time_use_item": "Este es un ítem de un solo uso."
+  "this_is_one_time_use_item": "Este es un ítem de un solo uso.",
+  "scan_by_barcode": "Escanear por Código de Barras",
+  "search_by_name": "Buscar por Nombre"
 }
