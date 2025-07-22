@@ -19,7 +19,7 @@ import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-u
 import beepSound from '/beep.mp3';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { exportToCsv } from '@/utils/export';
+import { downloadCsv } from '@/utils/export';
 
 interface Worker {
   id: string;
@@ -663,19 +663,42 @@ const WorkerTransaction = () => {
         }
       }
 
-      const csvData = transactionItems.map(txItem => ({
-        [t('csv_date')]: new Date().toLocaleDateString(),
-        [t('csv_requisition_number')]: requisitionNumber,
-        [t('csv_authorization')]: authorizedBy.trim() || 'N/A',
-        [t('csv_requester')]: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
-        [t('csv_company')]: selectionMode === 'worker' ? scannedWorker!.company || 'N/A' : selectedCompany,
-        [t('csv_quantity')]: txItem.quantity,
-        [t('csv_material')]: txItem.item.name,
-        [t('csv_application_location')]: applicationLocation.trim() || 'N/A',
-      }));
+      const generateRequisitionCsv = (): string => {
+        const csvRows: string[] = [];
+        const escapeCsv = (value: string | null | undefined) => {
+            if (value === null || value === undefined) return '""';
+            const str = String(value);
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        };
 
+        csvRows.push(`"${t('csv_header_title')}"`);
+        csvRows.push(`"${t('csv_header_date')}",${escapeCsv(new Date().toLocaleDateString())},"${t('csv_header_req_no')}",${escapeCsv(requisitionNumber)}`);
+        csvRows.push(`"${t('csv_header_auth')}",${escapeCsv(authorizedBy.trim() || 'N/A')}`);
+        const requester = selectionMode === 'worker' ? scannedWorker!.name : selectedCompany;
+        const company = selectionMode === 'worker' ? scannedWorker!.company || 'N/A' : selectedCompany;
+        csvRows.push(`"${t('csv_header_requester')}",${escapeCsv(requester)},"${t('csv_header_company')}",${escapeCsv(company)}`);
+        csvRows.push('');
+
+        csvRows.push(`"${t('csv_col_qty')}","${t('csv_col_material')}","${t('csv_col_app_location')}"`);
+
+        transactionItems.forEach(txItem => {
+            const row = [
+                txItem.quantity,
+                escapeCsv(txItem.item.name),
+                escapeCsv(applicationLocation.trim() || 'N/A')
+            ].join(',');
+            csvRows.push(row);
+        });
+
+        return csvRows.join('\n');
+      };
+
+      const csvString = generateRequisitionCsv();
       const filename = `Requisicao_${requisitionNumber}.csv`;
-      exportToCsv(csvData, filename);
+      downloadCsv(csvString, filename);
 
       dismissToast(toastId);
       showSuccess(t('all_transactions_recorded_successfully'));

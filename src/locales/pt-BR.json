@@ -315,12 +315,13 @@
   "finalize_transactions": "Finalizar Transações",
   "application_location": "Local de Aplicação",
   "enter_application_location": "Digite o local de aplicação (opcional)",
-  "csv_date": "Data",
-  "csv_requisition_number": "N da requisição",
-  "csv_authorization": "Autorização",
-  "csv_requester": "Requisitante",
-  "csv_company": "Empresa",
-  "csv_quantity": "Quantidade",
-  "csv_material": "Material",
-  "csv_application_location": "Local de Aplicação"
+  "csv_header_title": "REQUISIÇÃO DE MATERIAL - ALMOXARIFADO",
+  "csv_header_date": "DATA:",
+  "csv_header_req_no": "N° DA REQUISIÇÃO:",
+  "csv_header_auth": "AUTORIZAÇÃO:",
+  "csv_header_requester": "REQUISITANTE:",
+  "csv_header_company": "EMPRESA:",
+  "csv_col_qty": "QTD.",
+  "csv_col_material": "MATERIAL",
+  "csv_col_app_location": "LOCAL DE APLICAÇÃO"
 }

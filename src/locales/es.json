@@ -315,12 +315,13 @@
   "finalize_transactions": "Finalizar Transacciones",
   "application_location": "Ubicación de la Aplicación",
   "enter_application_location": "Ingrese la ubicación de la aplicación (opcional)",
-  "csv_date": "Fecha",
-  "csv_requisition_number": "N de requisición",
-  "csv_authorization": "Autorización",
-  "csv_requester": "Solicitante",
-  "csv_company": "Empresa",
-  "csv_quantity": "Cantidad",
-  "csv_material": "Material",
-  "csv_application_location": "Ubicación de Aplicación"
+  "csv_header_title": "REQUISICIÓN DE MATERIAL - ALMACÉN",
+  "csv_header_date": "FECHA:",
+  "csv_header_req_no": "N° DE REQUISICIÓN:",
+  "csv_header_auth": "AUTORIZACIÓN:",
+  "csv_header_requester": "SOLICITANTE:",
+  "csv_header_company": "EMPRESA:",
+  "csv_col_qty": "CANT.",
+  "csv_col_material": "MATERIAL",
+  "csv_col_app_location": "UBICACIÓN DE APLICACIÓN"
 }

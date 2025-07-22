@@ -315,12 +315,13 @@
   "finalize_transactions": "Finalize Transactions",
   "application_location": "Application Location",
   "enter_application_location": "Enter application location (optional)",
-  "csv_date": "Date",
-  "csv_requisition_number": "Requisition No.",
-  "csv_authorization": "Authorization",
-  "csv_requester": "Requester",
-  "csv_company": "Company",
-  "csv_quantity": "Quantity",
-  "csv_material": "Material",
-  "csv_application_location": "Application Location"
+  "csv_header_title": "MATERIAL REQUISITION - WAREHOUSE",
+  "csv_header_date": "DATE:",
+  "csv_header_req_no": "REQUISITION NO.:",
+  "csv_header_auth": "AUTHORIZATION:",
+  "csv_header_requester": "REQUESTER:",
+  "csv_header_company": "COMPANY:",
+  "csv_col_qty": "QTY.",
+  "csv_col_material": "MATERIAL",
+  "csv_col_app_location": "APPLICATION LOCATION"
 }
