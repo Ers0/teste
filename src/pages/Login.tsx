@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { Warehouse } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import yeesLogo from '@/assets/yees-logo.png';
 
 const Login = () => {
   const { t } = useTranslation();
@@ -53,7 +52,7 @@ const Login = () => {
           <Warehouse className="mx-auto h-24 w-24 text-white drop-shadow-md" />
           <h2 className="mt-6 text-3xl font-bold text-white drop-shadow-md flex items-center justify-center gap-2">
             {t('inventory_management_title_part1')}
-            <img src={yeesLogo} alt="Yees!" className="h-10 inline-block" />
+            <img src="/yees-logo.png" alt="Yees!" className="h-10 inline-block" />
           </h2>
           <p className="mt-2 text-lg text-white drop-shadow-md">
             {t('manage_warehouse_items')}
