@@ -22,6 +22,7 @@ import { exportToCsv } from '@/utils/export';
 import { parseCsv } from '@/utils/import';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Worker {
   id: string;
@@ -482,6 +483,23 @@ const Workers = () => {
     showSuccess(t('workers_exported_successfully'));
   };
 
+  const handleExportCompanyReport = (companyName: string, companyWorkers: Worker[]) => {
+    if (!companyWorkers || companyWorkers.length === 0) {
+      showError(t('no_workers_to_export_for_this_company'));
+      return;
+    }
+
+    const formattedData = companyWorkers.map(worker => ({
+      name: worker.name,
+      company: worker.company,
+      external_qr_code_data: worker.external_qr_code_data || '',
+    }));
+
+    const filename = `${companyName.replace(/\s+/g, '_')}_workers_report.csv`;
+    exportToCsv(formattedData, filename);
+    showSuccess(t('company_report_exported_successfully', { companyName }));
+  };
+
   const handleImport = async () => {
     if (!fileToImport || !user) {
       showError(t('no_file_selected'));
@@ -677,10 +695,31 @@ const Workers = () => {
                 {Object.entries(groupedWorkers).map(([company, companyWorkers]) => (
                   <AccordionItem value={company} key={company}>
                     <AccordionTrigger>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-5 w-5 text-muted-foreground" />
-                        <span className="font-semibold">{company}</span>
-                        <Badge variant="secondary">{companyWorkers.length}</Badge>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-5 w-5 text-muted-foreground" />
+                          <span className="font-semibold">{company}</span>
+                          <Badge variant="secondary">{companyWorkers.length}</Badge>
+                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleExportCompanyReport(company, companyWorkers);
+                              }}
+                              className="mr-2 hover:bg-accent"
+                            >
+                              <Download className="h-4 w-4" />
+                              <span className="sr-only">{t('export_company_report')}</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{t('export_company_report')}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
