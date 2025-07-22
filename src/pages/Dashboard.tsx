@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck } from 'lucide-react';
+import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck, Tags } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,6 +88,12 @@ const Dashboard = () => {
             <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
               <ClipboardCheck className="h-8 w-8 mb-2" />
               <span className="font-semibold text-center">{t('requisitions')}</span>
+            </Card>
+          </Link>
+          <Link to="/tags" className="block">
+            <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
+              <Tags className="h-8 w-8 mb-2" />
+              <span className="font-semibold">{t('manage_tags')}</span>
             </Card>
           </Link>
           <Link to="/settings" className="block">
