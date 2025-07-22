@@ -74,6 +74,7 @@ const WorkerTransaction = () => {
   const queryClient = useQueryClient();
 
   const [scanningWorker, setScanningWorker] = useState(false);
+  const [scanningItem, setScanningItem] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
@@ -119,35 +120,19 @@ const WorkerTransaction = () => {
       }
     };
 
-    if (scanningWorker) {
+    const startScanner = async (readerElementId: string, onScanSuccess: (decodedText: string) => void) => {
       if (currentIsWeb) {
-        const startWebScanner = async () => {
-          await stopNativeScanner();
+        await stopNativeScanner();
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          if (cameras && cameras.length > 0) {
+            let cameraId = cameras[0].id;
+            const backCamera = cameras.find(camera => camera.label.toLowerCase().includes('back') || camera.label.toLowerCase().includes('environment'));
+            if (backCamera) cameraId = backCamera.id;
+            else if (cameras.length > 1) cameraId = cameras[1].id;
 
-          try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length > 0) {
-              let cameraId = cameras[0].id;
-              const backCamera = cameras.find(camera => 
-                camera.label.toLowerCase().includes('back') || 
-                camera.label.toLowerCase().includes('environment')
-              );
-              if (backCamera) {
-                cameraId = backCamera.id;
-              } else if (cameras.length > 1) {
-                cameraId = cameras[1].id;
-              }
-
-              const readerElementId = "worker-qr-reader";
-              const readerElement = document.getElementById(readerElementId);
-
-              if (!readerElement) {
-                console.error(`HTML Element with id=${readerElementId} not found during web scan start attempt.`);
-                showError(t('camera_display_area_not_found'));
-                setScanningWorker(false);
-                return;
-              }
-
+            const readerElement = document.getElementById(readerElementId);
+            if (readerElement) {
               setTimeout(async () => {
                 if (html5QrCodeScannerRef.current) {
                   await html5QrCodeScannerRef.current.stop().catch(() => {});
@@ -155,67 +140,71 @@ const WorkerTransaction = () => {
                   html5QrCodeScannerRef.current = null;
                 }
                 try {
-                  const html5Qrcode = new Html5Qrcode(readerElement.id);
+                  const html5Qrcode = new Html5Qrcode(readerElementId);
                   html5QrCodeScannerRef.current = html5Qrcode;
-
                   await html5Qrcode.start(
                     cameraId,
                     { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
-                    (decodedText) => {
-                      console.log("Web scan successful:", decodedText);
-                      setWorkerQrCodeInput(decodedText);
-                      handleScanWorker(decodedText);
-                      playBeep();
-                      setScanningWorker(false);
-                    },
-                    (errorMessage) => {
-                      // This callback is called frequently, even for non-errors.
-                      // Do not stop scanning here.
-                    }
+                    onScanSuccess,
+                    (errorMessage) => {}
                   );
                 } catch (err: any) {
-                  console.error(`Failed to start camera ${cameraId}:`, err);
                   showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
                   setScanningWorker(false);
+                  setScanningItem(false);
                 }
               }, 200);
             } else {
-              showError(t('no_camera_found_access_denied'));
+              showError(t('camera_display_area_not_found'));
               setScanningWorker(false);
+              setScanningItem(false);
             }
-          } catch (err: any) {
-            const errorMessage = err instanceof Error ? err.message : String(err);
-            showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
-            setScanningWorker(false);
-          }
-        };
-        startWebScanner();
-      } else {
-        const runNativeScan = async () => {
-          await stopWebScanner();
-
-          const hasPermission = await checkPermission();
-          if (!hasPermission) {
-            setScanningWorker(false);
-            return;
-          }
-          setBodyBackground('transparent');
-          addCssClass('barcode-scanner-active');
-          BarcodeScanner.hideBackground();
-          const result = await BarcodeScanner.startScan();
-          if (result.hasContent && result.content) {
-            console.log("Native scan successful:", result.content);
-            setWorkerQrCodeInput(result.content);
-            await handleScanWorker(result.content);
-            playBeep();
-            setScanningWorker(false);
           } else {
-            showError(t('no_barcode_scanned_cancelled'));
+            showError(t('no_camera_found_access_denied'));
             setScanningWorker(false);
+            setScanningItem(false);
           }
-        };
-        runNativeScan();
+        } catch (err: any) {
+          showError(t('error_starting_web_camera_scan') + (err.message || err) + t('check_camera_permissions'));
+          setScanningWorker(false);
+          setScanningItem(false);
+        }
+      } else { // Native
+        await stopWebScanner();
+        const hasPermission = await checkPermission();
+        if (!hasPermission) {
+          setScanningWorker(false);
+          setScanningItem(false);
+          return;
+        }
+        setBodyBackground('transparent');
+        addCssClass('barcode-scanner-active');
+        BarcodeScanner.hideBackground();
+        const result = await BarcodeScanner.startScan();
+        if (result.hasContent && result.content) {
+          onScanSuccess(result.content);
+        } else {
+          showError(t('no_barcode_scanned_cancelled'));
+          setScanningWorker(false);
+          setScanningItem(false);
+        }
       }
+    };
+
+    if (scanningWorker) {
+      startScanner("worker-qr-reader", (decodedText) => {
+        setWorkerQrCodeInput(decodedText);
+        handleScanWorker(decodedText);
+        playBeep();
+        setScanningWorker(false);
+      });
+    } else if (scanningItem) {
+      startScanner("item-barcode-reader", (decodedText) => {
+        setItemBarcodeInput(decodedText);
+        handleScanItem(decodedText);
+        playBeep();
+        setScanningItem(false);
+      });
     } else {
       stopWebScanner();
       stopNativeScanner();
@@ -225,7 +214,7 @@ const WorkerTransaction = () => {
       stopWebScanner();
       stopNativeScanner();
     };
-  }, [scanningWorker, isWeb]);
+  }, [scanningWorker, scanningItem, isWeb]);
 
   const checkPermission = async () => {
     const status = await BarcodeScanner.checkPermission({ force: true });
@@ -248,6 +237,18 @@ const WorkerTransaction = () => {
 
   const stopWorkerScan = () => {
     setScanningWorker(false);
+  };
+
+  const startItemScan = () => {
+    setItemBarcodeInput('');
+    setScannedItem(null);
+    setScanningItem(true);
+    setItemSearchTerm('');
+    setItemSearchResults([]);
+  };
+
+  const stopItemScan = () => {
+    setScanningItem(false);
   };
 
   const toggleTorch = async () => {
@@ -405,8 +406,9 @@ const WorkerTransaction = () => {
     showSuccess(t('worker_selection_cleared'));
   };
 
-  const handleScanItem = async () => {
-    if (!itemBarcodeInput) {
+  const handleScanItem = async (scannedBarcode?: string) => {
+    const barcodeToSearch = scannedBarcode || itemBarcodeInput;
+    if (!barcodeToSearch) {
       showError(t('enter_item_barcode_scan'));
       return;
     }
@@ -418,7 +420,7 @@ const WorkerTransaction = () => {
     const { data, error } = await supabase
       .from('items')
       .select('*, one_time_use, is_tool')
-      .eq('barcode', itemBarcodeInput)
+      .eq('barcode', barcodeToSearch)
       .eq('user_id', user.id)
       .single();
 
@@ -615,21 +617,20 @@ const WorkerTransaction = () => {
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
-        <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanningWorker ? '' : 'hidden'}`}>
+        <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanningWorker || scanningItem ? '' : 'hidden'}`}>
           {isWeb ? (
             <>
-              <div id="worker-qr-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
-              <Button onClick={stopWorkerScan} className="mt-4" variant="secondary">
+              <div id={scanningWorker ? "worker-qr-reader" : "item-barcode-reader"} className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
+              <Button onClick={scanningWorker ? stopWorkerScan : stopItemScan} className="mt-4" variant="secondary">
                 {t('cancel_scan')}
               </Button>
-              <p className="text-sm text-white mt-2">{t('position_barcode_horizontally')}</p>
             </>
           ) : (
             <>
               <div className="absolute inset-0 bg-black opacity-50"></div>
               <div className="relative z-10 text-white text-lg">
-                {t('scanning_for_qr_code')}
-                <Button onClick={stopWorkerScan} className="mt-4 block mx-auto" variant="secondary">
+                {scanningWorker ? t('scanning_for_qr_code') : t('scanning_for_barcode')}
+                <Button onClick={scanningWorker ? stopWorkerScan : stopItemScan} className="mt-4 block mx-auto" variant="secondary">
                   {t('cancel_scan')}
                 </Button>
                 <Button onClick={toggleTorch} className="mt-2 block mx-auto" variant="outline">
@@ -642,7 +643,7 @@ const WorkerTransaction = () => {
           )}
         </div>
 
-        <Card className={`w-full max-w-md ${scanningWorker ? 'hidden' : ''}`}>
+        <Card className={`w-full max-w-md ${scanningWorker || scanningItem ? 'hidden' : ''}`}>
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
               <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
@@ -772,8 +773,11 @@ const WorkerTransaction = () => {
                           onChange={(e) => setItemBarcodeInput(e.target.value)}
                           className="flex-grow"
                         />
-                        <Button onClick={handleScanItem}>
-                          <Barcode className="mr-2 h-4 w-4" /> {t('scan_item')}
+                        <Button onClick={() => handleScanItem()}>
+                          <Search className="mr-2 h-4 w-4" /> {t('search')}
+                        </Button>
+                        <Button onClick={startItemScan}>
+                          <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}
                         </Button>
                       </div>
                       <div className="text-center text-sm text-muted-foreground my-2">
