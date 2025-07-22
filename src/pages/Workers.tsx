@@ -545,7 +545,7 @@ const Workers = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-end mb-4 gap-2">
+            <div className="flex flex-wrap justify-end mb-4 gap-2">
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button onClick={() => { setNewWorker(initialNewWorkerState); setEditingWorker(null); setIsDialogOpen(true); }}>

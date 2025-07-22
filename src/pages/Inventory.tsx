@@ -409,16 +409,16 @@ const Inventory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="flex items-center gap-2">
               <Input
                 placeholder={t('search_by_name_tag_desc')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-[250px]"
+                className="w-full sm:w-[250px]"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="sort-by">{t('sort_by')}</Label>
               <Select value={sortKey} onValueChange={(value: 'name' | 'quantity' | 'movement') => setSortKey(value)}>
                 <SelectTrigger id="sort-by" className="w-[160px]">
@@ -441,7 +441,7 @@ const Inventory = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
               <Link to="/scan-item">
                 <Button variant="outline">
                   <Scan className="mr-2 h-4 w-4" /> {t('scan_item')}
