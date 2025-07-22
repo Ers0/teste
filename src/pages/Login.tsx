@@ -23,8 +23,8 @@ const Login = () => {
       <div className="flex items-center justify-center py-12 bg-[#842CD4]">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold text-white">{t('welcome_back')}</h1>
-            <p className="text-balance text-gray-200">
+            <h1 className="text-3xl font-bold text-white drop-shadow-md">{t('welcome_back')}</h1>
+            <p className="text-balance text-white drop-shadow-md">
               {t('sign_in_to_manage_inventory')}
             </p>
           </div>
@@ -49,11 +49,11 @@ const Login = () => {
       </div>
       <div className="hidden bg-[#842CD4] lg:flex lg:items-center lg:justify-center lg:flex-col">
         <div className="text-center p-8">
-          <Warehouse className="mx-auto h-24 w-24 text-white" />
-          <h2 className="mt-6 text-3xl font-bold text-white">
+          <Warehouse className="mx-auto h-24 w-24 text-white drop-shadow-md" />
+          <h2 className="mt-6 text-3xl font-bold text-white drop-shadow-md">
             {t('inventory_management_title')}
           </h2>
-          <p className="mt-2 text-lg text-gray-200">
+          <p className="mt-2 text-lg text-white drop-shadow-md">
             {t('manage_warehouse_items')}
           </p>
         </div>
