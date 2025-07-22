@@ -1,17 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button'; // Keep Button for logout
-import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText } from 'lucide-react'; // Import FileText for Fiscal Notes
+import { Button } from '@/components/ui/button';
+import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useProfile } from '@/hooks/use-profile';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { useTranslation } from 'react-i18next';
 
 const Dashboard = () => {
-  const { t } = useTranslation(); // Initialize useTranslation
+  const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
 
@@ -21,14 +21,14 @@ const Dashboard = () => {
     ? profile.first_name
     : profile?.last_name
     ? profile.last_name
-    : t('guest'); // Translate 'Guest'
+    : t('guest');
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      showError(t('failed_to_log_out') + error.message); // Translated error
+      showError(t('failed_to_log_out') + error.message);
     } else {
-      showSuccess(t('logged_out_successfully')); // Translated success
+      showSuccess(t('logged_out_successfully'));
     }
   };
 
@@ -78,10 +78,16 @@ const Dashboard = () => {
               <span className="font-semibold text-center">{t('transactions_history_title')}</span>
             </Card>
           </Link>
-          <Link to="/fiscal-notes" className="block cursor-pointer"> {/* New link for Fiscal Notes */}
+          <Link to="/fiscal-notes" className="block cursor-pointer">
             <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
               <FileText className="h-8 w-8 mb-2" />
               <span className="font-semibold text-center">{t('fiscal_notes')}</span>
+            </Card>
+          </Link>
+          <Link to="/requisitions" className="block cursor-pointer">
+            <Card className="w-full h-32 flex flex-col items-center justify-center text-lg p-4 transition-all duration-200 rounded-lg shadow-md hover:shadow-lg hover:bg-primary hover:text-primary-foreground">
+              <ClipboardCheck className="h-8 w-8 mb-2" />
+              <span className="font-semibold text-center">{t('requisitions')}</span>
             </Card>
           </Link>
           <Link to="/settings" className="block">

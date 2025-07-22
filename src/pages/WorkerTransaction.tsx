@@ -614,6 +614,22 @@ const WorkerTransaction = () => {
     const requisitionNumber = getNextRequisitionNumber();
 
     try {
+      const { data: requisitionData, error: requisitionError } = await supabase
+        .from('requisitions')
+        .insert({
+          requisition_number: requisitionNumber,
+          user_id: user.id,
+          authorized_by: authorizedBy.trim() || null,
+          given_by: givenBy.trim() || null,
+          requester_name: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
+          requester_company: selectionMode === 'worker' ? scannedWorker!.company : selectedCompany,
+          application_location: applicationLocation.trim() || null,
+        })
+        .select('id')
+        .single();
+
+      if (requisitionError) throw requisitionError;
+
       for (const txItem of transactionItems) {
         const { data: currentItem, error: fetchError } = await supabase
           .from('items')
@@ -647,6 +663,7 @@ const WorkerTransaction = () => {
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert([{
+            requisition_id: requisitionData.id,
             worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
             company: selectionMode === 'company' ? selectedCompany : null,
             item_id: txItem.item.id,
@@ -663,23 +680,14 @@ const WorkerTransaction = () => {
         }
       }
 
-      exportToPdf({
-        requisitionNumber,
-        authorizedBy,
-        requester: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
-        company: selectionMode === 'worker' ? scannedWorker!.company : selectedCompany,
-        applicationLocation,
-        transactionItems,
-        t,
-      });
-
       dismissToast(toastId);
       showSuccess(t('all_transactions_recorded_successfully'));
       handleDone();
+      navigate('/requisitions');
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message);
-      fetchCompanies(); // Refetch data to ensure consistency
+      fetchCompanies();
     }
   };
 

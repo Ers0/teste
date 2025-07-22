@@ -323,5 +323,16 @@
   "csv_header_company": "EMPRESA:",
   "csv_col_qty": "QTD.",
   "csv_col_material": "MATERIAL",
-  "csv_col_app_location": "LOCAL DE APLICAÇÃO"
+  "csv_col_app_location": "LOCAL DE APLICAÇÃO",
+  "requisitions": "Requisições",
+  "view_and_download_past_requisitions": "Veja e baixe requisições passadas.",
+  "requisition_number": "N° da Requisição",
+  "requester": "Requisitante",
+  "date": "Data",
+  "download_pdf": "Baixar PDF",
+  "no_requisitions_found": "Nenhuma requisição encontrada.",
+  "loading_requisitions": "Carregando requisições...",
+  "error_loading_requisitions": "Erro ao carregar as requisições",
+  "error_fetching_transaction_items": "Erro ao buscar itens da transação: ",
+  "error_fetching_requisition_details": "Erro ao buscar detalhes da requisição: "
 }

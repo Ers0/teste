@@ -13,7 +13,8 @@ import Settings from "./pages/Settings";
 import WorkerTransaction from "./pages/WorkerTransaction";
 import WorkerReport from "./pages/WorkerReport";
 import TransactionsHistory from "./pages/TransactionsHistory";
-import FiscalNotes from "./pages/FiscalNotes"; // Import the new FiscalNotes component
+import FiscalNotes from "./pages/FiscalNotes";
+import Requisitions from "./pages/Requisitions"; // Import the new Requisitions component
 import { SessionContextProvider } from "./integrations/supabase/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import React, { useEffect } from "react";
@@ -49,7 +50,8 @@ const App = () => {
               <Route path="/record-takeout" element={<ProtectedRoute><WorkerTransaction /></ProtectedRoute>} />
               <Route path="/worker-report/:workerId" element={<ProtectedRoute><WorkerReport /></ProtectedRoute>} />
               <Route path="/transactions-history" element={<ProtectedRoute><TransactionsHistory /></ProtectedRoute>} />
-              <Route path="/fiscal-notes" element={<ProtectedRoute><FiscalNotes /></ProtectedRoute>} /> {/* New protected route */}
+              <Route path="/fiscal-notes" element={<ProtectedRoute><FiscalNotes /></ProtectedRoute>} />
+              <Route path="/requisitions" element={<ProtectedRoute><Requisitions /></ProtectedRoute>} /> {/* New protected route */}
             </Routes>
           </SessionContextProvider>
         </BrowserRouter>
