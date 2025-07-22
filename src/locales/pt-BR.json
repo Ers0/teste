@@ -1,6 +1,20 @@
 {
-  "welcome_back": "Bem-vindo de volta",
+  "welcome_back": "Bem-vindo de volta!",
   "sign_in_to_manage_inventory": "Faça login para gerenciar seu inventário",
-  "inventory_management_title_part1": "Gerenciamento de Almoxarifado",
-  "manage_warehouse_items": "Gerencie os itens do seu armazém"
+  "inventory_management_title_part1": "Gerenciamento de Estoque com",
+  "manage_warehouse_items": "Gerencie os itens do seu armazém com facilidade.",
+  "welcome_user": "Bem-vindo, {{userName}}!",
+  "guest": "Convidado",
+  "manage_inventory_workers": "Gerencie seu inventário e trabalhadores a partir daqui.",
+  "inventory_management": "Gerenciamento de Estoque",
+  "worker_management": "Gerenciamento de Funcionários",
+  "scan_item_add_remove": "Escanear Item (Adicionar/Remover)",
+  "record_item_takeout": "Registrar Retirada de Item",
+  "transactions_history_title": "Histórico de Transações",
+  "fiscal_notes": "Notas Fiscais",
+  "settings": "Configurações",
+  "log_out": "Sair",
+  "failed_to_log_out": "Falha ao sair: ",
+  "logged_out_successfully": "Sessão encerrada com sucesso!",
+  "loading_user_session": "Carregando sessão do usuário..."
 }

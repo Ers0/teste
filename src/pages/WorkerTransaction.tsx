@@ -835,7 +835,7 @@ const WorkerTransaction = () => {
                           <Input
                             id="quantityToChange"
                             type="number"
-                            value={quantityToChange}
+                            value={String(quantityToChange)}
                             onChange={(e) => setQuantityToChange(parseInt(e.target.value) || 1)}
                             min="1"
                             className="text-center"

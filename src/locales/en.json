@@ -1,6 +1,20 @@
 {
-  "welcome_back": "Welcome Back",
+  "welcome_back": "Welcome Back!",
   "sign_in_to_manage_inventory": "Sign in to manage your inventory",
-  "inventory_management_title_part1": "Inventory Management",
-  "manage_warehouse_items": "Manage your warehouse items"
+  "inventory_management_title_part1": "Inventory Management with",
+  "manage_warehouse_items": "Manage your warehouse items with ease.",
+  "welcome_user": "Welcome, {{userName}}!",
+  "guest": "Guest",
+  "manage_inventory_workers": "Manage your inventory and workers from here.",
+  "inventory_management": "Inventory Management",
+  "worker_management": "Worker Management",
+  "scan_item_add_remove": "Scan Item (Add/Remove)",
+  "record_item_takeout": "Record Item Takeout",
+  "transactions_history_title": "Transactions History",
+  "fiscal_notes": "Fiscal Notes",
+  "settings": "Settings",
+  "log_out": "Log Out",
+  "failed_to_log_out": "Failed to log out: ",
+  "logged_out_successfully": "Logged out successfully!",
+  "loading_user_session": "Loading user session..."
 }

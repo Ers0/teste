@@ -1,6 +1,20 @@
 {
-  "welcome_back": "Bienvenido de nuevo",
+  "welcome_back": "¡Bienvenido de nuevo!",
   "sign_in_to_manage_inventory": "Inicia sesión para gestionar tu inventario",
-  "inventory_management_title_part1": "Gestión de Inventario",
-  "manage_warehouse_items": "Gestiona los artículos de tu almacén"
+  "inventory_management_title_part1": "Gestión de Inventario con",
+  "manage_warehouse_items": "Gestiona los artículos de tu almacén con facilidad.",
+  "welcome_user": "¡Bienvenido, {{userName}}!",
+  "guest": "Invitado",
+  "manage_inventory_workers": "Gestiona tu inventario y trabajadores desde aquí.",
+  "inventory_management": "Gestión de Inventario",
+  "worker_management": "Gestión de Trabajadores",
+  "scan_item_add_remove": "Escanear Artículo (Añadir/Quitar)",
+  "record_item_takeout": "Registrar Salida de Artículo",
+  "transactions_history_title": "Historial de Transacciones",
+  "fiscal_notes": "Notas Fiscales",
+  "settings": "Configuración",
+  "log_out": "Cerrar Sesión",
+  "failed_to_log_out": "Error al cerrar sesión: ",
+  "logged_out_successfully": "¡Sesión cerrada con éxito!",
+  "loading_user_session": "Cargando sesión de usuario..."
 }
