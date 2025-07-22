@@ -19,6 +19,7 @@ import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-u
 import beepSound from '/beep.mp3';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { exportToCsv } from '@/utils/export';
 
 interface Worker {
   id: string;
@@ -77,6 +78,7 @@ const WorkerTransaction = () => {
   const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
   const [authorizedBy, setAuthorizedBy] = useState('');
   const [givenBy, setGivenBy] = useState('');
+  const [applicationLocation, setApplicationLocation] = useState('');
   const [activeTab, setActiveTab] = useState('transaction-form');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -600,6 +602,16 @@ const WorkerTransaction = () => {
     }
 
     const toastId = showLoading(t('processing_transactions'));
+    
+    const getNextRequisitionNumber = (): string => {
+      const key = 'lastRequisitionNumber';
+      let lastNumber = parseInt(localStorage.getItem(key) || '0', 10);
+      const newNumber = lastNumber + 1;
+      localStorage.setItem(key, newNumber.toString());
+      return newNumber.toString().padStart(4, '0');
+    };
+
+    const requisitionNumber = getNextRequisitionNumber();
 
     try {
       for (const txItem of transactionItems) {
@@ -651,6 +663,20 @@ const WorkerTransaction = () => {
         }
       }
 
+      const csvData = transactionItems.map(txItem => ({
+        [t('csv_date')]: new Date().toLocaleDateString(),
+        [t('csv_requisition_number')]: requisitionNumber,
+        [t('csv_authorization')]: authorizedBy.trim() || 'N/A',
+        [t('csv_requester')]: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
+        [t('csv_company')]: selectionMode === 'worker' ? scannedWorker!.company || 'N/A' : selectedCompany,
+        [t('csv_quantity')]: txItem.quantity,
+        [t('csv_material')]: txItem.item.name,
+        [t('csv_application_location')]: applicationLocation.trim() || 'N/A',
+      }));
+
+      const filename = `Requisicao_${requisitionNumber}.csv`;
+      exportToCsv(csvData, filename);
+
       dismissToast(toastId);
       showSuccess(t('all_transactions_recorded_successfully'));
       handleDone();
@@ -674,6 +700,7 @@ const WorkerTransaction = () => {
     setTransactionType('takeout');
     setAuthorizedBy('');
     setGivenBy('');
+    setApplicationLocation('');
     setSelectedCompany(null);
     setSelectionMode('worker');
     setTransactionItems([]);
@@ -987,6 +1014,16 @@ const WorkerTransaction = () => {
                       placeholder={t('enter_giver_name')}
                       value={givenBy}
                       onChange={(e) => setGivenBy(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="applicationLocation">{t('application_location')}</Label>
+                    <Input
+                      id="applicationLocation"
+                      type="text"
+                      placeholder={t('enter_application_location')}
+                      value={applicationLocation}
+                      onChange={(e) => setApplicationLocation(e.target.value)}
                     />
                   </div>
                 </div>
