@@ -7,12 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch'; // Import Switch component
+import { Switch } from '@/components/ui/switch';
 import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
-import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { useAuth } from '@/integrations/supabase/auth';
+import { useTranslation } from 'react-i18next';
+import { Badge } from '@/components/ui/badge';
 
 interface Item {
   id: string;
@@ -24,15 +25,28 @@ interface Item {
   image?: File | null;
   low_stock_threshold: number | null;
   critical_stock_threshold: number | null;
-  one_time_use: boolean; // New field
-  user_id: string; // Added user_id
+  one_time_use: boolean;
+  is_tool: boolean; // New field
+  user_id: string;
 }
 
+const initialNewItemState = {
+  name: '',
+  description: '',
+  barcode: '',
+  quantity: 0,
+  image: null as File | null,
+  low_stock_threshold: 10,
+  critical_stock_threshold: 5,
+  one_time_use: false,
+  is_tool: false,
+};
+
 const Inventory = () => {
-  const { t } = useTranslation(); // Initialize useTranslation
-  const { user } = useAuth(); // Get the current user
+  const { t } = useTranslation();
+  const { user } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
-  const [newItem, setNewItem] = useState({ name: '', description: '', barcode: '', quantity: 0, image: null as File | null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
+  const [newItem, setNewItem] = useState(initialNewItemState);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sortKey, setSortKey] = useState<'name' | 'quantity' | 'movement'>('name');
@@ -40,22 +54,22 @@ const Inventory = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) { // Only fetch if user is logged in
+    if (user) {
       fetchItems();
     }
   }, [user, sortKey, sortDirection]);
 
   const fetchItems = async () => {
-    if (!user) return; // Ensure user is available
+    if (!user) return;
 
     let data: Item[] | null = null;
-    let error: Error | null = null;
+    let error: any = null;
 
     if (sortKey === 'movement') {
       const { data: itemsData, error: itemsError } = await supabase
         .from('items')
-        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use') // Select new fields
-        .eq('user_id', user.id); // Filter by user_id
+        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use, is_tool')
+        .eq('user_id', user.id);
 
       if (itemsError) {
         showError(t('error_fetching_items') + itemsError.message);
@@ -64,7 +78,7 @@ const Inventory = () => {
 
       const { data: movementData, error: movementError } = await supabase
         .from('item_movement_counts')
-        .select('*'); // Note: item_movement_counts might need user_id filtering too if it's per-user
+        .select('*');
 
       if (movementError) {
         showError(t('error_fetching_item_movement_counts') + movementError.message);
@@ -91,8 +105,8 @@ const Inventory = () => {
     } else {
       const { data: directData, error: directError } = await supabase
         .from('items')
-        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use') // Select new fields
-        .eq('user_id', user.id) // Filter by user_id
+        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use, is_tool')
+        .eq('user_id', user.id)
         .order(sortKey, { ascending: sortDirection === 'asc' });
       data = directData;
       error = directError;
@@ -118,9 +132,17 @@ const Inventory = () => {
 
   const handleToggleChange = (checked: boolean) => {
     if (editingItem) {
-      setEditingItem({ ...editingItem, one_time_use: checked });
+      setEditingItem({ ...editingItem, one_time_use: checked, is_tool: checked ? false : editingItem.is_tool });
     } else {
-      setNewItem({ ...newItem, one_time_use: checked });
+      setNewItem({ ...newItem, one_time_use: checked, is_tool: checked ? false : newItem.is_tool });
+    }
+  };
+
+  const handleIsToolToggleChange = (checked: boolean) => {
+    if (editingItem) {
+      setEditingItem({ ...editingItem, is_tool: checked, one_time_use: checked ? false : editingItem.one_time_use });
+    } else {
+      setNewItem({ ...newItem, is_tool: checked, one_time_use: checked ? false : newItem.one_time_use });
     }
   };
 
@@ -177,7 +199,8 @@ const Inventory = () => {
         low_stock_threshold: newItem.low_stock_threshold,
         critical_stock_threshold: newItem.critical_stock_threshold,
         one_time_use: newItem.one_time_use,
-        user_id: user.id // Set user_id
+        is_tool: newItem.is_tool,
+        user_id: user.id
       }])
       .select()
       .single();
@@ -196,7 +219,7 @@ const Inventory = () => {
     }
 
     showSuccess(t('item_added_successfully'));
-    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
+    setNewItem(initialNewItemState);
     setIsDialogOpen(false);
     fetchItems();
   };
@@ -227,7 +250,8 @@ const Inventory = () => {
         low_stock_threshold: editingItem.low_stock_threshold,
         critical_stock_threshold: editingItem.critical_stock_threshold,
         one_time_use: editingItem.one_time_use,
-        user_id: user.id // Ensure user_id is maintained/updated
+        is_tool: editingItem.is_tool,
+        user_id: user.id
       })
       .eq('id', editingItem.id);
 
@@ -261,7 +285,7 @@ const Inventory = () => {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingItem(null);
-    setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false });
+    setNewItem(initialNewItemState);
   };
 
   const getQuantityColorClass = (item: Item) => {
@@ -291,7 +315,6 @@ const Inventory = () => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap justify-end gap-2 mb-4">
-            {/* Sort By Select */}
             <div className="flex items-center gap-2">
               <Label htmlFor="sort-by">{t('sort_by')}</Label>
               <Select value={sortKey} onValueChange={(value: 'name' | 'quantity' | 'movement') => setSortKey(value)}>
@@ -306,7 +329,6 @@ const Inventory = () => {
               </Select>
             </div>
 
-            {/* Sort Direction Select */}
             <div className="flex items-center gap-2">
               <Label htmlFor="sort-direction">{t('order')}</Label>
               <Select value={sortDirection} onValueChange={(value: 'asc' | 'desc') => setSortDirection(value)}>
@@ -327,7 +349,7 @@ const Inventory = () => {
             </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => { setEditingItem(null); setNewItem({ name: '', description: '', barcode: '', quantity: 0, image: null, low_stock_threshold: 10, critical_stock_threshold: 5, one_time_use: false }); setIsDialogOpen(true); }}>
+                <Button onClick={() => { setEditingItem(null); setNewItem(initialNewItemState); setIsDialogOpen(true); }}>
                   <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}
                 </Button>
               </DialogTrigger>
@@ -392,7 +414,6 @@ const Inventory = () => {
                       className="col-span-3"
                     />
                   </div>
-                  {/* New Threshold Inputs */}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="low_stock_threshold" className="text-right">
                       {t('low_stock_yellow')}
@@ -421,7 +442,6 @@ const Inventory = () => {
                       placeholder="e.g., 5"
                     />
                   </div>
-                  {/* One-Time Use Toggle */}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="one_time_use" className="text-right">
                       {t('one_time_use')}
@@ -430,10 +450,22 @@ const Inventory = () => {
                       id="one_time_use"
                       checked={editingItem ? editingItem.one_time_use : newItem.one_time_use}
                       onCheckedChange={handleToggleChange}
+                      disabled={editingItem ? editingItem.is_tool : newItem.is_tool}
                       className="col-span-3"
                     />
                   </div>
-                  {/* End New Threshold Inputs */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="is_tool" className="text-right">
+                      {t('tool')}
+                    </Label>
+                    <Switch
+                      id="is_tool"
+                      checked={editingItem ? editingItem.is_tool : newItem.is_tool}
+                      onCheckedChange={handleIsToolToggleChange}
+                      disabled={editingItem ? editingItem.one_time_use : newItem.one_time_use}
+                      className="col-span-3"
+                    />
+                  </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="image" className="text-right">
                       {t('image')}
@@ -467,6 +499,7 @@ const Inventory = () => {
                 <TableRow>
                   <TableHead className="w-[80px]">{t('image')}</TableHead>
                   <TableHead>{t('name')}</TableHead>
+                  <TableHead>{t('type')}</TableHead>
                   <TableHead>{t('description')}</TableHead>
                   <TableHead>{t('barcode')}</TableHead>
                   <TableHead className="text-right">{t('quantity')}</TableHead>
@@ -476,7 +509,7 @@ const Inventory = () => {
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-gray-500">
+                    <TableCell colSpan={7} className="h-24 text-center text-gray-500">
                       {t('no_items_found')}
                     </TableCell>
                   </TableRow>
@@ -493,6 +526,15 @@ const Inventory = () => {
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>
+                        {item.is_tool ? (
+                          <Badge variant="outline">{t('tool')}</Badge>
+                        ) : item.one_time_use ? (
+                          <Badge variant="secondary">{t('one_time_use')}</Badge>
+                        ) : (
+                          <Badge>{t('consumable')}</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{item.description || 'N/A'}</TableCell>
                       <TableCell>{item.barcode || 'N/A'}</TableCell>
                       <TableCell className={`text-right ${getQuantityColorClass(item)}`}>{item.quantity}</TableCell>

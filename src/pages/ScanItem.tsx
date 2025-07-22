@@ -28,8 +28,9 @@ interface Item {
   image?: File | null;
   low_stock_threshold: number | null;
   critical_stock_threshold: number | null;
-  one_time_use: boolean; // New field
-  user_id: string; // Added user_id
+  one_time_use: boolean;
+  is_tool: boolean; // New field
+  user_id: string;
 }
 
 const initialNewItemState = {
@@ -41,6 +42,7 @@ const initialNewItemState = {
   low_stock_threshold: 10,
   critical_stock_threshold: 5,
   one_time_use: false,
+  is_tool: false,
 };
 
 const ScanItem = () => {
@@ -310,7 +312,7 @@ const ScanItem = () => {
 
     const { data, error } = await supabase
       .from('items')
-      .select('*, one_time_use')
+      .select('*, one_time_use, is_tool')
       .ilike('name', `%${itemSearchTerm.trim()}%`) // Case-insensitive partial match
       .eq('user_id', user.id); // Filter by user_id
 
@@ -440,7 +442,11 @@ const ScanItem = () => {
   };
 
   const handleNewItemToggleChange = (checked: boolean) => {
-    setNewItemDetails({ ...newItemDetails, one_time_use: checked });
+    setNewItemDetails({ ...newItemDetails, one_time_use: checked, is_tool: checked ? false : newItemDetails.is_tool });
+  };
+
+  const handleNewItemIsToolToggleChange = (checked: boolean) => {
+    setNewItemDetails({ ...newItemDetails, is_tool: checked, one_time_use: checked ? false : newItemDetails.one_time_use });
   };
 
   const handleNewItemImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -492,6 +498,7 @@ const ScanItem = () => {
         low_stock_threshold: newItemDetails.low_stock_threshold,
         critical_stock_threshold: newItemDetails.critical_stock_threshold,
         one_time_use: newItemDetails.one_time_use,
+        is_tool: newItemDetails.is_tool,
         user_id: user.id // Set user_id
       }])
       .select()
@@ -814,6 +821,19 @@ const ScanItem = () => {
                       id="newItemOneTimeUse"
                       checked={newItemDetails.one_time_use}
                       onCheckedChange={handleNewItemToggleChange}
+                      disabled={newItemDetails.is_tool}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="newItemIsTool" className="text-right">
+                      {t('tool')}
+                    </Label>
+                    <Switch
+                      id="newItemIsTool"
+                      checked={newItemDetails.is_tool}
+                      onCheckedChange={handleNewItemIsToolToggleChange}
+                      disabled={newItemDetails.one_time_use}
                       className="col-span-3"
                     />
                   </div>

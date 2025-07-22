@@ -33,8 +33,9 @@ interface Item {
   description: string | null;
   barcode: string | null;
   quantity: number;
-  one_time_use: boolean; // Added one_time_use to Item interface
-  user_id: string; // Added user_id
+  one_time_use: boolean;
+  is_tool: boolean; // New field
+  user_id: string;
 }
 
 interface Transaction {
@@ -423,7 +424,7 @@ const WorkerTransaction = () => {
 
     const { data, error } = await supabase
       .from('items')
-      .select('*, one_time_use') // Select one_time_use
+      .select('*, one_time_use, is_tool') // Select one_time_use and is_tool
       .eq('barcode', itemBarcodeInput)
       .eq('user_id', user.id) // Filter by user_id
       .single();
@@ -458,7 +459,7 @@ const WorkerTransaction = () => {
 
     const { data, error } = await supabase
       .from('items')
-      .select('*, one_time_use')
+      .select('*, one_time_use, is_tool')
       .ilike('name', `%${itemSearchTerm.trim()}%`) // Case-insensitive partial match
       .eq('user_id', user.id); // Filter by user_id
 
@@ -824,6 +825,9 @@ const WorkerTransaction = () => {
                       <p><strong>{t('barcode')}:</strong> {scannedItem.barcode}</p>
                       {scannedItem.one_time_use && (
                         <p className="text-sm text-red-500 font-semibold">{t('this_is_one_time_use_item')}</p>
+                      )}
+                      {scannedItem.is_tool && (
+                        <p className="text-sm text-blue-500 font-semibold">{t('this_is_a_tool')}</p>
                       )}
 
                       <div className="space-y-2 mt-4">
