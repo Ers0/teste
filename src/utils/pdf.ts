@@ -1,11 +1,6 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { TFunction } from 'i18next';
-
-// Extend jsPDF with the autoTable plugin's type definitions
-interface jsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: any) => jsPDF;
-}
 
 interface TransactionItem {
   item: { name: string };
@@ -33,7 +28,7 @@ export const exportToPdf = (data: RequisitionData) => {
     t,
   } = data;
 
-  const doc = new jsPDF() as jsPDFWithAutoTable;
+  const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
 
   // Title
@@ -63,7 +58,7 @@ export const exportToPdf = (data: RequisitionData) => {
     applicationLocation || 'N/A',
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     head: [tableColumn],
     body: tableRows,
     startY: headerY + 25,
