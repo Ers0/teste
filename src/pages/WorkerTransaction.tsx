@@ -9,22 +9,23 @@ import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plu
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
-import { useTranslation } from 'react-i18next'; // Import useTranslation
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components
+import { useAuth } from '@/integrations/supabase/auth';
+import { useTranslation } from 'react-i18next';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { Capacitor } from '@capacitor/core';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import beepSound from '/beep.mp3';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Worker {
   id: string;
   name: string;
   company: string | null;
   qr_code_data: string | null;
-  external_qr_code_data: string | null; // New field
-  user_id: string; // Added user_id
+  external_qr_code_data: string | null;
+  user_id: string;
 }
 
 interface Item {
@@ -34,7 +35,7 @@ interface Item {
   barcode: string | null;
   quantity: number;
   one_time_use: boolean;
-  is_tool: boolean; // New field
+  is_tool: boolean;
   user_id: string;
 }
 
@@ -47,31 +48,30 @@ interface Transaction {
   timestamp: string;
   items: { name: string };
   workers: { name: string };
-  user_id: string; // Added user_id
-  authorized_by: string | null; // New field
-  given_by: string | null;      // New field
+  user_id: string;
+  authorized_by: string | null;
+  given_by: string | null;
 }
 
 const WorkerTransaction = () => {
-  const { t } = useTranslation(); // Initialize useTranslation
-  const { user } = useAuth(); // Get the current user
+  const { t } = useTranslation();
+  const { user } = useAuth();
   const [workerQrCodeInput, setWorkerQrCodeInput] = useState('');
-  const [workerSearchTerm, setWorkerSearchTerm] = useState(''); // New state for worker name search
-  const [workerSearchResults, setWorkerSearchResults] = useState<Worker[]>([]); // New state for search results
+  const [workerSearchTerm, setWorkerSearchTerm] = useState('');
+  const [workerSearchResults, setWorkerSearchResults] = useState<Worker[]>([]);
   const [scannedWorker, setScannedWorker] = useState<Worker | null>(null);
   const [itemBarcodeInput, setItemBarcodeInput] = useState('');
-  const [itemSearchTerm, setItemSearchTerm] = useState(''); // New state for item name search
-  const [itemSearchResults, setItemSearchResults] = useState<Item[]>([]); // New state for item search results
+  const [itemSearchTerm, setItemSearchTerm] = useState('');
+  const [itemSearchResults, setItemSearchResults] = useState<Item[]>([]);
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
   const [quantityToChange, setQuantityToChange] = useState(1);
   const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
-  const [authorizedBy, setAuthorizedBy] = useState(''); // New state for authorized_by
-  const [givenBy, setGivenBy] = useState('');           // New state for given_by
-  const [activeTab, setActiveTab] = useState('transaction-form'); // State for active tab
+  const [authorizedBy, setAuthorizedBy] = useState('');
+  const [givenBy, setGivenBy] = useState('');
+  const [activeTab, setActiveTab] = useState('transaction-form');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Worker QR scanning states
   const [scanningWorker, setScanningWorker] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -85,7 +85,6 @@ const WorkerTransaction = () => {
     }
   };
 
-  // Effect for worker QR scanning
   useEffect(() => {
     const currentIsWeb = !Capacitor.isNativePlatform();
     setIsWeb(currentIsWeb);
@@ -106,7 +105,7 @@ const WorkerTransaction = () => {
     const stopNativeScanner = async () => {
       try {
         await BarcodeScanner.stopScan();
-        await BarcodeScanner.showBackground(); // Only for native
+        await BarcodeScanner.showBackground();
         if (isTorchOn) {
           await BarcodeScanner.disableTorch();
           setIsTorchOn(false);
@@ -114,22 +113,20 @@ const WorkerTransaction = () => {
       } catch (e) {
         console.error("Error stopping native barcode scanner:", e);
       } finally {
-        setBodyBackground(''); // Only for native
-        removeCssClass('barcode-scanner-active'); // Only for native
+        setBodyBackground('');
+        removeCssClass('barcode-scanner-active');
       }
     };
 
     if (scanningWorker) {
       if (currentIsWeb) {
         const startWebScanner = async () => {
-          // Ensure native scanner is not interfering if it was somehow left active
           await stopNativeScanner();
 
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
-              let cameraId = cameras[0].id; // Default to first camera
-              // Try to find a back camera
+              let cameraId = cameras[0].id;
               const backCamera = cameras.find(camera => 
                 camera.label.toLowerCase().includes('back') || 
                 camera.label.toLowerCase().includes('environment')
@@ -137,7 +134,6 @@ const WorkerTransaction = () => {
               if (backCamera) {
                 cameraId = backCamera.id;
               } else if (cameras.length > 1) {
-                // If no explicit back camera, but more than one camera, try the second one
                 cameraId = cameras[1].id;
               }
 
@@ -163,17 +159,17 @@ const WorkerTransaction = () => {
 
                   await html5Qrcode.start(
                     cameraId,
-                    { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false }, // Adjusted qrbox
+                    { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
                     (decodedText) => {
                       console.log("Web scan successful:", decodedText);
                       setWorkerQrCodeInput(decodedText);
                       handleScanWorker(decodedText);
                       playBeep();
-                      setScanningWorker(false); // This will trigger cleanup
+                      setScanningWorker(false);
                     },
                     (errorMessage) => {
                       console.warn(`QR Code Scan Error: ${errorMessage}`);
-                      setScanningWorker(false); // This will trigger cleanup
+                      setScanningWorker(false);
                     }
                   );
                 } catch (err: any) {
@@ -193,9 +189,8 @@ const WorkerTransaction = () => {
           }
         };
         startWebScanner();
-      } else { // Native path
+      } else {
         const runNativeScan = async () => {
-          // Ensure web scanner is not interfering
           await stopWebScanner();
 
           const hasPermission = await checkPermission();
@@ -203,24 +198,24 @@ const WorkerTransaction = () => {
             setScanningWorker(false);
             return;
           }
-          setBodyBackground('transparent'); // Only for native
-          addCssClass('barcode-scanner-active'); // Only for native
-          BarcodeScanner.hideBackground(); // Only for native
+          setBodyBackground('transparent');
+          addCssClass('barcode-scanner-active');
+          BarcodeScanner.hideBackground();
           const result = await BarcodeScanner.startScan();
           if (result.hasContent && result.content) {
             console.log("Native scan successful:", result.content);
             setWorkerQrCodeInput(result.content);
             await handleScanWorker(result.content);
             playBeep();
-            setScanningWorker(false); // This will trigger cleanup
+            setScanningWorker(false);
           } else {
             showError(t('no_barcode_scanned_cancelled'));
-            setScanningWorker(false); // This will trigger cleanup
+            setScanningWorker(false);
           }
         };
         runNativeScan();
       }
-    } else { // scanningWorker is false, stop all
+    } else {
       stopWebScanner();
       stopNativeScanner();
     }
@@ -246,8 +241,8 @@ const WorkerTransaction = () => {
     setWorkerQrCodeInput('');
     setScannedWorker(null);
     setScanningWorker(true);
-    setWorkerSearchTerm(''); // Clear search term when scanning
-    setWorkerSearchResults([]); // Clear search results when scanning
+    setWorkerSearchTerm('');
+    setWorkerSearchResults([]);
   };
 
   const stopWorkerScan = () => {
@@ -274,15 +269,14 @@ const WorkerTransaction = () => {
     }
   };
 
-  // Fetch transaction history
   const { data: transactionsHistory, isLoading: isHistoryLoading, error: historyError } = useQuery<Transaction[], Error>({
-    queryKey: ['transactions', user?.id], // Include user.id in query key
+    queryKey: ['transactions', user?.id],
     queryFn: async () => {
-      if (!user) return []; // Return empty if no user
+      if (!user) return [];
       const { data, error } = await supabase
         .from('transactions')
         .select('*, items(name), workers(name)')
-        .eq('user_id', user.id) // Filter by user_id
+        .eq('user_id', user.id)
         .order('timestamp', { ascending: false })
         .limit(5);
 
@@ -291,11 +285,10 @@ const WorkerTransaction = () => {
       }
       return data as Transaction[];
     },
-    enabled: !!user, // Only run query if user is logged in
+    enabled: !!user,
     staleTime: 1000 * 10,
   });
 
-  // Fetch outstanding takeouts (takeouts older than 24 hours)
   const { data: outstandingTakeouts, isLoading: isOutstandingLoading, error: outstandingError } = useQuery<Transaction[], Error>({
     queryKey: ['outstandingTakeouts', user?.id],
     queryFn: async () => {
@@ -306,7 +299,7 @@ const WorkerTransaction = () => {
         .select('*, items(name), workers(name)')
         .eq('user_id', user.id)
         .eq('type', 'takeout')
-        .lt('timestamp', twentyFourHoursAgo) // Less than 24 hours ago
+        .lt('timestamp', twentyFourHoursAgo)
         .order('timestamp', { ascending: false });
 
       if (error) {
@@ -314,8 +307,8 @@ const WorkerTransaction = () => {
       }
       return data as Transaction[];
     },
-    enabled: !!user && activeTab === 'outstanding-takeouts', // Only run query if user is logged in and tab is active
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    enabled: !!user && activeTab === 'outstanding-takeouts',
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -340,12 +333,11 @@ const WorkerTransaction = () => {
       return;
     }
 
-    // Try to find worker by system-generated QR code or external QR code
     const { data, error } = await supabase
       .from('workers')
       .select('*')
-      .or(`qr_code_data.eq.${qrCodeData},external_qr_code_data.eq.${qrCodeData}`) // Search both fields
-      .eq('user_id', user.id) // Filter by user_id
+      .or(`qr_code_data.eq.${qrCodeData},external_qr_code_data.eq.${qrCodeData}`)
+      .eq('user_id', user.id)
       .single();
 
     if (error) {
@@ -354,9 +346,9 @@ const WorkerTransaction = () => {
     } else {
       setScannedWorker(data);
       showSuccess(t('worker_found', { workerName: data.name }));
-      setWorkerQrCodeInput(qrCodeData); // Ensure input reflects found QR data
-      setWorkerSearchTerm(''); // Clear search term
-      setWorkerSearchResults([]); // Clear search results
+      setWorkerQrCodeInput(qrCodeData);
+      setWorkerSearchTerm('');
+      setWorkerSearchResults([]);
     }
   };
 
@@ -373,8 +365,8 @@ const WorkerTransaction = () => {
     const { data, error } = await supabase
       .from('workers')
       .select('*')
-      .ilike('name', `%${workerSearchTerm.trim()}%`) // Case-insensitive partial match
-      .eq('user_id', user.id); // Filter by user_id
+      .ilike('name', `%${workerSearchTerm.trim()}%`)
+      .eq('user_id', user.id);
 
     if (error) {
       showError(t('error_searching_workers') + error.message);
@@ -383,9 +375,9 @@ const WorkerTransaction = () => {
       if (data.length === 1) {
         setScannedWorker(data[0]);
         showSuccess(t('worker_found', { workerName: data[0].name }));
-        setWorkerQrCodeInput(data[0].qr_code_data || data[0].external_qr_code_data || ''); // Update QR input with either
-        setWorkerSearchTerm(''); // Clear search term
-        setWorkerSearchResults([]); // Clear results
+        setWorkerQrCodeInput(data[0].qr_code_data || data[0].external_qr_code_data || '');
+        setWorkerSearchTerm('');
+        setWorkerSearchResults([]);
       } else {
         setWorkerSearchResults(data);
         showSuccess(t('multiple_workers_found_select'));
@@ -424,22 +416,21 @@ const WorkerTransaction = () => {
 
     const { data, error } = await supabase
       .from('items')
-      .select('*, one_time_use, is_tool') // Select one_time_use and is_tool
+      .select('*, one_time_use, is_tool')
       .eq('barcode', itemBarcodeInput)
-      .eq('user_id', user.id) // Filter by user_id
+      .eq('user_id', user.id)
       .single();
 
     if (error) {
       showError(t('item_not_found_error') + error.message);
       setScannedItem(null);
-      setItemSearchTerm(''); // Clear item search term
-      setItemSearchResults([]); // Clear item search results
+      setItemSearchTerm('');
+      setItemSearchResults([]);
     } else {
       setScannedItem(data);
       showSuccess(t('item_found', { itemName: data.name }));
-      setItemSearchTerm(data.name); // Update item search term
-      setItemSearchResults([]); // Clear item search results
-      // If item is one-time use, force transaction type to takeout
+      setItemSearchTerm(data.name);
+      setItemSearchResults([]);
       if (data.one_time_use) {
         setTransactionType('takeout');
         showError(t('this_is_one_time_use_item_takeout_only'));
@@ -460,8 +451,8 @@ const WorkerTransaction = () => {
     const { data, error } = await supabase
       .from('items')
       .select('*, one_time_use, is_tool')
-      .ilike('name', `%${itemSearchTerm.trim()}%`) // Case-insensitive partial match
-      .eq('user_id', user.id); // Filter by user_id
+      .ilike('name', `%${itemSearchTerm.trim()}%`)
+      .eq('user_id', user.id);
 
     if (error) {
       showError(t('error_searching_items') + error.message);
@@ -470,8 +461,8 @@ const WorkerTransaction = () => {
       if (data.length === 1) {
         setScannedItem(data[0]);
         showSuccess(t('item_found', { itemName: data[0].name }));
-        setItemBarcodeInput(data[0].barcode || ''); // Update barcode input
-        setItemSearchResults([]); // Clear results
+        setItemBarcodeInput(data[0].barcode || '');
+        setItemSearchResults([]);
         if (data[0].one_time_use) {
           setTransactionType('takeout');
           showError(t('this_is_one_time_use_item_takeout_only'));
@@ -524,7 +515,6 @@ const WorkerTransaction = () => {
       return;
     }
 
-    // Prevent return if item is one-time use
     if (scannedItem.one_time_use && transactionType === 'return') {
       showError(t('cannot_return_one_time_use'));
       return;
@@ -537,23 +527,21 @@ const WorkerTransaction = () => {
         return;
       }
       newQuantity -= quantityToChange;
-    } else { // type === 'return'
+    } else {
       newQuantity += quantityToChange;
     }
 
-    // Update item quantity
     const { error: updateError } = await supabase
       .from('items')
       .update({ quantity: newQuantity })
       .eq('id', scannedItem.id)
-      .eq('user_id', user.id); // Ensure user_id is maintained/updated
+      .eq('user_id', user.id);
 
     if (updateError) {
       showError(t('error_updating_item_quantity') + updateError.message);
       return;
     }
 
-    // Record transaction and select the joined data for optimistic update
     const { data: insertedTransaction, error: transactionError } = await supabase
       .from('transactions')
       .insert([
@@ -562,9 +550,9 @@ const WorkerTransaction = () => {
           item_id: scannedItem.id,
           type: transactionType,
           quantity: quantityToChange,
-          user_id: user.id, // Set user_id
-          authorized_by: authorizedBy.trim() || null, // Include new fields
-          given_by: givenBy.trim() || null,           // Include new fields
+          user_id: user.id,
+          authorized_by: authorizedBy.trim() || null,
+          given_by: givenBy.trim() || null,
         },
       ])
       .select('*, items(name), workers(name)')
@@ -572,7 +560,6 @@ const WorkerTransaction = () => {
 
     if (transactionError) {
       showError(t('error_recording_transaction') + transactionError.message);
-      // Rollback item quantity if transaction fails
       await supabase.from('items').update({ quantity: scannedItem.quantity }).eq('id', scannedItem.id).eq('user_id', user.id);
       return;
     }
@@ -588,7 +575,7 @@ const WorkerTransaction = () => {
     }
 
     queryClient.refetchQueries({ queryKey: ['transactions', user.id] });
-    queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user.id] }); // Refetch outstanding takeouts
+    queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user.id] });
   };
 
   const handleDone = () => {
@@ -597,16 +584,16 @@ const WorkerTransaction = () => {
     setWorkerSearchResults([]);
     setScannedWorker(null);
     setItemBarcodeInput('');
-    setItemSearchTerm(''); // Clear item search term
-    setItemSearchResults([]); // Clear item search results
+    setItemSearchTerm('');
+    setItemSearchResults([]);
     setScannedItem(null);
     setQuantityToChange(1);
     setTransactionType('takeout');
-    setAuthorizedBy(''); // Clear new fields
-    setGivenBy('');       // Clear new fields
+    setAuthorizedBy('');
+    setGivenBy('');
     showSuccess(t('transaction_session_cleared'));
     queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
-    queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user?.id] }); // Refetch outstanding takeouts
+    queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user?.id] });
   };
 
   const incrementQuantity = () => {
@@ -621,7 +608,6 @@ const WorkerTransaction = () => {
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
-        {/* Scanner overlay, always rendered but conditionally visible */}
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanningWorker ? '' : 'hidden'}`}>
           {isWeb ? (
             <>
@@ -668,7 +654,6 @@ const WorkerTransaction = () => {
                 <TabsTrigger value="outstanding-takeouts">{t('outstanding_takeouts_tab')}</TabsTrigger>
               </TabsList>
               <TabsContent value="transaction-form" className="space-y-6 pt-4">
-                {/* Transaction Type Selection */}
                 <div className="space-y-2 border-b pb-4">
                   <h3 className="text-lg font-semibold">{t('transaction_type')}</h3>
                   <ToggleGroup
@@ -693,7 +678,7 @@ const WorkerTransaction = () => {
                     <ToggleGroupItem 
                       value="return" 
                       aria-label="Toggle return" 
-                      disabled={scannedItem?.one_time_use} // Disable if one-time use
+                      disabled={scannedItem?.one_time_use}
                       className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200"
                     >
                       {t('return')}
@@ -701,7 +686,6 @@ const WorkerTransaction = () => {
                   </ToggleGroup>
                 </div>
 
-                {/* Worker Scan/Search Section */}
                 <div className="space-y-4 border-b pb-4">
                   <h3 className="text-lg font-semibold flex items-center">
                     <Users className="mr-2 h-5 w-5" /> {t('worker_information')}
@@ -767,7 +751,6 @@ const WorkerTransaction = () => {
                   )}
                 </div>
 
-                {/* Item Scan Section */}
                 <div className="space-y-4 border-b pb-4">
                   <h3 className="text-lg font-semibold flex items-center">
                     <Package className="mr-2 h-5 w-5" /> {t('item_information')}
@@ -805,14 +788,20 @@ const WorkerTransaction = () => {
                         <div className="mt-4 space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
                           <p className="text-sm font-medium">{t('select_item_from_results')}:</p>
                           {itemSearchResults.map((item) => (
-                            <Button
-                              key={item.id}
-                              variant="outline"
-                              className="w-full justify-start"
-                              onClick={() => handleSelectItem(item)}
-                            >
-                              {item.name} ({item.barcode || t('no_barcode')})
-                            </Button>
+                            <Tooltip key={item.id}>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start"
+                                  onClick={() => handleSelectItem(item)}
+                                >
+                                  {item.name} ({item.barcode || t('no_barcode')})
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{item.description || t('no_description')}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           ))}
                         </div>
                       )}
@@ -856,7 +845,6 @@ const WorkerTransaction = () => {
                   )}
                 </div>
 
-                {/* New Fields: Authorized By and Given By */}
                 <div className="space-y-4 border-b pb-4">
                   <h3 className="text-lg font-semibold">{t('transaction_details')}</h3>
                   <div className="space-y-2">
@@ -881,21 +869,18 @@ const WorkerTransaction = () => {
                   </div>
                 </div>
 
-                {/* Record Transaction Button */}
                 <div className="pt-4">
                   <Button onClick={handleRecordTransaction} className="w-full" disabled={!scannedWorker || !scannedItem}>
                     {t(transactionType === 'takeout' ? 'record_takeout' : 'record_return')}
                   </Button>
                 </div>
 
-                {/* Done Button */}
                 <div className="pt-4 border-t">
                   <Button onClick={handleDone} className="w-full">
                     {t('done_with_current_transaction')}
                   </Button>
                 </div>
 
-                {/* Recent Transaction History Section */}
                 <div className="space-y-4 pt-4 border-t">
                   <h3 className="text-lg font-semibold flex items-center">
                     <HistoryIcon className="mr-2 h-5 w-5" /> {t('recent_transaction_history')}

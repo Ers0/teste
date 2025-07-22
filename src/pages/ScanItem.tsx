@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, type NavigateFunction } from 'react-router-dom'; // Importando NavigateFunction
+import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { Capacitor } from '@capacitor/core';
@@ -14,9 +14,10 @@ import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import beepSound from '/beep.mp3';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@/integrations/supabase/auth'; // Import useAuth
-import { useTranslation } from 'react-i18next'; // Import useTranslation
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'; // Import ToggleGroup
+import { useAuth } from '@/integrations/supabase/auth';
+import { useTranslation } from 'react-i18next';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Item {
   id: string;
@@ -29,7 +30,7 @@ interface Item {
   low_stock_threshold: number | null;
   critical_stock_threshold: number | null;
   one_time_use: boolean;
-  is_tool: boolean; // New field
+  is_tool: boolean;
   user_id: string;
 }
 
@@ -46,14 +47,14 @@ const initialNewItemState = {
 };
 
 const ScanItem = () => {
-  const { t } = useTranslation(); // Initialize useTranslation
-  const { user } = useAuth(); // Get the current user
+  const { t } = useTranslation();
+  const { user } = useAuth();
   const [barcode, setBarcode] = useState('');
-  const [itemSearchTerm, setItemSearchTerm] = useState(''); // New state for item name search
-  const [itemSearchResults, setItemSearchResults] = useState<Item[]>([]); // New state for item search results
+  const [itemSearchTerm, setItemSearchTerm] = useState('');
+  const [itemSearchResults, setItemSearchResults] = useState<Item[]>([]);
   const [item, setItem] = useState<Item | null>(null);
-  const [quantityChange, setQuantityChange] = useState(1); // Default to 1 for restock
-  const [transactionMode, setTransactionMode] = useState<'restock' | 'takeout'>('restock'); // New state for transaction mode
+  const [quantityChange, setQuantityChange] = useState(1);
+  const [transactionMode, setTransactionMode] = useState<'restock' | 'takeout'>('restock');
   const [authorizedBy, setAuthorizedBy] = useState('');
   const [givenBy, setGivenBy] = useState('');
   const [scanning, setScanning] = useState(false);
@@ -61,7 +62,7 @@ const ScanItem = () => {
   const [isTorchOn, setIsTorchOn] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const navigate: NavigateFunction = useNavigate(); // Adicionando anotação de tipo explícita
+  const navigate: NavigateFunction = useNavigate();
 
   const playBeep = () => {
     if (audioRef.current) {
@@ -90,7 +91,7 @@ const ScanItem = () => {
     const stopNativeScanner = async () => {
       try {
         await BarcodeScanner.stopScan();
-        await BarcodeScanner.showBackground(); // Only for native
+        await BarcodeScanner.showBackground();
         if (isTorchOn) {
           await BarcodeScanner.disableTorch();
           setIsTorchOn(false);
@@ -98,22 +99,20 @@ const ScanItem = () => {
       } catch (e) {
         console.error("Error stopping native barcode scanner:", e);
       } finally {
-        setBodyBackground(''); // Only for native
-        removeCssClass('barcode-scanner-active'); // Only for native
+        setBodyBackground('');
+        removeCssClass('barcode-scanner-active');
       }
     };
 
     if (scanning) {
       if (currentIsWeb) {
         const startWebScanner = async () => {
-          // Ensure native scanner is not interfering if it was somehow left active
           await stopNativeScanner();
 
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
-              let cameraId = cameras[0].id; // Default to first camera
-              // Try to find a back camera
+              let cameraId = cameras[0].id;
               const backCamera = cameras.find(camera => 
                 camera.label.toLowerCase().includes('back') || 
                 camera.label.toLowerCase().includes('environment')
@@ -121,7 +120,6 @@ const ScanItem = () => {
               if (backCamera) {
                 cameraId = backCamera.id;
               } else if (cameras.length > 1) {
-                // If no explicit back camera, but more than one camera, try the second one
                 cameraId = cameras[1].id;
               }
 
@@ -140,17 +138,17 @@ const ScanItem = () => {
 
                     await html5Qrcode.start(
                       cameraId,
-                      { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false }, // Adjusted qrbox
+                      { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
                       (decodedText) => {
                         console.log("Web scan successful:", decodedText);
                         setBarcode(decodedText);
                         fetchItemByBarcode(decodedText);
                         playBeep();
-                        setScanning(false); // This will trigger cleanup
+                        setScanning(false);
                       },
                       (errorMessage) => {
                         console.warn(`QR Code Scan Error: ${errorMessage}`);
-                        setScanning(false); // This will trigger cleanup
+                        setScanning(false);
                       }
                     );
                   } catch (err: any) {
@@ -175,9 +173,8 @@ const ScanItem = () => {
           }
         };
         startWebScanner();
-      } else { // Native path
+      } else {
         const runNativeScan = async () => {
-          // Ensure web scanner is not interfering
           await stopWebScanner();
 
           const hasPermission = await checkPermission();
@@ -185,24 +182,24 @@ const ScanItem = () => {
             setScanning(false);
             return;
           }
-          setBodyBackground('transparent'); // Only for native
-          addCssClass('barcode-scanner-active'); // Only for native
-          BarcodeScanner.hideBackground(); // Only for native
+          setBodyBackground('transparent');
+          addCssClass('barcode-scanner-active');
+          BarcodeScanner.hideBackground();
           const result = await BarcodeScanner.startScan();
           if (result.hasContent && result.content) {
             console.log("Native scan successful:", result.content);
             setBarcode(result.content);
             await fetchItemByBarcode(result.content);
             playBeep();
-            setScanning(false); // This will trigger cleanup
+            setScanning(false);
           } else {
             showError(t('no_barcode_scanned_cancelled'));
-            setScanning(false); // This will trigger cleanup
+            setScanning(false);
           }
         };
         runNativeScan();
       }
-    } else { // scanning is false, stop all
+    } else {
       stopWebScanner();
       stopNativeScanner();
     }
@@ -227,12 +224,12 @@ const ScanItem = () => {
   const startScan = () => {
     setBarcode('');
     setItem(null);
-    setQuantityChange(1); // Reset quantity change to 1
-    setTransactionMode('restock'); // Default to restock
+    setQuantityChange(1);
+    setTransactionMode('restock');
     setAuthorizedBy('');
     setGivenBy('');
-    setItemSearchTerm(''); // Clear search term
-    setItemSearchResults([]); // Clear search results
+    setItemSearchTerm('');
+    setItemSearchResults([]);
     setScanning(true);
     setShowNewItemDialog(false);
   };
@@ -271,32 +268,30 @@ const ScanItem = () => {
       .from('items')
       .select('*')
       .eq('barcode', scannedBarcode)
-      .eq('user_id', user.id) // Filter by user_id
+      .eq('user_id', user.id)
       .single();
 
     if (error) {
       console.error("Error fetching item:", error);
-      // Check if the error is specifically because no rows were found (PGRST116)
       if (error.code === 'PGRST116') {
         showError(t('item_not_found_add_new'));
         setItem(null);
         setNewItemDetails({ ...initialNewItemState, barcode: scannedBarcode });
         setShowNewItemDialog(true);
       } else {
-        // For other types of errors (e.g., network, database issues), just show an error toast
         showError(t('error_fetching_item') + error.message);
         setItem(null);
-        setShowNewItemDialog(false); // Ensure dialog is not shown for other errors
+        setShowNewItemDialog(false);
       }
     } else {
       console.log("Item found:", data);
       setItem(data);
       showSuccess(t('item_found', { itemName: data.name }));
-      setTransactionMode('restock'); // Automatically mark as restock
-      setQuantityChange(1); // Default restock quantity to 1
+      setTransactionMode('restock');
+      setQuantityChange(1);
       setShowNewItemDialog(false);
-      setItemSearchTerm(''); // Clear search term
-      setItemSearchResults([]); // Clear search results
+      setItemSearchTerm('');
+      setItemSearchResults([]);
     }
   };
 
@@ -313,8 +308,8 @@ const ScanItem = () => {
     const { data, error } = await supabase
       .from('items')
       .select('*, one_time_use, is_tool')
-      .ilike('name', `%${itemSearchTerm.trim()}%`) // Case-insensitive partial match
-      .eq('user_id', user.id); // Filter by user_id
+      .ilike('name', `%${itemSearchTerm.trim()}%`)
+      .eq('user_id', user.id);
 
     if (error) {
       showError(t('error_searching_items') + error.message);
@@ -323,8 +318,8 @@ const ScanItem = () => {
       if (data.length === 1) {
         setItem(data[0]);
         showSuccess(t('item_found', { itemName: data[0].name }));
-        setBarcode(data[0].barcode || ''); // Update barcode input
-        setItemSearchResults([]); // Clear results
+        setBarcode(data[0].barcode || '');
+        setItemSearchResults([]);
         if (data[0].one_time_use) {
           setTransactionMode('takeout');
           showError(t('this_is_one_time_use_item_takeout_only'));
@@ -380,7 +375,7 @@ const ScanItem = () => {
     let newQuantity = item.quantity;
     if (transactionMode === 'restock') {
       newQuantity += quantityChange;
-    } else { // transactionMode === 'takeout'
+    } else {
       if (item.quantity < quantityChange) {
         showError(t('cannot_remove_more_than_available', { available: item.quantity }));
         return;
@@ -388,7 +383,6 @@ const ScanItem = () => {
       newQuantity -= quantityChange;
     }
 
-    // Update item quantity
     const { error: updateError } = await supabase
       .from('items')
       .update({ quantity: newQuantity })
@@ -400,14 +394,13 @@ const ScanItem = () => {
       return;
     }
 
-    // Record transaction
     const { error: transactionError } = await supabase
       .from('transactions')
       .insert([
         {
           item_id: item.id,
-          worker_id: null, // No worker for general restock/takeout from this page
-          type: transactionMode, // 'restock' or 'takeout'
+          worker_id: null,
+          type: transactionMode,
           quantity: quantityChange,
           user_id: user.id,
           authorized_by: authorizedBy.trim() || null,
@@ -417,7 +410,6 @@ const ScanItem = () => {
 
     if (transactionError) {
       showError(t('error_recording_transaction') + transactionError.message);
-      // Rollback item quantity if transaction fails
       await supabase.from('items').update({ quantity: item.quantity }).eq('id', item.id).eq('user_id', user.id);
       return;
     }
@@ -426,14 +418,14 @@ const ScanItem = () => {
     setItem({ ...item, quantity: newQuantity });
     setQuantityChange(1);
     setBarcode('');
-    setItemSearchTerm(''); // Clear search term
-    setItemSearchResults([]); // Clear search results
+    setItemSearchTerm('');
+    setItemSearchResults([]);
     setAuthorizedBy('');
     setGivenBy('');
   };
 
-  const [showNewItemDialog, setShowNewItemDialog] = useState(false); // Define this state
-  const [newItemDetails, setNewItemDetails] = useState(initialNewItemState); // Define this state
+  const [showNewItemDialog, setShowNewItemDialog] = useState(false);
+  const [newItemDetails, setNewItemDetails] = useState(initialNewItemState);
 
   const handleNewItemInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -499,7 +491,7 @@ const ScanItem = () => {
         critical_stock_threshold: newItemDetails.critical_stock_threshold,
         one_time_use: newItemDetails.one_time_use,
         is_tool: newItemDetails.is_tool,
-        user_id: user.id // Set user_id
+        user_id: user.id
       }])
       .select()
       .single();
@@ -521,8 +513,8 @@ const ScanItem = () => {
     setNewItemDetails(initialNewItemState);
     setShowNewItemDialog(false);
     setBarcode('');
-    setItemSearchTerm(''); // Clear search term
-    setItemSearchResults([]); // Clear search results
+    setItemSearchTerm('');
+    setItemSearchResults([]);
     setItem(null);
   };
 
@@ -538,7 +530,6 @@ const ScanItem = () => {
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
-        {/* Scanner overlay, always rendered but conditionally visible */}
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
           {isWeb ? (
             <>
@@ -622,14 +613,20 @@ const ScanItem = () => {
                     <div className="mt-4 space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
                       <p className="text-sm font-medium">{t('select_item_from_results')}:</p>
                       {itemSearchResults.map((resultItem) => (
-                        <Button
-                          key={resultItem.id}
-                          variant="outline"
-                          className="w-full justify-start"
-                          onClick={() => handleSelectItem(resultItem)}
-                        >
-                          {resultItem.name} ({resultItem.barcode || t('no_barcode')})
-                        </Button>
+                        <Tooltip key={resultItem.id}>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start"
+                              onClick={() => handleSelectItem(resultItem)}
+                            >
+                              {resultItem.name} ({resultItem.barcode || t('no_barcode')})
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{resultItem.description || t('no_description')}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       ))}
                     </div>
                   )}
