@@ -7,33 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/integrations/supabase/auth';
-import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react';
+import { Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
-import { exportToCsv } from '@/utils/csv';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
-
-// Define interfaces for the data shapes expected from Supabase queries for export
-interface ExportableInventoryItem {
-  name: string;
-  description: string | null;
-  barcode: string | null;
-  quantity: number;
-  low_stock_threshold: number | null;
-  critical_stock_threshold: number | null;
-}
-
-// Define the exact structure of a single row returned by the Supabase transactions query
-interface SupabaseTransactionRow {
-  type: 'takeout' | 'return';
-  quantity: number;
-  timestamp: string;
-  items: { name: string }[] | null; // Supabase returns an array for joined relations, or null
-  workers: { name: string; id: string; qr_code_data: string | null; }[] | null; // Supabase returns an array for joined relations, or null
-}
+import { useTranslation } from 'react-i18next';
 
 const Settings = () => {
-  const { t, i18n } = useTranslation(); // Initialize useTranslation
+  const { t, i18n } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading, invalidateProfile } = useProfile();
   const [firstName, setFirstName] = useState('');
@@ -55,22 +35,18 @@ const Settings = () => {
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
       setLanguage(profile.language || 'pt-BR');
-      i18n.changeLanguage(profile.language || 'pt-BR'); // Set i18n language from profile
+      i18n.changeLanguage(profile.language || 'pt-BR');
     } else if (!profileLoading && !profile) {
       setFirstName('');
       setLastName('');
       setLanguage('pt-BR');
-      i18n.changeLanguage('pt-BR'); // Default to English if no profile
+      i18n.changeLanguage('pt-BR');
     }
   }, [profile, profileLoading, i18n]);
 
-  // Theme effect - This useEffect is now removed as it's handled in App.tsx
-  // However, the setTheme and localStorage.setItem calls in the Select's onValueChange
-  // will still correctly update the stored theme, which App.tsx will then pick up.
-
   const handleSaveProfile = async () => {
     if (!user) {
-      showError(t('user_not_authenticated_update_settings')); // Translated error
+      showError(t('user_not_authenticated_update_settings'));
       return;
     }
 
@@ -88,22 +64,22 @@ const Settings = () => {
       );
 
     if (error) {
-      showError(t('error_updating_profile') + error.message); // Translated error
+      showError(t('error_updating_profile') + error.message);
     } else {
-      showSuccess(t('profile_updated_successfully')); // Translated success
+      showSuccess(t('profile_updated_successfully'));
       invalidateProfile();
-      i18n.changeLanguage(language); // Change i18n language immediately
+      i18n.changeLanguage(language);
     }
     setIsSaving(false);
   };
 
   const handleChangePassword = async () => {
     if (!newPassword) {
-      showError(t('enter_new_password')); // Translated error
+      showError(t('enter_new_password'));
       return;
     }
     if (newPassword.length < 6) {
-      showError(t('password_min_length')); // Translated error
+      showError(t('password_min_length'));
       return;
     }
 
@@ -111,59 +87,12 @@ const Settings = () => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
 
     if (error) {
-      showError(t('error_changing_password') + error.message); // Translated error
+      showError(t('error_changing_password') + error.message);
     } else {
-      showSuccess(t('password_changed_successfully')); // Translated success
+      showSuccess(t('password_changed_successfully'));
       setNewPassword('');
     }
     setIsPasswordChanging(false);
-  };
-
-  const handleExportInventory = async () => {
-    const { data, error } = await supabase
-      .from('items')
-      .select('name, description, barcode, quantity, low_stock_threshold, critical_stock_threshold');
-    if (error) {
-      showError(t('error_fetching_inventory_data') + error.message); // Translated error
-      return;
-    }
-    if (data) {
-      const formattedData = (data as ExportableInventoryItem[]).map(item => ({
-        [t('item_name')]: item.name,
-        [t('description')]: item.description || 'N/A',
-        [t('barcode')]: item.barcode || 'N/A',
-        [t('current_quantity')]: item.quantity,
-        [t('low_stock_threshold')]: item.low_stock_threshold,
-        [t('critical_stock_threshold')]: item.critical_stock_threshold,
-      }));
-      exportToCsv(formattedData, 'inventory_report.csv');
-      showSuccess(t('inventory_report_downloaded')); // Translated success
-    }
-  };
-
-  const handleExportTransactions = async () => {
-    const { data, error } = await supabase.from('transactions').select('type, quantity, timestamp, items(name), workers(name, id, qr_code_data)');
-    if (error) {
-      showError(t('error_fetching_transaction_data') + error.message); // Translated error
-      return;
-    }
-    if (data) {
-      // Cast the data to the correct Supabase row type
-      const transactionsData = data as SupabaseTransactionRow[];
-
-      // Flatten and rename the data for CSV export
-      const flattenedData = transactionsData.map(t_data => ({
-        [t('item_name')]: t_data.items?.[0]?.name || 'N/A', // Access the first element of the array
-        [t('worker_name')]: t_data.workers?.[0]?.name || 'N/A', // Access the first element of the array
-        [t('worker_id')]: t_data.workers?.[0]?.id || 'N/A',
-        [t('worker_qr_code_data')]: t_data.workers?.[0]?.qr_code_data || 'N/A',
-        [t('transaction_type')]: t_data.type.charAt(0).toUpperCase() + t_data.type.slice(1),
-        [t('quantity')]: t_data.quantity,
-        [t('timestamp')]: new Date(t_data.timestamp).toLocaleString(),
-      }));
-      exportToCsv(flattenedData, 'transaction_history_report.csv');
-      showSuccess(t('transaction_history_report_downloaded')); // Translated success
-    }
   };
 
   if (authLoading || profileLoading) {
@@ -258,7 +187,7 @@ const Settings = () => {
           </div>
 
           {/* Theme Selection */}
-          <div className="space-y-4 border-b pb-4">
+          <div className="space-y-4">
             <h3 className="text-lg font-semibold">{t('app_theme')}</h3>
             <div className="space-y-2">
               <Label htmlFor="theme">{t('select_theme')}</Label>
@@ -278,22 +207,6 @@ const Settings = () => {
                   <SelectItem value="black">{t('black')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-
-          {/* Reports Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">{t('reports')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('reports_note')}
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button onClick={handleExportInventory} className="w-full">
-                <Download className="mr-2 h-4 w-4" /> {t('export_inventory_data')}
-              </Button>
-              <Button onClick={handleExportTransactions} className="w-full">
-                <Download className="mr-2 h-4 w-4" /> {t('export_transaction_history')}
-              </Button>
             </div>
           </div>
         </CardContent>

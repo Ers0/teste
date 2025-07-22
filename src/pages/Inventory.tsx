@@ -8,12 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, Scan, ArrowLeft, Search } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { PlusCircle, Edit, Trash2, Scan, ArrowLeft, Search, Download, Upload } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
+import { exportToCsv } from '@/utils/export';
+import { parseCsv } from '@/utils/import';
 
 interface Item {
   id: string;
@@ -51,6 +53,8 @@ const Inventory = () => {
   const [newItem, setNewItem] = useState(initialNewItemState);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [sortKey, setSortKey] = useState<'name' | 'quantity' | 'movement'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -325,6 +329,70 @@ const Inventory = () => {
     return 'text-green-500';
   };
 
+  const handleExport = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('items')
+      .select('name, description, barcode, quantity, low_stock_threshold, critical_stock_threshold, one_time_use, is_tool, tags')
+      .eq('user_id', user.id);
+
+    if (error) {
+      showError(t('error_exporting_inventory') + error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      showError(t('no_data_to_export'));
+      return;
+    }
+
+    const formattedData = data.map(item => ({
+      ...item,
+      tags: item.tags ? item.tags.join(';') : '', // Join tags with a semicolon for CSV
+    }));
+
+    exportToCsv(formattedData, 'inventory_report.csv');
+    showSuccess(t('inventory_exported_successfully'));
+  };
+
+  const handleImport = async () => {
+    if (!fileToImport || !user) {
+      showError(t('no_file_selected'));
+      return;
+    }
+
+    const toastId = showLoading(t('importing'));
+    try {
+      const parsedData = await parseCsv<any>(fileToImport);
+      const itemsToImport = parsedData.map(row => ({
+        user_id: user.id,
+        name: row.name,
+        description: row.description || null,
+        barcode: row.barcode || null,
+        quantity: parseInt(row.quantity, 10) || 0,
+        low_stock_threshold: parseInt(row.low_stock_threshold, 10) || null,
+        critical_stock_threshold: parseInt(row.critical_stock_threshold, 10) || null,
+        one_time_use: ['true', '1', 'yes'].includes(row.one_time_use?.toLowerCase()),
+        is_tool: ['true', '1', 'yes'].includes(row.is_tool?.toLowerCase()),
+        tags: row.tags ? row.tags.split(';').map((t: string) => t.trim()) : null,
+      }));
+
+      const { error } = await supabase.from('items').upsert(itemsToImport, { onConflict: 'name' });
+
+      if (error) {
+        throw error;
+      }
+
+      dismissToast(toastId);
+      showSuccess(t('items_imported_successfully', { count: itemsToImport.length }));
+      setIsImportDialogOpen(false);
+      setFileToImport(null);
+      fetchItems();
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(t('error_importing_items') + error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-6xl mx-auto">
@@ -533,6 +601,30 @@ const Inventory = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" /> {t('import_from_csv')}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t('import_inventory')}</DialogTitle>
+                    <DialogDescription>{t('import_instructions_inventory')}</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <Label htmlFor="csv-file">{t('upload_csv_file')}</Label>
+                    <Input id="csv-file" type="file" accept=".csv" onChange={(e) => setFileToImport(e.target.files ? e.target.files[0] : null)} />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>{t('cancel')}</Button>
+                    <Button onClick={handleImport} disabled={!fileToImport}>{t('import')}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}
+              </Button>
             </div>
           </div>
 

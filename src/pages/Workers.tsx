@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Flashlight } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Flashlight, Download, Upload } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +18,8 @@ import { Capacitor } from '@capacitor/core';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import beepSound from '/beep.mp3';
+import { exportToCsv } from '@/utils/export';
+import { parseCsv } from '@/utils/import';
 
 interface Worker {
   id: string;
@@ -45,6 +47,8 @@ const Workers = () => {
   const [newWorker, setNewWorker] = useState<typeof initialNewWorkerState>(initialNewWorkerState);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
   const [qrCodeDataToDisplay, setQrCodeDataToDisplay] = useState('');
   const [externalQrCodeDataToDisplay, setExternalQrCodeDataToDisplay] = useState('');
@@ -441,6 +445,60 @@ const Workers = () => {
     setQrCodeWorkerName('');
   };
 
+  const handleExport = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('workers')
+      .select('name, company, external_qr_code_data')
+      .eq('user_id', user.id);
+
+    if (error) {
+      showError(t('error_exporting_workers') + error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      showError(t('no_data_to_export'));
+      return;
+    }
+
+    exportToCsv(data, 'workers_report.csv');
+    showSuccess(t('workers_exported_successfully'));
+  };
+
+  const handleImport = async () => {
+    if (!fileToImport || !user) {
+      showError(t('no_file_selected'));
+      return;
+    }
+
+    const toastId = showLoading(t('importing'));
+    try {
+      const parsedData = await parseCsv<{ name: string; company?: string; external_qr_code_data?: string }>(fileToImport);
+      const workersToImport = parsedData.map(row => ({
+        user_id: user.id,
+        name: row.name,
+        company: row.company || null,
+        external_qr_code_data: row.external_qr_code_data || null,
+        qr_code_data: uuidv4(), // Assign a new system QR code for each imported worker
+      }));
+
+      const { error } = await supabase.from('workers').upsert(workersToImport, { onConflict: 'name' });
+
+      if (error) {
+        throw error;
+      }
+
+      dismissToast(toastId);
+      showSuccess(t('workers_imported_successfully', { count: workersToImport.length }));
+      setIsImportDialogOpen(false);
+      setFileToImport(null);
+      fetchWorkers();
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(t('error_importing_workers') + error.message);
+    }
+  };
+
   return (
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
@@ -487,7 +545,7 @@ const Workers = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end mb-4 gap-2">
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button onClick={() => { setNewWorker(initialNewWorkerState); setEditingWorker(null); setIsDialogOpen(true); }}>
@@ -500,7 +558,7 @@ const Workers = () => {
                     <DialogDescription>
                       {editingWorker ? t('make_changes_to_worker') : t('add_new_worker_to_system')}
                     </DialogDescription>
-                  </DialogHeader> {/* Corrected closing tag */}
+                  </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="name" className="text-right">
@@ -571,6 +629,30 @@ const Workers = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" /> {t('import_from_csv')}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t('import_workers')}</DialogTitle>
+                    <DialogDescription>{t('import_instructions_workers')}</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <Label htmlFor="csv-file">{t('upload_csv_file')}</Label>
+                    <Input id="csv-file" type="file" accept=".csv" onChange={(e) => setFileToImport(e.target.files ? e.target.files[0] : null)} />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>{t('cancel')}</Button>
+                    <Button onClick={handleImport} disabled={!fileToImport}>{t('import')}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}
+              </Button>
             </div>
 
             <div className="overflow-x-auto">
