@@ -20,6 +20,8 @@ import beepSound from '/beep.mp3';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportToPdf } from '@/utils/pdf';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 
 interface Worker {
   id: string;
@@ -55,12 +57,14 @@ interface Transaction {
   user_id: string;
   authorized_by: string | null;
   given_by: string | null;
+  is_broken: boolean;
 }
 
 interface TransactionItem {
   item: Item;
   quantity: number;
   type: 'takeout' | 'return';
+  is_broken?: boolean;
 }
 
 const WorkerTransaction = () => {
@@ -76,6 +80,7 @@ const WorkerTransaction = () => {
   const [scannedItem, setScannedItem] = useState<Item | null>(null);
   const [quantityToChange, setQuantityToChange] = useState(1);
   const [transactionType, setTransactionType] = useState<'takeout' | 'return'>('takeout');
+  const [isBroken, setIsBroken] = useState(false);
   const [authorizedBy, setAuthorizedBy] = useState('');
   const [givenBy, setGivenBy] = useState('');
   const [applicationLocation, setApplicationLocation] = useState('');
@@ -614,6 +619,7 @@ const WorkerTransaction = () => {
       item: scannedItem,
       quantity: quantityToChange,
       type: transactionType,
+      is_broken: transactionType === 'return' ? isBroken : false,
     }]);
 
     showSuccess(t('item_added_to_list', { itemName: scannedItem.name }));
@@ -623,6 +629,7 @@ const WorkerTransaction = () => {
     setItemSearchTerm('');
     setItemSearchResults([]);
     setQuantityToChange(1);
+    setIsBroken(false);
   };
 
   const handleRemoveItemFromList = (indexToRemove: number) => {
@@ -656,7 +663,6 @@ const WorkerTransaction = () => {
     try {
       let requisitionId: string | null = null;
 
-      // Process takeouts and create a requisition if they exist
       if (takeoutItems.length > 0) {
         const getNextRequisitionNumber = (): string => {
           const key = 'lastRequisitionNumber';
@@ -721,6 +727,7 @@ const WorkerTransaction = () => {
               user_id: user.id,
               authorized_by: authorizedBy.trim() || null,
               given_by: givenBy.trim() || null,
+              is_broken: false,
             }]);
 
           if (transactionError) {
@@ -731,33 +738,34 @@ const WorkerTransaction = () => {
         requisitionCreated = true;
       }
 
-      // Process returns without a requisition
       for (const txItem of returnItems) {
-        const { data: currentItem, error: fetchError } = await supabase
-          .from('items')
-          .select('quantity')
-          .eq('id', txItem.item.id)
-          .single();
+        if (!txItem.is_broken) {
+          const { data: currentItem, error: fetchError } = await supabase
+            .from('items')
+            .select('quantity')
+            .eq('id', txItem.item.id)
+            .single();
 
-        if (fetchError || !currentItem) {
-          throw new Error(t('error_fetching_item_details_for', { itemName: txItem.item.name }));
-        }
+          if (fetchError || !currentItem) {
+            throw new Error(t('error_fetching_item_details_for', { itemName: txItem.item.name }));
+          }
 
-        const newQuantity = currentItem.quantity + txItem.quantity;
+          const newQuantity = currentItem.quantity + txItem.quantity;
 
-        const { error: updateError } = await supabase
-          .from('items')
-          .update({ quantity: newQuantity })
-          .eq('id', txItem.item.id);
+          const { error: updateError } = await supabase
+            .from('items')
+            .update({ quantity: newQuantity })
+            .eq('id', txItem.item.id);
 
-        if (updateError) {
-          throw new Error(t('error_updating_quantity_for', { itemName: txItem.item.name }));
+          if (updateError) {
+            throw new Error(t('error_updating_quantity_for', { itemName: txItem.item.name }));
+          }
         }
 
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert([{
-            requisition_id: null, // No requisition for returns
+            requisition_id: null,
             worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
             company: selectionMode === 'company' ? selectedCompany : null,
             item_id: txItem.item.id,
@@ -766,10 +774,16 @@ const WorkerTransaction = () => {
             user_id: user.id,
             authorized_by: authorizedBy.trim() || null,
             given_by: givenBy.trim() || null,
+            is_broken: txItem.is_broken,
           }]);
 
         if (transactionError) {
-          await supabase.from('items').update({ quantity: currentItem.quantity }).eq('id', txItem.item.id);
+          if (!txItem.is_broken) {
+            const { data: currentItem } = await supabase.from('items').select('quantity').eq('id', txItem.item.id).single();
+            if (currentItem) {
+              await supabase.from('items').update({ quantity: currentItem.quantity - txItem.quantity }).eq('id', txItem.item.id);
+            }
+          }
           throw new Error(t('error_recording_transaction_for', { itemName: txItem.item.name }));
         }
       }
@@ -1086,6 +1100,12 @@ const WorkerTransaction = () => {
                           </Button>
                         </div>
                       </div>
+                      {transactionType === 'return' && (
+                        <div className="flex items-center space-x-2 mt-2">
+                          <Switch id="is-broken" checked={isBroken} onCheckedChange={setIsBroken} />
+                          <Label htmlFor="is-broken">{t('mark_as_broken')}</Label>
+                        </div>
+                      )}
                       <Button onClick={handleAddItemToList} className="w-full mt-2">
                         {t('add_item_to_list')}
                       </Button>
@@ -1142,6 +1162,7 @@ const WorkerTransaction = () => {
                             <p className="font-medium">{txItem.item.name}</p>
                             <p className="text-sm text-muted-foreground">
                               {t(txItem.type)}: {txItem.quantity}
+                              {txItem.is_broken && <Badge variant="destructive" className="ml-2">{t('broken')}</Badge>}
                             </p>
                           </div>
                           <Button variant="ghost" size="icon" onClick={() => handleRemoveItemFromList(index)}>

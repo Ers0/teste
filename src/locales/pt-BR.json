@@ -343,5 +343,9 @@
   "this_is_one_time_use_item": "Este é um item de uso único.",
   "scan_by_barcode": "Escanear por Código de Barras",
   "search_by_name": "Buscar por Nome",
-  "transaction_type": "Tipo de Transação"
+  "transaction_type": "Tipo de Transação",
+  "reliability_score": "Pontuação de Confiabilidade",
+  "worker_photo": "Foto do Funcionário",
+  "mark_as_broken": "Marcar como quebrado",
+  "broken": "Quebrado"
 }
