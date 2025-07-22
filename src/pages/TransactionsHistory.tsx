@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { ArrowLeft, Download, Filter, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { exportToCsv } from '@/utils/export';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
-import { exportToCsv } from '@/utils/export';
 
 interface Transaction {
   id: string;
-  item_id: string | null;
+  item_id: string;
   worker_id: string | null;
   company: string | null;
   type: 'takeout' | 'return' | 'restock';
@@ -40,232 +40,178 @@ interface Worker {
 const TransactionsHistory = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const navigate = useNavigate();
-
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [allWorkers, setAllWorkers] = useState<Worker[]>([]);
-  const [allItems, setAllItems] = useState<Item[]>([]);
-
-  const [filterType, setFilterType] = useState<'all' | 'takeout' | 'return' | 'restock'>('all');
-  const [filterItem, setFilterItem] = useState<string>('all');
-  const [filterWorker, setFilterWorker] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'takeout' | 'return' | 'restock'>('all');
+  const [filterItem, setFilterItem] = useState('all');
+  const [filterWorker, setFilterWorker] = useState('all');
 
-  useEffect(() => {
-    if (user) {
-      fetchAllData();
-    }
-  }, [user, filterType, filterItem, filterWorker, searchTerm]);
+  const { data: transactions, isLoading, error } = useQuery<Transaction[], Error>({
+    queryKey: ['transactions', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*, items(name), workers(name), company, authorized_by, given_by')
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data as Transaction[];
+    },
+    enabled: !!user,
+  });
 
-  const fetchAllData = async () => {
-    if (!user) return;
+  const { data: items } = useQuery<Item[], Error>({
+    queryKey: ['items', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('items').select('id, name').eq('user_id', user.id);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user,
+  });
 
-    // Fetch all items and workers for filter dropdowns
-    const { data: itemsData, error: itemsError } = await supabase
-      .from('items')
-      .select('id, name')
-      .eq('user_id', user.id);
-    if (itemsError) {
-      showError(t('error_fetching_items') + itemsError.message);
-    } else {
-      setAllItems(itemsData || []);
-    }
+  const { data: workers } = useQuery<Worker[], Error>({
+    queryKey: ['workers', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('workers').select('id, name').eq('user_id', user.id);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user,
+  });
 
-    const { data: workersData, error: workersError } = await supabase
-      .from('workers')
-      .select('id, name')
-      .eq('user_id', user.id);
-    if (workersError) {
-      showError(t('error_fetching_workers') + workersError.message);
-    } else {
-      setAllWorkers(workersData || []);
-    }
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return [];
+    return transactions.filter(transaction => {
+      const matchesSearch = searchTerm === '' ||
+        transaction.items?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.workers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.authorized_by?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.given_by?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = filterType === 'all' || transaction.type === filterType;
+      const matchesItem = filterItem === 'all' || transaction.item_id === filterItem;
+      const matchesWorker = filterWorker === 'all' || transaction.worker_id === filterWorker;
+      return matchesSearch && matchesType && matchesItem && matchesWorker;
+    });
+  }, [transactions, searchTerm, filterType, filterItem, filterWorker]);
 
-    // Fetch transactions with filters
-    let query = supabase
-      .from('transactions')
-      .select('*, items(name), workers(name), company')
-      .eq('user_id', user.id)
-      .order('timestamp', { ascending: false });
-
-    if (filterType !== 'all') {
-      query = query.eq('type', filterType);
-    }
-    if (filterItem !== 'all') {
-      query = query.eq('item_id', filterItem);
-    }
-    if (filterWorker !== 'all') {
-      query = query.eq('worker_id', filterWorker);
-    }
-    if (searchTerm) {
-        // This is a simplified search. For more complex full-text search,
-        // you'd typically use Supabase's text search features or Edge Functions.
-        // For now, we'll filter client-side or add more specific `ilike` clauses.
-        // Given the current structure, `ilike` on joined names is not directly possible
-        // without a view or a function. So, we'll fetch all and filter in memory for simplicity.
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      showError(t('error_fetching_transaction_history') + error.message);
-    } else {
-      let filteredData = data as Transaction[];
-      if (searchTerm) {
-        const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        filteredData = filteredData.filter(transaction =>
-          (transaction.items?.name?.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          (transaction.workers?.name?.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          (transaction.company?.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          (transaction.authorized_by?.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          (transaction.given_by?.toLowerCase().includes(lowerCaseSearchTerm))
-        );
-      }
-      setTransactions(filteredData || []);
-    }
-  };
-
-  const handleExportReport = () => {
-    if (!transactions || transactions.length === 0) {
+  const handleExport = () => {
+    if (!filteredTransactions || filteredTransactions.length === 0) {
       showError(t('no_transactions_to_export'));
       return;
     }
-
-    const formattedData = transactions.map(transaction => ({
+    const dataToExport = filteredTransactions.map(transaction => ({
       [t('item_name')]: transaction.items?.name || 'N/A',
-      [t('recipient')]: transaction.workers?.name || transaction.company || 'N/A',
+      [t('worker_name')]: transaction.workers?.name || 'N/A',
+      [t('company')]: transaction.company || 'N/A',
       [t('transaction_type')]: t(transaction.type),
       [t('quantity')]: transaction.quantity,
       [t('authorized_by')]: transaction.authorized_by || 'N/A',
       [t('given_by')]: transaction.given_by || 'N/A',
       [t('timestamp')]: new Date(transaction.timestamp).toLocaleString(),
     }));
-
-    const filename = `all_transactions_report.csv`;
-    exportToCsv(formattedData, filename);
+    exportToCsv(dataToExport, 'transactions_history.csv');
     showSuccess(t('report_downloaded_successfully'));
   };
 
+  if (isLoading) return <div>{t('loading_history')}</div>;
+  if (error) return <div>{t('error_fetching_transaction_history')} {error.message}</div>;
+
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-      <Card className="w-full max-w-6xl mx-auto">
+    <div className="p-4">
+      <Card>
         <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-grow text-center">
-              <CardTitle className="text-3xl font-bold">{t('transactions_history_title')}</CardTitle>
-              <CardDescription>{t('all_transactions_overview')}</CardDescription>
-            </div>
-            <div className="w-10"></div>
-          </div>
+          <CardTitle>{t('transactions_history_title')}</CardTitle>
+          <CardDescription>{t('all_transactions_overview')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filterType} onValueChange={(value: 'all' | 'takeout' | 'return' | 'restock') => setFilterType(value)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder={t('filter_by_type')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('all_types')}</SelectItem>
-                  <SelectItem value="restock">{t('restock')}</SelectItem>
-                  <SelectItem value="takeout">{t('takeout')}</SelectItem>
-                  <SelectItem value="return">{t('return')}</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterItem} onValueChange={setFilterItem}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder={t('filter_by_item')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('all_items')}</SelectItem>
-                  {allItems.map(item => (
-                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterWorker} onValueChange={setFilterWorker}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder={t('filter_by_worker')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('all_workers')}</SelectItem>
-                  {allWorkers.map(worker => (
-                    <SelectItem key={worker.id} value={worker.id}>{worker.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                placeholder={t('search_transactions')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-[200px]"
-              />
-              <Button onClick={fetchAllData}>
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-            <Button onClick={handleExportReport} disabled={!transactions || transactions.length === 0}>
-              <Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}
-            </Button>
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <Input
+              placeholder={t('search_transactions')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+            <Select value={filterType} onValueChange={(value) => setFilterType(value as 'all' | 'takeout' | 'return' | 'restock')}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t('filter_by_type')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('all_types')}</SelectItem>
+                <SelectItem value="takeout">{t('takeout')}</SelectItem>
+                <SelectItem value="return">{t('return')}</SelectItem>
+                <SelectItem value="restock">{t('restock')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterItem} onValueChange={setFilterItem}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t('filter_by_item')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('all_items')}</SelectItem>
+                {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterWorker} onValueChange={setFilterWorker}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t('filter_by_worker')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('all_workers')}</SelectItem>
+                {workers?.map(worker => <SelectItem key={worker.id} value={worker.id}>{worker.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleExport}><Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}</Button>
           </div>
-
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('item_name')}</TableHead>
-                  <TableHead>{t('recipient')}</TableHead>
-                  <TableHead>{t('transaction_type')}</TableHead>
-                  <TableHead className="text-right">{t('quantity')}</TableHead>
-                  <TableHead>{t('authorized_by')}</TableHead>
-                  <TableHead>{t('given_by')}</TableHead>
-                  <TableHead className="text-right">{t('timestamp')}</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('item_name')}</TableHead>
+                <TableHead>{t('worker_name')}</TableHead>
+                <TableHead>{t('company')}</TableHead>
+                <TableHead>{t('transaction_type')}</TableHead>
+                <TableHead className="text-right">{t('quantity')}</TableHead>
+                <TableHead>{t('authorized_by')}</TableHead>
+                <TableHead>{t('given_by')}</TableHead>
+                <TableHead className="text-right">{t('timestamp')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredTransactions.length > 0 ? filteredTransactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell className="font-medium">{transaction.items?.name || 'N/A'}</TableCell>
+                  <TableCell>{transaction.workers?.name || 'N/A'}</TableCell>
+                  <TableCell>{transaction.company || 'N/A'}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`font-medium px-2 py-1 rounded-full text-xs ${
+                        transaction.type === 'takeout'
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
+                          : transaction.type === 'return'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                      }`}
+                    >
+                      {t(transaction.type)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">{transaction.quantity}</TableCell>
+                  <TableCell>{transaction.authorized_by || 'N/A'}</TableCell>
+                  <TableCell>{transaction.given_by || 'N/A'}</TableCell>
+                  <TableCell className="text-right">{new Date(transaction.timestamp).toLocaleString()}</TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions && transactions.length > 0 ? (
-                  transactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell className="font-medium">{transaction.items?.name || 'N/A'}</TableCell>
-                      <TableCell>{transaction.workers?.name || transaction.company || 'N/A'}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`font-medium px-2 py-1 rounded-full text-xs ${
-                            transaction.type === 'takeout'
-                              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
-                              : transaction.type === 'return'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                          }`}
-                        >
-                          {t(transaction.type)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">{transaction.quantity}</TableCell>
-                      <TableCell>{transaction.authorized_by || 'N/A'}</TableCell>
-                      <TableCell>{transaction.given_by || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{new Date(transaction.timestamp).toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-gray-500">
-                      {t('no_transactions_found')}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    {t('no_transactions_found')}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

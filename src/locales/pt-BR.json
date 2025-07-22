@@ -274,7 +274,7 @@
   "fiscal_notes_management": "Gerenciamento de Notas Fiscais",
   "manage_your_fiscal_notes": "Gerencie suas notas fiscais.",
   "scan_fiscal_note_barcode": "Escanear Código de Barras da Nota Fiscal",
-  "enter_nfe_key_manually": "Insira a chave da NFe manualmente",
+  "enter_nfe_key_manually": "Insira a chave da NFe manually",
   "enter_brief_description": "Insira uma breve descrição (opcional)",
   "arrival_date": "Data de Chegada",
   "pick_a_date": "Escolha uma data",
@@ -342,5 +342,6 @@
   "error_checking_balance": "Erro ao verificar o saldo: ",
   "this_is_one_time_use_item": "Este é um item de uso único.",
   "scan_by_barcode": "Escanear por Código de Barras",
-  "search_by_name": "Buscar por Nome"
+  "search_by_name": "Buscar por Nome",
+  "transaction_type": "Tipo de Transação"
 }

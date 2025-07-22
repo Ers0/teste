@@ -342,5 +342,6 @@
   "error_checking_balance": "Error al verificar el saldo: ",
   "this_is_one_time_use_item": "Este es un ítem de un solo uso.",
   "scan_by_barcode": "Escanear por Código de Barras",
-  "search_by_name": "Buscar por Nombre"
+  "search_by_name": "Buscar por Nombre",
+  "transaction_type": "Tipo de Transacción"
 }

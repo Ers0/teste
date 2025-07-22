@@ -342,5 +342,6 @@
   "error_checking_balance": "Error checking balance: ",
   "this_is_one_time_use_item": "This is a one-time use item.",
   "scan_by_barcode": "Scan by Barcode",
-  "search_by_name": "Search by Name"
+  "search_by_name": "Search by Name",
+  "transaction_type": "Transaction Type"
 }
