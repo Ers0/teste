@@ -763,53 +763,6 @@ const WorkerTransaction = () => {
           }
         }
 
-        if (selectionMode === 'worker' && scannedWorker) {
-          let scoreChange = 0;
-          if (txItem.is_broken) {
-            scoreChange -= 5;
-          } else {
-            scoreChange += 2;
-          }
-
-          if (txItem.item.is_tool) {
-            const { data: lastTakeout, error: takeoutError } = await supabase
-              .from('transactions')
-              .select('timestamp')
-              .eq('item_id', txItem.item.id)
-              .eq('worker_id', scannedWorker.id)
-              .eq('type', 'takeout')
-              .order('timestamp', { ascending: false })
-              .limit(1)
-              .single();
-
-            if (takeoutError && takeoutError.code !== 'PGRST116') {
-              console.error("Error fetching last takeout:", takeoutError);
-            } else if (lastTakeout) {
-              const takeoutDate = new Date(lastTakeout.timestamp);
-              const midnightOfTakeoutDay = new Date(takeoutDate);
-              midnightOfTakeoutDay.setHours(23, 59, 59, 999);
-              
-              if (new Date() > midnightOfTakeoutDay) {
-                scoreChange -= 10;
-                showError(t('tool_returned_late_penalty', { workerName: scannedWorker.name }));
-              }
-            }
-          }
-
-          const newScore = Math.min(100, Math.max(0, scannedWorker.reliability_score + scoreChange));
-          
-          const { error: workerUpdateError } = await supabase
-            .from('workers')
-            .update({ reliability_score: newScore })
-            .eq('id', scannedWorker.id);
-
-          if (workerUpdateError) {
-            console.error(`Failed to update reliability score for worker ${scannedWorker.name}:`, workerUpdateError);
-          } else {
-            setScannedWorker(prev => prev ? { ...prev, reliability_score: newScore } : null);
-          }
-        }
-
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert([{
