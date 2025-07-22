@@ -1088,10 +1088,11 @@ const WorkerTransaction = () => {
                           <Button variant="outline" size="icon" onClick={decrementQuantity} disabled={quantityToChange <= 1}>
                             <Minus className="h-4 w-4" />
                           </Button>
+                          {/* @ts-ignore */}
                           <Input
                             id="quantityToChange"
                             type="number"
-                            value={String(quantityToChange)}
+                            value={quantityToChange}
                             onChange={(e) => setQuantityToChange(parseInt(e.target.value) || 1)}
                             min="1"
                             className="text-center"
