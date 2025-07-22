@@ -66,6 +66,12 @@ const Workers = () => {
   };
 
   useEffect(() => {
+    if (user) {
+      fetchWorkers();
+    }
+  }, [user]);
+
+  useEffect(() => {
     const currentIsWeb = !Capacitor.isNativePlatform();
     setIsWeb(currentIsWeb);
 
@@ -101,14 +107,12 @@ const Workers = () => {
     if (isScanningExternalQr) {
       if (currentIsWeb) {
         const startWebScanner = async () => {
-          // Ensure native scanner is not interfering if it was somehow left active
           await stopNativeScanner();
 
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
-              let cameraId = cameras[0].id; // Default to first camera
-              // Try to find a back camera
+              let cameraId = cameras[0].id;
               const backCamera = cameras.find(camera => 
                 camera.label.toLowerCase().includes('back') || 
                 camera.label.toLowerCase().includes('environment')
@@ -116,8 +120,6 @@ const Workers = () => {
               if (backCamera) {
                 cameraId = backCamera.id;
               } else if (cameras.length > 1) {
-                // If no explicit back camera, but more than one camera, try the second one
-                // This is a heuristic and might not always be the back camera.
                 cameraId = cameras[1].id;
               }
 
@@ -128,24 +130,23 @@ const Workers = () => {
                 console.error(`HTML Element with id=${readerElementId} not found during web scan start attempt.`);
                 showError(t('camera_display_area_not_found'));
                 setIsScanningExternalQr(false);
+                setIsDialogOpen(true);
                 return;
               }
 
-              // Add a small delay to ensure the DOM is ready
               setTimeout(async () => {
-                if (html5QrCodeScannerRef.current) { // Ensure no previous instance is running
-                  await html5QrCodeScannerRef.current.stop().catch(() => {}); // Stop if somehow still running
-                  html5QrCodeScannerRef.current.clear(); // Clear it
+                if (html5QrCodeScannerRef.current) {
+                  await html5QrCodeScannerRef.current.stop().catch(() => {});
+                  html5QrCodeScannerRef.current.clear();
                   html5QrCodeScannerRef.current = null;
                 }
-
                 try {
                   const html5Qrcode = new Html5Qrcode(readerElement.id);
                   html5QrCodeScannerRef.current = html5Qrcode;
 
                   await html5Qrcode.start(
                     cameraId,
-                    { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false }, // Adjusted qrbox
+                    { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
                     (decodedText) => {
                       console.log("Web scan successful:", decodedText);
                       if (editingWorker) {
@@ -154,43 +155,46 @@ const Workers = () => {
                         setNewWorker({ ...newWorker, external_qr_code_data: decodedText });
                       }
                       playBeep();
-                      setIsScanningExternalQr(false); // This will trigger cleanup
+                      setIsScanningExternalQr(false);
+                      setIsDialogOpen(true);
                     },
                     (errorMessage) => {
                       console.warn(`QR Code Scan Error: ${errorMessage}`);
-                      // Do not stop scanning here, let the loop continue trying other cameras
                     }
                   );
                 } catch (err: any) {
                   console.error(`Failed to start camera ${cameraId}:`, err);
                   showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
                   setIsScanningExternalQr(false);
+                  setIsDialogOpen(true);
                 }
-              }, 200); // Increased delay
+              }, 200);
             } else {
               showError(t('no_camera_found_access_denied'));
               setIsScanningExternalQr(false);
+              setIsDialogOpen(true);
             }
           } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : String(err);
             showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
             setIsScanningExternalQr(false);
+            setIsDialogOpen(true);
           }
         };
         startWebScanner();
       } else { // Native path
         const runNativeScan = async () => {
-          // Ensure web scanner is not interfering
           await stopWebScanner();
 
           const hasPermission = await checkPermission();
           if (!hasPermission) {
             setIsScanningExternalQr(false);
+            setIsDialogOpen(true);
             return;
           }
-          setBodyBackground('transparent'); // Only for native
-          addCssClass('barcode-scanner-active'); // Only for native
-          BarcodeScanner.hideBackground(); // Only for native
+          setBodyBackground('transparent');
+          addCssClass('barcode-scanner-active');
+          BarcodeScanner.hideBackground();
           const result = await BarcodeScanner.startScan();
           if (result.hasContent && result.content) {
             console.log("Native scan successful:", result.content);
@@ -200,10 +204,12 @@ const Workers = () => {
               setNewWorker({ ...newWorker, external_qr_code_data: result.content });
             }
             playBeep();
-            setIsScanningExternalQr(false); // This will trigger cleanup
+            setIsScanningExternalQr(false);
+            setIsDialogOpen(true);
           } else {
             showError(t('no_barcode_scanned_cancelled'));
-            setIsScanningExternalQr(false); // This will trigger cleanup
+            setIsScanningExternalQr(false);
+            setIsDialogOpen(true);
           }
         };
         runNativeScan();
@@ -231,11 +237,13 @@ const Workers = () => {
   };
 
   const startExternalQrScan = () => {
+    setIsDialogOpen(false);
     setIsScanningExternalQr(true);
   };
 
   const stopExternalQrScan = () => {
     setIsScanningExternalQr(false);
+    setIsDialogOpen(true);
   };
 
   const toggleTorch = async () => {
@@ -465,7 +473,7 @@ const Workers = () => {
           )}
         </div>
 
-        <Card className={`w-full max-w-4xl mx-auto ${isScanningExternalQr ? 'hidden' : ''}`}>
+        <Card className={`w-full max-w-4xl mx-auto`}>
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
               <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
