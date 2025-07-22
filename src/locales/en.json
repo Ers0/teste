@@ -334,5 +334,10 @@
   "loading_requisitions": "Loading requisitions...",
   "error_loading_requisitions": "Error loading requisitions",
   "error_fetching_transaction_items": "Error fetching transaction items: ",
-  "error_fetching_requisition_details": "Error fetching requisition details: "
+  "error_fetching_requisition_details": "Error fetching requisition details: ",
+  "select_worker_before_return": "Please select a worker before returning an item.",
+  "select_company_before_return": "Please select a company before returning an item.",
+  "checking_worker_balance": "Checking recipient's balance...",
+  "cannot_return_more_than_taken": "Cannot return more than taken out. Current balance: {{balance}}",
+  "error_checking_balance": "Error checking balance: "
 }

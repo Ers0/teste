@@ -550,7 +550,7 @@ const WorkerTransaction = () => {
     showSuccess(t('item_selection_cleared'));
   };
 
-  const handleAddItemToList = () => {
+  const handleAddItemToList = async () => {
     if (!scannedItem) {
       showError(t('scan_item_first'));
       return;
@@ -562,6 +562,52 @@ const WorkerTransaction = () => {
     if (transactionType === 'takeout' && scannedItem.quantity < quantityToChange) {
       showError(t('not_enough_items_in_stock', { available: scannedItem.quantity }));
       return;
+    }
+
+    if (transactionType === 'return') {
+      if (selectionMode === 'worker' && !scannedWorker) {
+        showError(t('select_worker_before_return'));
+        return;
+      }
+      if (selectionMode === 'company' && !selectedCompany) {
+        showError(t('select_company_before_return'));
+        return;
+      }
+
+      const toastId = showLoading(t('checking_worker_balance'));
+      try {
+        let query = supabase
+          .from('transactions')
+          .select('type, quantity')
+          .eq('item_id', scannedItem.id)
+          .eq('user_id', user!.id);
+
+        if (selectionMode === 'worker') {
+          query = query.eq('worker_id', scannedWorker!.id);
+        } else {
+          query = query.eq('company', selectedCompany!);
+        }
+
+        const { data: transactions, error } = await query;
+        if (error) throw error;
+
+        const balance = transactions.reduce((acc, tx) => {
+          if (tx.type === 'takeout') return acc + tx.quantity;
+          if (tx.type === 'return') return acc - tx.quantity;
+          return acc;
+        }, 0);
+
+        if (quantityToChange > balance) {
+          dismissToast(toastId);
+          showError(t('cannot_return_more_than_taken', { balance }));
+          return;
+        }
+        dismissToast(toastId);
+      } catch (error: any) {
+        dismissToast(toastId);
+        showError(t('error_checking_balance') + error.message);
+        return;
+      }
     }
 
     setTransactionItems(prev => [...prev, {

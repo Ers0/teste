@@ -334,5 +334,10 @@
   "loading_requisitions": "Cargando requisiciones...",
   "error_loading_requisitions": "Error al cargar las requisiciones",
   "error_fetching_transaction_items": "Error al obtener los ítems de la transacción: ",
-  "error_fetching_requisition_details": "Error al obtener los detalles de la requisición: "
+  "error_fetching_requisition_details": "Error al obtener los detalles de la requisición: ",
+  "select_worker_before_return": "Por favor, seleccione un trabajador antes de devolver un ítem.",
+  "select_company_before_return": "Por favor, seleccione una empresa antes de devolver un ítem.",
+  "checking_worker_balance": "Verificando el saldo del destinatario...",
+  "cannot_return_more_than_taken": "No se puede devolver más de lo retirado. Saldo actual: {{balance}}",
+  "error_checking_balance": "Error al verificar el saldo: "
 }
