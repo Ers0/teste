@@ -392,7 +392,7 @@ const WorkerTransaction = () => {
 
   const handleSearchWorkerByName = async () => {
     if (!workerSearchTerm.trim()) {
-      showError(t('enter_worker_name_search'));
+      showError(t('enter_worker_name_to_search'));
       return;
     }
     if (!user) {
@@ -487,7 +487,7 @@ const WorkerTransaction = () => {
 
   const handleSearchItemByName = async () => {
     if (!itemSearchTerm.trim()) {
-      showError(t('enter_item_name_search'));
+      showError(t('enter_item_name_to_search'));
       return;
     }
     if (!user) {
@@ -944,7 +944,7 @@ const WorkerTransaction = () => {
                       <div className="flex items-center space-x-2">
                         <Input
                           type="text"
-                          placeholder={t('enter_worker_name')}
+                          placeholder={t('enter_worker_name_to_search')}
                           value={workerSearchTerm}
                           onChange={(e) => setWorkerSearchTerm(e.target.value)}
                           className="flex-grow"
@@ -1005,13 +1005,13 @@ const WorkerTransaction = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <Input
                           type="text"
-                          placeholder={t('enter_item_barcode')}
+                          placeholder={t('enter_item_barcode_manually')}
                           value={itemBarcodeInput}
                           onChange={(e) => setItemBarcodeInput(e.target.value)}
                           className="flex-grow"
                         />
                         <Button onClick={() => handleScanItem()}>
-                          <Search className="mr-2 h-4 w-4" /> {t('search_by_barcode')}
+                          <Search className="mr-2 h-4 w-4" /> {t('search_item_by_barcode')}
                         </Button>
                         <Button onClick={startItemScan}>
                           <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}
@@ -1023,7 +1023,7 @@ const WorkerTransaction = () => {
                       <div className="flex items-center space-x-2">
                         <Input
                           type="text"
-                          placeholder={t('enter_item_name')}
+                          placeholder={t('enter_item_name_to_search')}
                           value={itemSearchTerm}
                           onChange={(e) => setItemSearchTerm(e.target.value)}
                           className="flex-grow"
@@ -1186,7 +1186,7 @@ const WorkerTransaction = () => {
                                   : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
                               }`}
                             >
-                              {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                              {t(transaction.type)}
                             </span>
                           </p>
                           <p><strong>{t('quantity')}:</strong> {transaction.quantity}</p>

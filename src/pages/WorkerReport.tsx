@@ -92,7 +92,7 @@ const WorkerReport = () => {
     const formattedData = transactions.map(transaction => ({
       [t('item_name')]: transaction.items?.name || 'N/A',
       [t('worker_name')]: transaction.workers?.name || 'N/A',
-      [t('transaction_type')]: transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1),
+      [t('transaction_type')]: t(transaction.type),
       [t('quantity')]: transaction.quantity,
       [t('authorized_by')]: transaction.authorized_by || 'N/A', // Include in export
       [t('given_by')]: transaction.given_by || 'N/A',           // Include in export
@@ -174,7 +174,7 @@ const WorkerReport = () => {
                               : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
                           }`}
                         >
-                          {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                          {t(transaction.type)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">{transaction.quantity}</TableCell>
