@@ -603,34 +603,90 @@ const WorkerTransaction = () => {
 
     const toastId = showLoading(t('processing_transactions'));
     
-    const getNextRequisitionNumber = (): string => {
-      const key = 'lastRequisitionNumber';
-      let lastNumber = parseInt(localStorage.getItem(key) || '0', 10);
-      const newNumber = lastNumber + 1;
-      localStorage.setItem(key, newNumber.toString());
-      return newNumber.toString().padStart(4, '0');
-    };
-
-    const requisitionNumber = getNextRequisitionNumber();
+    const takeoutItems = transactionItems.filter(item => item.type === 'takeout');
+    const returnItems = transactionItems.filter(item => item.type === 'return');
+    let requisitionCreated = false;
 
     try {
-      const { data: requisitionData, error: requisitionError } = await supabase
-        .from('requisitions')
-        .insert({
-          requisition_number: requisitionNumber,
-          user_id: user.id,
-          authorized_by: authorizedBy.trim() || null,
-          given_by: givenBy.trim() || null,
-          requester_name: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
-          requester_company: selectionMode === 'worker' ? scannedWorker!.company : selectedCompany,
-          application_location: applicationLocation.trim() || null,
-        })
-        .select('id')
-        .single();
+      let requisitionId: string | null = null;
 
-      if (requisitionError) throw requisitionError;
+      // Process takeouts and create a requisition if they exist
+      if (takeoutItems.length > 0) {
+        const getNextRequisitionNumber = (): string => {
+          const key = 'lastRequisitionNumber';
+          let lastNumber = parseInt(localStorage.getItem(key) || '0', 10);
+          const newNumber = lastNumber + 1;
+          localStorage.setItem(key, newNumber.toString());
+          return newNumber.toString().padStart(4, '0');
+        };
+        const requisitionNumber = getNextRequisitionNumber();
 
-      for (const txItem of transactionItems) {
+        const { data: requisitionData, error: requisitionError } = await supabase
+          .from('requisitions')
+          .insert({
+            requisition_number: requisitionNumber,
+            user_id: user.id,
+            authorized_by: authorizedBy.trim() || null,
+            given_by: givenBy.trim() || null,
+            requester_name: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
+            requester_company: selectionMode === 'worker' ? scannedWorker!.company : selectedCompany,
+            application_location: applicationLocation.trim() || null,
+          })
+          .select('id')
+          .single();
+
+        if (requisitionError) throw requisitionError;
+        requisitionId = requisitionData.id;
+
+        for (const txItem of takeoutItems) {
+          const { data: currentItem, error: fetchError } = await supabase
+            .from('items')
+            .select('quantity')
+            .eq('id', txItem.item.id)
+            .single();
+
+          if (fetchError || !currentItem) {
+            throw new Error(t('error_fetching_item_details_for', { itemName: txItem.item.name }));
+          }
+
+          if (currentItem.quantity < txItem.quantity) {
+            throw new Error(t('not_enough_stock_for_item', { itemName: txItem.item.name }));
+          }
+          const newQuantity = currentItem.quantity - txItem.quantity;
+
+          const { error: updateError } = await supabase
+            .from('items')
+            .update({ quantity: newQuantity })
+            .eq('id', txItem.item.id);
+
+          if (updateError) {
+            throw new Error(t('error_updating_quantity_for', { itemName: txItem.item.name }));
+          }
+
+          const { error: transactionError } = await supabase
+            .from('transactions')
+            .insert([{
+              requisition_id: requisitionId,
+              worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
+              company: selectionMode === 'company' ? selectedCompany : null,
+              item_id: txItem.item.id,
+              type: txItem.type,
+              quantity: txItem.quantity,
+              user_id: user.id,
+              authorized_by: authorizedBy.trim() || null,
+              given_by: givenBy.trim() || null,
+            }]);
+
+          if (transactionError) {
+            await supabase.from('items').update({ quantity: currentItem.quantity }).eq('id', txItem.item.id);
+            throw new Error(t('error_recording_transaction_for', { itemName: txItem.item.name }));
+          }
+        }
+        requisitionCreated = true;
+      }
+
+      // Process returns without a requisition
+      for (const txItem of returnItems) {
         const { data: currentItem, error: fetchError } = await supabase
           .from('items')
           .select('quantity')
@@ -641,15 +697,7 @@ const WorkerTransaction = () => {
           throw new Error(t('error_fetching_item_details_for', { itemName: txItem.item.name }));
         }
 
-        let newQuantity = currentItem.quantity;
-        if (txItem.type === 'takeout') {
-          if (currentItem.quantity < txItem.quantity) {
-            throw new Error(t('not_enough_stock_for_item', { itemName: txItem.item.name }));
-          }
-          newQuantity -= txItem.quantity;
-        } else {
-          newQuantity += txItem.quantity;
-        }
+        const newQuantity = currentItem.quantity + txItem.quantity;
 
         const { error: updateError } = await supabase
           .from('items')
@@ -663,7 +711,7 @@ const WorkerTransaction = () => {
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert([{
-            requisition_id: requisitionData.id,
+            requisition_id: null, // No requisition for returns
             worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
             company: selectionMode === 'company' ? selectedCompany : null,
             item_id: txItem.item.id,
@@ -683,7 +731,11 @@ const WorkerTransaction = () => {
       dismissToast(toastId);
       showSuccess(t('all_transactions_recorded_successfully'));
       handleDone();
-      navigate('/requisitions');
+
+      if (requisitionCreated) {
+        navigate('/requisitions');
+      }
+
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message);
