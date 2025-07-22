@@ -519,7 +519,7 @@ const Inventory = () => {
                         id="quantity"
                         name="quantity"
                         type="number"
-                        value={String(editingItem ? editingItem.quantity : newItem.quantity)}
+                        value={(editingItem ? editingItem.quantity : newItem.quantity).toString()}
                         onChange={handleInputChange}
                         className="col-span-3"
                       />
@@ -532,7 +532,7 @@ const Inventory = () => {
                         id="low_stock_threshold"
                         name="low_stock_threshold"
                         type="number"
-                        value={String(editingItem ? editingItem.low_stock_threshold ?? '' : newItem.low_stock_threshold)}
+                        value={(editingItem ? editingItem.low_stock_threshold : newItem.low_stock_threshold)?.toString() ?? ''}
                         onChange={handleInputChange}
                         className="col-span-3"
                         placeholder="e.g., 10"
@@ -546,7 +546,7 @@ const Inventory = () => {
                         id="critical_stock_threshold"
                         name="critical_stock_threshold"
                         type="number"
-                        value={String(editingItem ? editingItem.critical_stock_threshold ?? '' : newItem.critical_stock_threshold)}
+                        value={(editingItem ? editingItem.critical_stock_threshold : newItem.critical_stock_threshold)?.toString() ?? ''}
                         onChange={handleInputChange}
                         className="col-span-3"
                         placeholder="e.g., 5"

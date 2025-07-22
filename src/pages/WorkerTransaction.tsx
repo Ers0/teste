@@ -182,7 +182,7 @@ const WorkerTransaction = () => {
                   html5QrCodeScannerRef.current = null;
                 }
                 try {
-                  const html5Qrcode = new Html5Qrcode(readerElementId);
+                  const html5Qrcode = new Html5Qrcode(readerElementId, { verbose: false });
                   html5QrCodeScannerRef.current = html5Qrcode;
                   await html5Qrcode.start(
                     cameraId,
@@ -1091,7 +1091,7 @@ const WorkerTransaction = () => {
                           <Input
                             id="quantityToChange"
                             type="number"
-                            value={String(quantityToChange)}
+                            value={quantityToChange.toString()}
                             onChange={(e) => setQuantityToChange(parseInt(e.target.value) || 1)}
                             min="1"
                             className="text-center"
