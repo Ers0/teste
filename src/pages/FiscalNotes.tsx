@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2, CalendarIcon } from 'lucide-react'; // Import CalendarIcon from lucide-react
+import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2, CalendarIcon, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
@@ -20,14 +20,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface FiscalNote {
   id: string;
   nfe_key: string;
-  description: string | null; // New field
-  arrival_date: string | null; // New field
+  description: string | null;
+  arrival_date: string | null;
   user_id: string;
   created_at: string;
+  photo_url: string | null;
 }
 
 const FiscalNotes = () => {
@@ -36,12 +38,14 @@ const FiscalNotes = () => {
   const navigate = useNavigate();
 
   const [nfeKey, setNfeKey] = useState('');
-  const [description, setDescription] = useState(''); // State for description
-  const [arrivalDate, setArrivalDate] = useState<Date | undefined>(undefined); // State for arrival date
+  const [description, setDescription] = useState('');
+  const [arrivalDate, setArrivalDate] = useState<Date | undefined>(undefined);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [fiscalNotes, setFiscalNotes] = useState<FiscalNote[]>([]);
   const [scanning, setScanning] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -99,7 +103,6 @@ const FiscalNotes = () => {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
               let cameraId = cameras[0].id; // Default to first camera
-              // Try to find a back camera
               const backCamera = cameras.find(camera => 
                 camera.label.toLowerCase().includes('back') || 
                 camera.label.toLowerCase().includes('environment')
@@ -107,7 +110,6 @@ const FiscalNotes = () => {
               if (backCamera) {
                 cameraId = backCamera.id;
               } else if (cameras.length > 1) {
-                // If no explicit back camera, but more than one camera, try the second one
                 cameraId = cameras[1].id;
               }
 
@@ -211,6 +213,7 @@ const FiscalNotes = () => {
     setNfeKey('');
     setDescription('');
     setArrivalDate(undefined);
+    setPhoto(null);
     setScanning(true);
   };
 
@@ -253,6 +256,35 @@ const FiscalNotes = () => {
     }
   };
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setPhoto(e.target.files[0]);
+    }
+  };
+
+  const uploadPhoto = async (file: File, fiscalNoteId: string) => {
+    if (!file) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${fiscalNoteId}.${fileExt}`;
+    const filePath = `fiscal-note-photos/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('fiscal-note-photos')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      showError(t('error_uploading_photo') + uploadError.message);
+      return null;
+    }
+
+    const { data } = supabase.storage.from('fiscal-note-photos').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
   const handleSaveFiscalNote = async () => {
     if (!nfeKey) {
       showError(t('enter_nfe_key_scan'));
@@ -263,7 +295,6 @@ const FiscalNotes = () => {
       return;
     }
 
-    // Check if fiscal note with this key already exists for the user
     const { data: existingNote, error: existingError } = await supabase
       .from('fiscal_notes')
       .select('id')
@@ -275,36 +306,65 @@ const FiscalNotes = () => {
       showError(t('fiscal_note_already_exists'));
       return;
     }
-    if (existingError && existingError.code !== 'PGRST116') { // PGRST116 means no rows found
+    if (existingError && existingError.code !== 'PGRST116') {
       showError(t('error_checking_existing_fiscal_note') + existingError.message);
       return;
     }
 
-    // Save to Supabase
-    const { error: insertError } = await supabase
+    const { data: insertedNote, error: insertError } = await supabase
       .from('fiscal_notes')
-      .insert([
-        {
-          nfe_key: nfeKey,
-          description: description.trim() || null,
-          arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
-          user_id: user.id,
-        },
-      ]);
+      .insert([{
+        nfe_key: nfeKey,
+        description: description.trim() || null,
+        arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
+        user_id: user.id,
+      }])
+      .select()
+      .single();
 
     if (insertError) {
       showError(t('error_saving_fiscal_note') + insertError.message);
-    } else {
-      showSuccess(t('fiscal_note_saved_successfully'));
-      setNfeKey('');
-      setDescription('');
-      setArrivalDate(undefined);
-      fetchFiscalNotes(); // Refresh the list
+      return;
     }
+
+    if (photo && insertedNote) {
+      const photoUrl = await uploadPhoto(photo, insertedNote.id);
+      if (photoUrl) {
+        const { error: updateError } = await supabase
+          .from('fiscal_notes')
+          .update({ photo_url: photoUrl })
+          .eq('id', insertedNote.id);
+        
+        if (updateError) {
+          showError(t('error_updating_fiscal_note_with_photo') + updateError.message);
+        }
+      }
+    }
+
+    showSuccess(t('fiscal_note_saved_successfully'));
+    setNfeKey('');
+    setDescription('');
+    setArrivalDate(undefined);
+    setPhoto(null);
+    fetchFiscalNotes();
   };
 
   const handleDeleteFiscalNote = async (id: string) => {
     if (window.confirm(t('confirm_delete_fiscal_note'))) {
+      const noteToDelete = fiscalNotes.find(note => note.id === id);
+      if (noteToDelete && noteToDelete.photo_url) {
+        const urlParts = noteToDelete.photo_url.split('/fiscal-note-photos/');
+        const filePath = urlParts[1];
+        if (filePath) {
+          const { error: storageError } = await supabase.storage
+            .from('fiscal-note-photos')
+            .remove([filePath]);
+          if (storageError) {
+            showError(t('error_deleting_photo_from_storage') + storageError.message);
+          }
+        }
+      }
+
       const { error } = await supabase.from('fiscal_notes').delete().eq('id', id);
       if (error) {
         showError(t('error_deleting_fiscal_note') + error.message);
@@ -336,7 +396,6 @@ const FiscalNotes = () => {
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
-        {/* Scanner overlay */}
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
           {isWeb ? (
             <>
@@ -429,6 +488,22 @@ const FiscalNotes = () => {
                   </PopoverContent>
                 </Popover>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="photo">{t('photo')}</Label>
+                <Input
+                  id="photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                />
+                {photo && (
+                  <img 
+                    src={URL.createObjectURL(photo)} 
+                    alt="Preview" 
+                    className="w-24 h-24 object-cover rounded-md mt-2" 
+                  />
+                )}
+              </div>
               <Button onClick={handleSaveFiscalNote} className="w-full" disabled={!nfeKey}>
                 <FileText className="mr-2 h-4 w-4" /> {t('save_fiscal_note')}
               </Button>
@@ -444,6 +519,7 @@ const FiscalNotes = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>{t('photo')}</TableHead>
                     <TableHead>{t('nfe_key')}</TableHead>
                     <TableHead>{t('fiscal_note_description')}</TableHead>
                     <TableHead>{t('fiscal_note_arrival_date')}</TableHead>
@@ -454,13 +530,27 @@ const FiscalNotes = () => {
                 <TableBody>
                   {fiscalNotes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center text-gray-500">
+                      <TableCell colSpan={6} className="h-24 text-center text-gray-500">
                         {t('no_fiscal_notes_found')}
                       </TableCell>
                     </TableRow>
                   ) : (
                     fiscalNotes.map((note) => (
                       <TableRow key={note.id}>
+                        <TableCell>
+                          {note.photo_url ? (
+                            <img 
+                              src={note.photo_url} 
+                              alt={t('fiscal_note')} 
+                              className="w-16 h-16 object-cover rounded-md cursor-pointer"
+                              onClick={() => setViewingImage(note.photo_url)}
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500">
+                              <ImageIcon className="h-8 w-8" />
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{note.nfe_key}</TableCell>
                         <TableCell>{note.description || 'N/A'}</TableCell>
                         <TableCell>{note.arrival_date ? new Date(note.arrival_date).toLocaleDateString() : 'N/A'}</TableCell>
@@ -480,6 +570,12 @@ const FiscalNotes = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
+          <DialogContent className="max-w-3xl">
+            <img src={viewingImage || ''} alt={t('fiscal_note_large_view')} className="w-full h-auto rounded-md" />
+          </DialogContent>
+        </Dialog>
       </div>
     </React.Fragment>
   );
