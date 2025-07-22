@@ -168,9 +168,9 @@
   "select_a_company": "Select a company",
   "item_information": "Item Information",
   "enter_item_barcode": "Enter item barcode",
-  "search": "Search",
+  "search_by_barcode": "Search by Barcode",
   "scan_with_camera": "Scan with Camera",
-  "search_item_by_name": "Search Item",
+  "search_item_by_name": "Search Item by Name",
   "select_item_from_results": "Select an item from the results",
   "no_barcode": "No Barcode",
   "current_quantity": "Current Quantity",
@@ -339,5 +339,6 @@
   "select_company_before_return": "Please select a company before returning an item.",
   "checking_worker_balance": "Checking recipient's balance...",
   "cannot_return_more_than_taken": "Cannot return more than taken out. Current balance: {{balance}}",
-  "error_checking_balance": "Error checking balance: "
+  "error_checking_balance": "Error checking balance: ",
+  "this_is_one_time_use_item": "This is a one-time use item."
 }

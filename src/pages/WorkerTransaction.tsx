@@ -7,7 +7,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Flashlight, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -80,7 +80,7 @@ const WorkerTransaction = () => {
   const [givenBy, setGivenBy] = useState('');
   const [applicationLocation, setApplicationLocation] = useState('');
   const [activeTab, setActiveTab] = useState('transaction-form');
-  const navigate = useNavigate();
+  const navigate: NavigateFunction = useNavigate();
   const queryClient = useQueryClient();
 
   const [selectionMode, setSelectionMode] = useState<'worker' | 'company'>('worker');
@@ -1011,7 +1011,7 @@ const WorkerTransaction = () => {
                           className="flex-grow"
                         />
                         <Button onClick={() => handleScanItem()}>
-                          <Search className="mr-2 h-4 w-4" /> {t('search')}
+                          <Search className="mr-2 h-4 w-4" /> {t('search_by_barcode')}
                         </Button>
                         <Button onClick={startItemScan}>
                           <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}

@@ -168,9 +168,9 @@
   "select_a_company": "Seleccione una empresa",
   "item_information": "Información del Ítem",
   "enter_item_barcode": "Ingresar código de barras del ítem",
-  "search": "Buscar",
+  "search_by_barcode": "Buscar por Código de Barras",
   "scan_with_camera": "Escanear con Cámara",
-  "search_item_by_name": "Buscar Ítem",
+  "search_item_by_name": "Buscar Ítem por Nombre",
   "select_item_from_results": "Seleccione un ítem de los resultados",
   "no_barcode": "Sin Código de Barras",
   "current_quantity": "Cantidad Actual",
@@ -339,5 +339,6 @@
   "select_company_before_return": "Por favor, seleccione una empresa antes de devolver un ítem.",
   "checking_worker_balance": "Verificando el saldo del destinatario...",
   "cannot_return_more_than_taken": "No se puede devolver más de lo retirado. Saldo actual: {{balance}}",
-  "error_checking_balance": "Error al verificar el saldo: "
+  "error_checking_balance": "Error al verificar el saldo: ",
+  "this_is_one_time_use_item": "Este es un ítem de un solo uso."
 }
