@@ -5,6 +5,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Badge } from "@/components/ui/badge";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from 'react-i18next';
 
 export interface Option {
   value: string;
@@ -20,7 +21,8 @@ interface MultiSelectProps {
   className?: string;
 }
 
-const MultiSelect: React.FC<MultiSelectProps> = ({ options, selected, onChange, placeholder = "Select...", className }) => {
+const MultiSelect: React.FC<MultiSelectProps> = ({ options, selected, onChange, placeholder, className }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const handleSelect = (value: string) => {
@@ -54,7 +56,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ options, selected, onChange, 
                 </Badge>
               ))
             ) : (
-              placeholder
+              placeholder || t('select_placeholder')
             )}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -62,9 +64,9 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ options, selected, onChange, 
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
-          <CommandInput placeholder="Search..." />
+          <CommandInput placeholder={t('search_placeholder')} />
           <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>{t('no_results_found')}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
