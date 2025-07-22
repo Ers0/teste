@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { Capacitor } from '@capacitor/core';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import beepSound from '/beep.mp3';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -135,7 +135,12 @@ const FiscalNotes = () => {
 
                   await html5Qrcode.start(
                     cameraId,
-                    { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false }, // Adjusted qrbox
+                    { 
+                      fps: 10, 
+                      qrbox: { width: 300, height: 150 }, 
+                      disableFlip: false,
+                      formatsToSupport: [Html5QrcodeSupportedFormats.CODE_128]
+                    },
                     (decodedText) => {
                       console.log("Web scan successful:", decodedText);
                       setNfeKey(decodedText);
