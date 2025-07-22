@@ -267,7 +267,7 @@ const FiscalNotes = () => {
 
     const fileExt = file.name.split('.').pop();
     const fileName = `${fiscalNoteId}.${fileExt}`;
-    const filePath = `fiscal-note-photos/${fileName}`;
+    const filePath = fileName;
 
     const { error: uploadError } = await supabase.storage
       .from('fiscal-note-photos')
@@ -353,12 +353,12 @@ const FiscalNotes = () => {
     if (window.confirm(t('confirm_delete_fiscal_note'))) {
       const noteToDelete = fiscalNotes.find(note => note.id === id);
       if (noteToDelete && noteToDelete.photo_url) {
-        const urlParts = noteToDelete.photo_url.split('/fiscal-note-photos/');
-        const filePath = urlParts[1];
-        if (filePath) {
+        const urlParts = noteToDelete.photo_url.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+        if (fileName) {
           const { error: storageError } = await supabase.storage
             .from('fiscal-note-photos')
-            .remove([filePath]);
+            .remove([fileName]);
           if (storageError) {
             showError(t('error_deleting_photo_from_storage') + storageError.message);
           }
