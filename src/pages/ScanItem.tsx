@@ -135,7 +135,7 @@ const ScanItem = () => {
                     html5QrCodeScannerRef.current = null;
                   }
                   try {
-                    const html5Qrcode = new Html5Qrcode(readerElementId);
+                    const html5Qrcode = new Html5Qrcode(readerElementId, { verbose: false });
                     html5QrCodeScannerRef.current = html5Qrcode;
 
                     await html5Qrcode.start(
@@ -691,7 +691,7 @@ const ScanItem = () => {
                     <Input
                       id="quantityChange"
                       type="number"
-                      value={quantityChange.toString()}
+                      value={String(quantityChange)}
                       onChange={(e) => setQuantityChange(parseInt(e.target.value) || 1)}
                       min="1"
                       className="text-center"
@@ -785,7 +785,7 @@ const ScanItem = () => {
                       id="newItemQuantity"
                       name="quantity"
                       type="number"
-                      value={newItemDetails.quantity.toString()}
+                      value={String(newItemDetails.quantity)}
                       onChange={handleNewItemInputChange}
                       className="col-span-3"
                     />
@@ -798,7 +798,7 @@ const ScanItem = () => {
                       id="newItemLowStockThreshold"
                       name="low_stock_threshold"
                       type="number"
-                      value={newItemDetails.low_stock_threshold.toString()}
+                      value={String(newItemDetails.low_stock_threshold)}
                       onChange={handleNewItemInputChange}
                       className="col-span-3"
                       placeholder="e.g., 10"
@@ -812,7 +812,7 @@ const ScanItem = () => {
                       id="newItemCriticalStockThreshold"
                       name="critical_stock_threshold"
                       type="number"
-                      value={newItemDetails.critical_stock_threshold.toString()}
+                      value={String(newItemDetails.critical_stock_threshold)}
                       onChange={handleNewItemInputChange}
                       className="col-span-3"
                       placeholder="e.g., 5"
