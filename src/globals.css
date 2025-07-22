@@ -149,7 +149,7 @@
 }
 
 /* Ensure the video element within the reader div fills its container */
-#reader video, #external-qr-reader video, #worker-qr-reader video {
+#reader video, #external-qr-reader video, #worker-qr-reader video, #item-barcode-reader video, #fiscal-note-reader video {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover; /* Ensures the video covers the area without distortion */
