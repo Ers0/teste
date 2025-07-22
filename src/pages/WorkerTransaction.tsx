@@ -665,7 +665,7 @@ const WorkerTransaction = () => {
 
       const generateRequisitionCsv = (): string => {
         const csvRows: string[] = [];
-        const escapeCsv = (value: string | null | undefined) => {
+        const escapeCsv = (value: string | number | null | undefined) => {
             if (value === null || value === undefined) return '""';
             const str = String(value);
             if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -674,21 +674,34 @@ const WorkerTransaction = () => {
             return str;
         };
 
-        csvRows.push(`"${t('csv_header_title')}"`);
-        csvRows.push(`"${t('csv_header_date')}",${escapeCsv(new Date().toLocaleDateString())},"${t('csv_header_req_no')}",${escapeCsv(requisitionNumber)}`);
-        csvRows.push(`"${t('csv_header_auth')}",${escapeCsv(authorizedBy.trim() || 'N/A')}`);
+        // Row 1: Title
+        csvRows.push(`"${t('csv_header_title')}",,,`);
+
+        // Row 2: Date and Requisition Number
+        const date = new Date().toLocaleDateString();
+        csvRows.push(`"${t('csv_header_date')}",${escapeCsv(date)},"${t('csv_header_req_no')}",${escapeCsv(requisitionNumber)}`);
+
+        // Row 3: Authorization
+        csvRows.push(`"${t('csv_header_auth')}",${escapeCsv(authorizedBy.trim() || 'N/A')},,`);
+
+        // Row 4: Requester and Company
         const requester = selectionMode === 'worker' ? scannedWorker!.name : selectedCompany;
-        const company = selectionMode === 'worker' ? scannedWorker!.company || 'N/A' : selectedCompany;
+        const company = selectionMode === 'worker' ? (scannedWorker!.company || 'N/A') : selectedCompany;
         csvRows.push(`"${t('csv_header_requester')}",${escapeCsv(requester)},"${t('csv_header_company')}",${escapeCsv(company)}`);
+
+        // Row 5: Empty row
         csvRows.push('');
 
-        csvRows.push(`"${t('csv_col_qty')}","${t('csv_col_material')}","${t('csv_col_app_location')}"`);
+        // Row 6: Table Headers
+        csvRows.push(`"${t('csv_col_qty')}","${t('csv_col_material')}","${t('csv_col_app_location')}",`);
 
+        // Data Rows
         transactionItems.forEach(txItem => {
             const row = [
                 txItem.quantity,
                 escapeCsv(txItem.item.name),
-                escapeCsv(applicationLocation.trim() || 'N/A')
+                escapeCsv(applicationLocation.trim() || 'N/A'),
+                '' // extra comma for 4th column
             ].join(',');
             csvRows.push(row);
         });
