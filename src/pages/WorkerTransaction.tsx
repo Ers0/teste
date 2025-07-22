@@ -30,6 +30,7 @@ interface Worker {
   qr_code_data: string | null;
   external_qr_code_data: string | null;
   user_id: string;
+  reliability_score: number;
 }
 
 interface Item {
@@ -759,6 +760,27 @@ const WorkerTransaction = () => {
 
           if (updateError) {
             throw new Error(t('error_updating_quantity_for', { itemName: txItem.item.name }));
+          }
+        }
+
+        if (selectionMode === 'worker' && scannedWorker) {
+          const currentScore = scannedWorker.reliability_score;
+          let newScore;
+          if (txItem.is_broken) {
+            newScore = Math.max(0, currentScore - 5);
+          } else {
+            newScore = Math.min(100, currentScore + 2);
+          }
+
+          const { error: workerUpdateError } = await supabase
+            .from('workers')
+            .update({ reliability_score: newScore })
+            .eq('id', scannedWorker.id);
+
+          if (workerUpdateError) {
+            console.error(`Failed to update reliability score for worker ${scannedWorker.name}:`, workerUpdateError);
+          } else {
+            setScannedWorker(prev => prev ? { ...prev, reliability_score: newScore } : null);
           }
         }
 

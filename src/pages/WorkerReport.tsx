@@ -5,11 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Star } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
+import { Badge } from '@/components/ui/badge';
 
 interface Transaction {
   id: string;
@@ -32,6 +33,7 @@ interface Worker {
   company: string | null;
   qr_code_data: string | null; // System generated QR
   external_qr_code_data: string | null; // New field for pre-existing QR
+  reliability_score: number;
 }
 
 const WorkerReport = () => {
@@ -47,7 +49,7 @@ const WorkerReport = () => {
       if (!workerId || !user) throw new Error(t('worker_id_or_user_missing'));
       const { data, error } = await supabase
         .from('workers')
-        .select('id, name, company, qr_code_data, external_qr_code_data') // Select new field
+        .select('id, name, company, qr_code_data, external_qr_code_data, reliability_score') // Select new field
         .eq('id', workerId)
         .eq('user_id', user.id)
         .single();
@@ -104,6 +106,12 @@ const WorkerReport = () => {
     showSuccess(t('report_downloaded_successfully'));
   };
 
+  const getScoreVariant = (score: number): 'default' | 'secondary' | 'destructive' => {
+    if (score >= 80) return 'default';
+    if (score >= 50) return 'secondary';
+    return 'destructive';
+  };
+
   if (isWorkerLoading || isTransactionsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -139,6 +147,12 @@ const WorkerReport = () => {
             <div className="flex-grow text-center">
               <CardTitle className="text-3xl font-bold">{t('transaction_history_for', { workerName: workerDetails.name })}</CardTitle>
               <CardDescription>{t('overview_of_all_transactions_by_worker')}</CardDescription>
+              <div className="mt-2">
+                <Badge variant={getScoreVariant(workerDetails.reliability_score)}>
+                  <Star className="mr-2 h-4 w-4" />
+                  {t('reliability_score')}: {workerDetails.reliability_score}
+                </Badge>
+              </div>
             </div>
             <div className="w-10"></div>
           </div>
