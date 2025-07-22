@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Flashlight, Download, Upload, Users } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Flashlight, Download, Upload, Users, Star } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +15,7 @@ import QRCode from '@/components/QRCodeWrapper';
 import { v4 as uuidv4 } from 'uuid';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { Capacitor } from '@capacitor/core';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import beepSound from '/beep.mp3';
 import { exportToCsv } from '@/utils/export';
@@ -29,10 +29,11 @@ interface Worker {
   name: string;
   company: string | null;
   photo_url: string | null;
-  qr_code_data: string | null; // System generated QR
-  external_qr_code_data: string | null; // New field for pre-existing QR
+  qr_code_data: string | null;
+  external_qr_code_data: string | null;
   user_id: string;
-  photo?: File | null; // For file upload
+  photo?: File | null;
+  reliability_score: number;
 }
 
 const initialNewWorkerState = {
@@ -40,7 +41,7 @@ const initialNewWorkerState = {
   company: '',
   photo: null as File | null,
   qr_code_data: '',
-  external_qr_code_data: '', // Initialize new field
+  external_qr_code_data: '',
 };
 
 const Workers = () => {
@@ -59,7 +60,6 @@ const Workers = () => {
   const [qrCodeWorkerName, setQrCodeWorkerName] = useState('');
   const navigate = useNavigate();
 
-  // State for external QR scanning
   const [isScanningExternalQr, setIsScanningExternalQr] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -293,7 +293,7 @@ const Workers = () => {
 
     const { data, error } = await supabase
       .from('workers')
-      .select('*, external_qr_code_data') // Select new field
+      .select('*, external_qr_code_data, reliability_score')
       .eq('user_id', user.id)
       .order('name', { ascending: true });
 
@@ -356,7 +356,7 @@ const Workers = () => {
       return;
     }
 
-    const generatedQrCodeData = uuidv4(); // Generate a unique QR code data
+    const generatedQrCodeData = uuidv4();
 
     const { data: insertedWorker, error: insertError } = await supabase
       .from('workers')
@@ -364,7 +364,7 @@ const Workers = () => {
         name: newWorker.name, 
         company: newWorker.company, 
         qr_code_data: generatedQrCodeData,
-        external_qr_code_data: newWorker.external_qr_code_data.trim() || null, // Save new field
+        external_qr_code_data: newWorker.external_qr_code_data.trim() || null,
         user_id: user.id 
       }])
       .select()
@@ -410,8 +410,8 @@ const Workers = () => {
         name: editingWorker.name,
         company: editingWorker.company,
         photo_url: photoUrl,
-        qr_code_data: editingWorker.qr_code_data, // Keep existing system-generated QR code data
-        external_qr_code_data: editingWorker.external_qr_code_data?.trim() || null, // Update new field
+        qr_code_data: editingWorker.qr_code_data,
+        external_qr_code_data: editingWorker.external_qr_code_data?.trim() || null,
         user_id: user.id
       })
       .eq('id', editingWorker.id);
@@ -467,7 +467,7 @@ const Workers = () => {
     if (!user) return;
     const { data, error } = await supabase
       .from('workers')
-      .select('name, company, external_qr_code_data')
+      .select('name, company, external_qr_code_data, reliability_score')
       .eq('user_id', user.id);
 
     if (error) {
@@ -493,6 +493,7 @@ const Workers = () => {
       name: worker.name,
       company: worker.company,
       external_qr_code_data: worker.external_qr_code_data || '',
+      reliability_score: worker.reliability_score,
     }));
 
     const filename = `${companyName.replace(/\s+/g, '_')}_workers_report.csv`;
@@ -514,7 +515,7 @@ const Workers = () => {
         name: row.name,
         company: row.company || null,
         external_qr_code_data: row.external_qr_code_data || null,
-        qr_code_data: uuidv4(), // Assign a new system QR code for each imported worker
+        qr_code_data: uuidv4(),
       }));
 
       const { error } = await supabase.from('workers').upsert(workersToImport, { onConflict: 'user_id,name' });
@@ -534,11 +535,16 @@ const Workers = () => {
     }
   };
 
+  const getScoreVariant = (score: number): 'default' | 'secondary' | 'destructive' => {
+    if (score >= 80) return 'default';
+    if (score >= 50) return 'secondary';
+    return 'destructive';
+  };
+
   return (
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
-        {/* Scanner overlay, always rendered but conditionally visible */}
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${isScanningExternalQr ? '' : 'hidden'}`}>
           {isWeb ? (
             <>
@@ -728,6 +734,7 @@ const Workers = () => {
                           <TableRow>
                             <TableHead className="w-[80px]">{t('photo')}</TableHead>
                             <TableHead>{t('name')}</TableHead>
+                            <TableHead>{t('reliability_score')}</TableHead>
                             <TableHead className="text-center">{t('qr_code')}</TableHead>
                             <TableHead className="text-center">{t('actions')}</TableHead>
                           </TableRow>
@@ -745,6 +752,12 @@ const Workers = () => {
                                 )}
                               </TableCell>
                               <TableCell className="font-medium">{worker.name}</TableCell>
+                              <TableCell>
+                                <Badge variant={getScoreVariant(worker.reliability_score)}>
+                                  <Star className="mr-1 h-3 w-3" />
+                                  {worker.reliability_score}
+                                </Badge>
+                              </TableCell>
                               <TableCell className="text-center">
                                 {(worker.qr_code_data || worker.external_qr_code_data) ? (
                                   <Button variant="outline" size="sm" onClick={() => openQrCodeDialog(worker.qr_code_data, worker.external_qr_code_data, worker.name)}>
@@ -764,7 +777,7 @@ const Workers = () => {
                                   </Button>
                                   <Link to={`/worker-report/${worker.id}`}>
                                     <Button variant="outline" size="icon">
-                                      <ImageIcon className="h-4 w-4" /> {/* Reusing ImageIcon for report, consider a more fitting icon if available */}
+                                      <ImageIcon className="h-4 w-4" />
                                     </Button>
                                   </Link>
                                 </div>
@@ -781,7 +794,6 @@ const Workers = () => {
           </CardContent>
         </Card>
 
-        {/* QR Code Display Dialog */}
         <Dialog open={isQrCodeDialogOpen} onOpenChange={setIsQrCodeDialogOpen}>
           <DialogContent className="sm:max-w-[350px] text-center">
             <DialogHeader>
