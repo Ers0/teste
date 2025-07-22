@@ -149,8 +149,8 @@ const ScanItem = () => {
                         setScanning(false);
                       },
                       (errorMessage) => {
-                        console.warn(`QR Code Scan Error: ${errorMessage}`);
-                        setScanning(false);
+                        // This callback is called frequently, even for non-errors.
+                        // Do not stop scanning here.
                       }
                     );
                   } catch (err: any) {

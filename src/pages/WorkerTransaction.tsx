@@ -169,8 +169,8 @@ const WorkerTransaction = () => {
                       setScanningWorker(false);
                     },
                     (errorMessage) => {
-                      console.warn(`QR Code Scan Error: ${errorMessage}`);
-                      setScanningWorker(false);
+                      // This callback is called frequently, even for non-errors.
+                      // Do not stop scanning here.
                     }
                   );
                 } catch (err: any) {

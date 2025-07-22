@@ -143,7 +143,8 @@ const FiscalNotes = () => {
                       setScanning(false);
                     },
                     (errorMessage) => {
-                      console.warn(`QR Code Scan Error: ${errorMessage}`);
+                      // This callback is called frequently, even for non-errors.
+                      // Do not stop scanning here.
                     }
                   );
                 } catch (err: any) {
