@@ -142,7 +142,7 @@ const Inventory = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const parsedValue = name === 'quantity' || name === 'low_stock_threshold' || name === 'critical_stock_threshold' ? parseInt(value) : value;
+    const parsedValue = name === 'quantity' || name === 'low_stock_threshold' || name === 'critical_stock_threshold' ? parseInt(value, 10) || 0 : value;
 
     if (editingItem) {
       setEditingItem({ ...editingItem, [name]: parsedValue });
@@ -468,7 +468,7 @@ const Inventory = () => {
                       <Input
                         id="name"
                         name="name"
-                        value={editingItem ? (editingItem as any).name : newItem.name}
+                        value={editingItem ? editingItem.name : newItem.name}
                         onChange={handleInputChange}
                         className="col-span-3"
                       />
@@ -480,7 +480,7 @@ const Inventory = () => {
                       <Input
                         id="description"
                         name="description"
-                        value={editingItem ? (editingItem as any).description || '' : newItem.description}
+                        value={editingItem ? editingItem.description || '' : newItem.description}
                         onChange={handleInputChange}
                         className="col-span-3"
                       />
@@ -505,7 +505,7 @@ const Inventory = () => {
                       <Input
                         id="barcode"
                         name="barcode"
-                        value={editingItem ? (editingItem as any).barcode || '' : newItem.barcode}
+                        value={editingItem ? editingItem.barcode || '' : newItem.barcode}
                         onChange={handleInputChange}
                         className="col-span-3"
                         placeholder={t('enter_barcode_or_scan')}
@@ -519,7 +519,7 @@ const Inventory = () => {
                         id="quantity"
                         name="quantity"
                         type="number"
-                        value={editingItem ? (editingItem as any).quantity : newItem.quantity}
+                        value={String(editingItem ? editingItem.quantity : newItem.quantity)}
                         onChange={handleInputChange}
                         className="col-span-3"
                       />
@@ -532,7 +532,7 @@ const Inventory = () => {
                         id="low_stock_threshold"
                         name="low_stock_threshold"
                         type="number"
-                        value={editingItem ? (editingItem as any).low_stock_threshold || '' : newItem.low_stock_threshold}
+                        value={String(editingItem ? editingItem.low_stock_threshold ?? '' : newItem.low_stock_threshold)}
                         onChange={handleInputChange}
                         className="col-span-3"
                         placeholder="e.g., 10"
@@ -546,7 +546,7 @@ const Inventory = () => {
                         id="critical_stock_threshold"
                         name="critical_stock_threshold"
                         type="number"
-                        value={editingItem ? (editingItem as any).critical_stock_threshold || '' : newItem.critical_stock_threshold}
+                        value={String(editingItem ? editingItem.critical_stock_threshold ?? '' : newItem.critical_stock_threshold)}
                         onChange={handleInputChange}
                         className="col-span-3"
                         placeholder="e.g., 5"
@@ -558,9 +558,9 @@ const Inventory = () => {
                       </Label>
                       <Switch
                         id="one_time_use"
-                        checked={editingItem ? (editingItem as any).one_time_use : newItem.one_time_use}
+                        checked={editingItem ? editingItem.one_time_use : newItem.one_time_use}
                         onCheckedChange={handleToggleChange}
-                        disabled={editingItem ? (editingItem as any).is_tool : newItem.is_tool}
+                        disabled={editingItem ? editingItem.is_tool : newItem.is_tool}
                         className="col-span-3"
                       />
                     </div>
@@ -570,9 +570,9 @@ const Inventory = () => {
                       </Label>
                       <Switch
                         id="is_tool"
-                        checked={editingItem ? (editingItem as any).is_tool : newItem.is_tool}
+                        checked={editingItem ? editingItem.is_tool : newItem.is_tool}
                         onCheckedChange={handleIsToolToggleChange}
-                        disabled={editingItem ? (editingItem as any).one_time_use : newItem.one_time_use}
+                        disabled={editingItem ? editingItem.one_time_use : newItem.one_time_use}
                         className="col-span-3"
                       />
                     </div>
