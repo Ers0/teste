@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { showSuccess, showError } from '@/utils/toast';
-import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Flashlight, Search } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Flashlight, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { Capacitor } from '@capacitor/core';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import beepSound from '/beep.mp3';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -56,6 +56,12 @@ interface Transaction {
   given_by: string | null;
 }
 
+interface TransactionItem {
+  item: Item;
+  quantity: number;
+  type: 'takeout' | 'return';
+}
+
 const WorkerTransaction = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -85,6 +91,7 @@ const WorkerTransaction = () => {
   const [isTorchOn, setIsTorchOn] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([]);
 
   const playBeep = () => {
     if (audioRef.current) {
@@ -426,6 +433,13 @@ const WorkerTransaction = () => {
   };
 
   const handleClearWorker = () => {
+    if (transactionItems.length > 0) {
+      if (window.confirm(t('confirm_clear_worker_with_items'))) {
+        setTransactionItems([]);
+      } else {
+        return;
+      }
+    }
     setScannedWorker(null);
     setWorkerQrCodeInput('');
     setWorkerSearchTerm('');
@@ -534,15 +548,7 @@ const WorkerTransaction = () => {
     showSuccess(t('item_selection_cleared'));
   };
 
-  const handleRecordTransaction = async () => {
-    if (selectionMode === 'worker' && !scannedWorker) {
-      showError(t('scan_worker_first'));
-      return;
-    }
-    if (selectionMode === 'company' && !selectedCompany) {
-      showError(t('select_company_first'));
-      return;
-    }
+  const handleAddItemToList = () => {
     if (!scannedItem) {
       showError(t('scan_item_first'));
       return;
@@ -551,74 +557,108 @@ const WorkerTransaction = () => {
       showError(t('quantity_greater_than_zero'));
       return;
     }
+    if (transactionType === 'takeout' && scannedItem.quantity < quantityToChange) {
+      showError(t('not_enough_items_in_stock', { available: scannedItem.quantity }));
+      return;
+    }
+
+    setTransactionItems(prev => [...prev, {
+      item: scannedItem,
+      quantity: quantityToChange,
+      type: transactionType,
+    }]);
+
+    showSuccess(t('item_added_to_list', { itemName: scannedItem.name }));
+
+    setScannedItem(null);
+    setItemBarcodeInput('');
+    setItemSearchTerm('');
+    setItemSearchResults([]);
+    setQuantityToChange(1);
+  };
+
+  const handleRemoveItemFromList = (indexToRemove: number) => {
+    setTransactionItems(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleFinalizeTransactions = async () => {
+    if (transactionItems.length === 0) {
+      showError(t('no_items_in_transaction_list'));
+      return;
+    }
+    if (selectionMode === 'worker' && !scannedWorker) {
+      showError(t('scan_worker_first'));
+      return;
+    }
+    if (selectionMode === 'company' && !selectedCompany) {
+      showError(t('select_company_first'));
+      return;
+    }
     if (!user) {
       showError(t('user_not_authenticated_login'));
       return;
     }
 
-    if (scannedItem.one_time_use && transactionType === 'return') {
-      showError(t('cannot_return_one_time_use'));
-      return;
-    }
+    const toastId = showLoading(t('processing_transactions'));
 
-    let newQuantity = scannedItem.quantity;
-    if (transactionType === 'takeout') {
-      if (scannedItem.quantity < quantityToChange) {
-        showError(t('not_enough_items_in_stock', { available: scannedItem.quantity }));
-        return;
+    try {
+      for (const txItem of transactionItems) {
+        const { data: currentItem, error: fetchError } = await supabase
+          .from('items')
+          .select('quantity')
+          .eq('id', txItem.item.id)
+          .single();
+
+        if (fetchError || !currentItem) {
+          throw new Error(t('error_fetching_item_details_for', { itemName: txItem.item.name }));
+        }
+
+        let newQuantity = currentItem.quantity;
+        if (txItem.type === 'takeout') {
+          if (currentItem.quantity < txItem.quantity) {
+            throw new Error(t('not_enough_stock_for_item', { itemName: txItem.item.name }));
+          }
+          newQuantity -= txItem.quantity;
+        } else {
+          newQuantity += txItem.quantity;
+        }
+
+        const { error: updateError } = await supabase
+          .from('items')
+          .update({ quantity: newQuantity })
+          .eq('id', txItem.item.id);
+
+        if (updateError) {
+          throw new Error(t('error_updating_quantity_for', { itemName: txItem.item.name }));
+        }
+
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert([{
+            worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
+            company: selectionMode === 'company' ? selectedCompany : null,
+            item_id: txItem.item.id,
+            type: txItem.type,
+            quantity: txItem.quantity,
+            user_id: user.id,
+            authorized_by: authorizedBy.trim() || null,
+            given_by: givenBy.trim() || null,
+          }]);
+
+        if (transactionError) {
+          await supabase.from('items').update({ quantity: currentItem.quantity }).eq('id', txItem.item.id);
+          throw new Error(t('error_recording_transaction_for', { itemName: txItem.item.name }));
+        }
       }
-      newQuantity -= quantityToChange;
-    } else {
-      newQuantity += quantityToChange;
+
+      dismissToast(toastId);
+      showSuccess(t('all_transactions_recorded_successfully'));
+      handleDone();
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message);
+      fetchCompanies(); // Refetch data to ensure consistency
     }
-
-    const { error: updateError } = await supabase
-      .from('items')
-      .update({ quantity: newQuantity })
-      .eq('id', scannedItem.id)
-      .eq('user_id', user.id);
-
-    if (updateError) {
-      showError(t('error_updating_item_quantity') + updateError.message);
-      return;
-    }
-
-    const transactionData = {
-      worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
-      company: selectionMode === 'company' ? selectedCompany : null,
-      item_id: scannedItem.id,
-      type: transactionType,
-      quantity: quantityToChange,
-      user_id: user.id,
-      authorized_by: authorizedBy.trim() || null,
-      given_by: givenBy.trim() || null,
-    };
-
-    const { data: insertedTransaction, error: transactionError } = await supabase
-      .from('transactions')
-      .insert([transactionData])
-      .select('*, items(name), workers(name), company')
-      .single();
-
-    if (transactionError) {
-      showError(t('error_recording_transaction') + transactionError.message);
-      await supabase.from('items').update({ quantity: scannedItem.quantity }).eq('id', scannedItem.id).eq('user_id', user.id);
-      return;
-    }
-
-    const recipient = selectionMode === 'worker' ? scannedWorker!.name : selectedCompany;
-    showSuccess(t('recorded_transaction_success', { quantity: quantityToChange, itemName: scannedItem.name, type: transactionType === 'takeout' ? t('taken_by') : t('returned_by'), workerName: recipient }));
-    setScannedItem({ ...scannedItem, quantity: newQuantity });
-
-    if (insertedTransaction) {
-      queryClient.setQueryData<Transaction[]>(['transactions', user.id], (oldData) => {
-        const updatedData = oldData ? [insertedTransaction, ...oldData] : [insertedTransaction];
-        return updatedData.slice(0, 5);
-      });
-    }
-
-    queryClient.refetchQueries({ queryKey: ['transactions', user.id] });
-    queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user.id] });
   };
 
   const handleDone = () => {
@@ -636,6 +676,7 @@ const WorkerTransaction = () => {
     setGivenBy('');
     setSelectedCompany(null);
     setSelectionMode('worker');
+    setTransactionItems([]);
     showSuccess(t('transaction_session_cleared'));
     queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
     queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user?.id] });
@@ -916,6 +957,9 @@ const WorkerTransaction = () => {
                           </Button>
                         </div>
                       </div>
+                      <Button onClick={handleAddItemToList} className="w-full mt-2">
+                        {t('add_item_to_list')}
+                      </Button>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleClearItem}>
                         {t('change_item')}
                       </Button>
@@ -947,9 +991,32 @@ const WorkerTransaction = () => {
                   </div>
                 </div>
 
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-lg font-semibold">{t('transaction_list')}</h3>
+                  {transactionItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('no_items_added_yet')}</p>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {transactionItems.map((txItem, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 border rounded-md">
+                          <div>
+                            <p className="font-medium">{txItem.item.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {t(txItem.type)}: {txItem.quantity}
+                            </p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveItemFromList(index)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="pt-4">
-                  <Button onClick={handleRecordTransaction} className="w-full" disabled={(!scannedWorker && !selectedCompany) || !scannedItem}>
-                    {t(transactionType === 'takeout' ? 'record_takeout' : 'record_return')}
+                  <Button onClick={handleFinalizeTransactions} className="w-full" disabled={transactionItems.length === 0 || (!scannedWorker && !selectedCompany)}>
+                    {t('finalize_transactions')}
                   </Button>
                 </div>
 
