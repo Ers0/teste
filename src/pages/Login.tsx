@@ -19,12 +19,12 @@ const Login = () => {
   }, []);
 
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen bg-background">
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen bg-[#842CD4]">
       <div className="flex items-center justify-center py-12">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold">{t('welcome_back')}</h1>
-            <p className="text-balance text-muted-foreground">
+            <h1 className="text-3xl font-bold text-white">{t('welcome_back')}</h1>
+            <p className="text-balance text-gray-200">
               {t('sign_in_to_manage_inventory')}
             </p>
           </div>
@@ -47,13 +47,13 @@ const Login = () => {
           />
         </div>
       </div>
-      <div className="hidden bg-muted lg:flex lg:items-center lg:justify-center lg:flex-col">
+      <div className="hidden bg-[#842CD4] lg:flex lg:items-center lg:justify-center lg:flex-col">
         <div className="text-center p-8">
-          <Warehouse className="mx-auto h-24 w-24 text-primary" />
-          <h2 className="mt-6 text-3xl font-bold text-foreground">
+          <Warehouse className="mx-auto h-24 w-24 text-white" />
+          <h2 className="mt-6 text-3xl font-bold text-white">
             {t('inventory_management_title')}
           </h2>
-          <p className="mt-2 text-lg text-muted-foreground">
+          <p className="mt-2 text-lg text-gray-200">
             {t('manage_warehouse_items')}
           </p>
         </div>
