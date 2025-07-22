@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2, CalendarIcon, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +21,7 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { v4 as uuidv4 } from 'uuid';
 
 interface FiscalNote {
   id: string;
@@ -130,16 +131,21 @@ const FiscalNotes = () => {
                   html5QrCodeScannerRef.current = null;
                 }
                 try {
-                  const html5Qrcode = new Html5Qrcode(readerElement.id);
+                  const config = {
+                    fps: 10,
+                    qrbox: { width: 300, height: 150 },
+                    disableFlip: false,
+                    formatsToSupport: [
+                      Html5QrcodeSupportedFormats.QR_CODE,
+                      Html5QrcodeSupportedFormats.CODE_128,
+                    ]
+                  };
+                  const html5Qrcode = new Html5Qrcode(readerElement.id, { formatsToSupport: config.formatsToSupport });
                   html5QrCodeScannerRef.current = html5Qrcode;
 
                   await html5Qrcode.start(
                     cameraId,
-                    { 
-                      fps: 10, 
-                      qrbox: { width: 300, height: 150 }, 
-                      disableFlip: false,
-                    },
+                    config,
                     (decodedText) => {
                       console.log("Web scan successful:", decodedText);
                       setNfeKey(decodedText);
@@ -148,7 +154,6 @@ const FiscalNotes = () => {
                     },
                     (errorMessage) => {
                       // This callback is called frequently, even for non-errors.
-                      // Do not stop scanning here.
                     }
                   );
                 } catch (err: any) {
@@ -316,42 +321,45 @@ const FiscalNotes = () => {
       return;
     }
 
-    const { data: insertedNote, error: insertError } = await supabase
-      .from('fiscal_notes')
-      .insert([{
-        nfe_key: nfeKey,
-        description: description.trim() || null,
-        arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
-        user_id: user.id,
-      }])
-      .select()
-      .single();
+    const toastId = showLoading(t('saving_fiscal_note'));
+    let photoUrl: string | null = null;
+    const fiscalNoteId = uuidv4();
 
-    if (insertError) {
-      showError(t('error_saving_fiscal_note') + insertError.message);
-      return;
-    }
-
-    if (photo && insertedNote) {
-      const photoUrl = await uploadPhoto(photo, insertedNote.id);
-      if (photoUrl) {
-        const { error: updateError } = await supabase
-          .from('fiscal_notes')
-          .update({ photo_url: photoUrl })
-          .eq('id', insertedNote.id);
-        
-        if (updateError) {
-          showError(t('error_updating_fiscal_note_with_photo') + updateError.message);
+    try {
+      if (photo) {
+        photoUrl = await uploadPhoto(photo, fiscalNoteId);
+        if (!photoUrl) {
+          dismissToast(toastId);
+          return;
         }
       }
-    }
 
-    showSuccess(t('fiscal_note_saved_successfully'));
-    setNfeKey('');
-    setDescription('');
-    setArrivalDate(undefined);
-    setPhoto(null);
-    fetchFiscalNotes();
+      const { error: insertError } = await supabase
+        .from('fiscal_notes')
+        .insert([{
+          id: fiscalNoteId,
+          nfe_key: nfeKey,
+          description: description.trim() || null,
+          arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
+          user_id: user.id,
+          photo_url: photoUrl,
+        }]);
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      dismissToast(toastId);
+      showSuccess(t('fiscal_note_saved_successfully'));
+      setNfeKey('');
+      setDescription('');
+      setArrivalDate(undefined);
+      setPhoto(null);
+      fetchFiscalNotes();
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(t('error_saving_fiscal_note') + error.message);
+    }
   };
 
   const handleDeleteFiscalNote = async (id: string) => {
@@ -397,9 +405,37 @@ const FiscalNotes = () => {
     showSuccess(t('fiscal_notes_report_downloaded'));
   };
 
+  const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const toastId = showLoading(t('scanning_image'));
+    try {
+      const html5QrCode = new Html5Qrcode('fiscal-note-reader-hidden', { 
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+        ]
+      });
+      const decodedText = await html5QrCode.scanFile(file, false);
+      setNfeKey(decodedText);
+      playBeep();
+      showSuccess(t('barcode_scanned_from_image'));
+    } catch (err) {
+      console.error("Error scanning file:", err);
+      showError(t('no_barcode_found_in_image'));
+    } finally {
+      dismissToast(toastId);
+      e.target.value = '';
+    }
+  };
+
   return (
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
+      <div id="fiscal-note-reader-hidden" style={{ display: 'none' }}></div>
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
           {isWeb ? (
@@ -457,6 +493,14 @@ const FiscalNotes = () => {
                 <Button onClick={startScan}>
                   <Camera className="mr-2 h-4 w-4" /> {t('scan_with_camera')}
                 </Button>
+                {isWeb && (
+                  <Button asChild variant="outline">
+                    <Label htmlFor="scan-file-input">
+                      <ImageIcon className="mr-2 h-4 w-4" /> {t('scan_from_image')}
+                      <Input id="scan-file-input" type="file" accept="image/*" className="hidden" onChange={handleFileScan} />
+                    </Label>
+                  </Button>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">{t('description')}</Label>
