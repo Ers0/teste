@@ -274,7 +274,7 @@
   "fiscal_notes_management": "Gerenciamento de Notas Fiscais",
   "manage_your_fiscal_notes": "Gerencie suas notas fiscais.",
   "scan_fiscal_note_barcode": "Escanear Código de Barras da Nota Fiscal",
-  "enter_nfe_key_manually": "Insira a chave da NFe manually",
+  "enter_nfe_key_manually": "Insira a chave da NFe manualmente",
   "enter_brief_description": "Insira uma breve descrição (opcional)",
   "arrival_date": "Data de Chegada",
   "pick_a_date": "Escolha uma data",
@@ -347,5 +347,6 @@
   "reliability_score": "Pontuação de Confiabilidade",
   "worker_photo": "Foto do Funcionário",
   "mark_as_broken": "Marcar como quebrado",
-  "broken": "Quebrado"
+  "broken": "Quebrado",
+  "tool_returned_late_penalty": "Ferramenta devolvida com atraso por {{workerName}}. Pontuação de confiabilidade penalizada."
 }

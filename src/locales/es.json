@@ -347,5 +347,6 @@
   "reliability_score": "Puntuación de Fiabilidad",
   "worker_photo": "Foto del Trabajador",
   "mark_as_broken": "Marcar como roto",
-  "broken": "Roto"
+  "broken": "Roto",
+  "tool_returned_late_penalty": "Herramienta devuelta tarde por {{workerName}}. Puntuación de fiabilidad penalizada."
 }

@@ -764,14 +764,40 @@ const WorkerTransaction = () => {
         }
 
         if (selectionMode === 'worker' && scannedWorker) {
-          const currentScore = scannedWorker.reliability_score;
-          let newScore;
+          let scoreChange = 0;
           if (txItem.is_broken) {
-            newScore = Math.max(0, currentScore - 5);
+            scoreChange -= 5;
           } else {
-            newScore = Math.min(100, currentScore + 2);
+            scoreChange += 2;
           }
 
+          if (txItem.item.is_tool) {
+            const { data: lastTakeout, error: takeoutError } = await supabase
+              .from('transactions')
+              .select('timestamp')
+              .eq('item_id', txItem.item.id)
+              .eq('worker_id', scannedWorker.id)
+              .eq('type', 'takeout')
+              .order('timestamp', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (takeoutError && takeoutError.code !== 'PGRST116') {
+              console.error("Error fetching last takeout:", takeoutError);
+            } else if (lastTakeout) {
+              const takeoutDate = new Date(lastTakeout.timestamp);
+              const midnightOfTakeoutDay = new Date(takeoutDate);
+              midnightOfTakeoutDay.setHours(23, 59, 59, 999);
+              
+              if (new Date() > midnightOfTakeoutDay) {
+                scoreChange -= 10;
+                showError(t('tool_returned_late_penalty', { workerName: scannedWorker.name }));
+              }
+            }
+          }
+
+          const newScore = Math.min(100, Math.max(0, scannedWorker.reliability_score + scoreChange));
+          
           const { error: workerUpdateError } = await supabase
             .from('workers')
             .update({ reliability_score: newScore })

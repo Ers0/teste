@@ -347,5 +347,6 @@
   "reliability_score": "Reliability Score",
   "worker_photo": "Worker Photo",
   "mark_as_broken": "Mark as broken",
-  "broken": "Broken"
+  "broken": "Broken",
+  "tool_returned_late_penalty": "Tool returned late by {{workerName}}. Reliability score penalized."
 }
