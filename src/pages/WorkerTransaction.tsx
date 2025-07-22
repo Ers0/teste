@@ -751,7 +751,7 @@ const WorkerTransaction = () => {
 
                   {selectionMode === 'worker' && !scannedWorker && (
                     <>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Input
                           type="text"
                           placeholder={t('enter_worker_qr_code')}
@@ -832,7 +832,7 @@ const WorkerTransaction = () => {
                   </h3>
                   {!scannedItem ? (
                     <>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Input
                           type="text"
                           placeholder={t('enter_item_barcode')}
