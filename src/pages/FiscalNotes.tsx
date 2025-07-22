@@ -139,7 +139,6 @@ const FiscalNotes = () => {
                       fps: 10, 
                       qrbox: { width: 300, height: 150 }, 
                       disableFlip: false,
-                      formatsToSupport: [Html5QrcodeSupportedFormats.CODE_128]
                     },
                     (decodedText) => {
                       console.log("Web scan successful:", decodedText);
