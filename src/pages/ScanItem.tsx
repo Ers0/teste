@@ -10,7 +10,7 @@ import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { Capacitor } from '@capacitor/core';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Html5QrcodeScanner, Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import beepSound from '/beep.mp3';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
@@ -582,7 +582,7 @@ const ScanItem = () => {
                   <h3 className="text-lg font-semibold flex items-center">
                     <Barcode className="mr-2 h-5 w-5" /> {t('scan_by_barcode')}
                   </h3>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Input
                       type="text"
                       placeholder={t('enter_barcode_manually')}

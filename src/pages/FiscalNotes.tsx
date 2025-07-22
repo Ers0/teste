@@ -482,7 +482,7 @@ const FiscalNotes = () => {
               <h3 className="text-lg font-semibold flex items-center">
                 <Barcode className="mr-2 h-5 w-5" /> {t('scan_fiscal_note_barcode')}
               </h3>
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   type="text"
                   placeholder={t('enter_nfe_key_manually')}
