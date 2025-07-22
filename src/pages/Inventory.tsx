@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { showSuccess, showError } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, Scan, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Scan, ArrowLeft, Search } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -26,8 +26,9 @@ interface Item {
   low_stock_threshold: number | null;
   critical_stock_threshold: number | null;
   one_time_use: boolean;
-  is_tool: boolean; // New field
+  is_tool: boolean;
   user_id: string;
+  tags: string[] | null;
 }
 
 const initialNewItemState = {
@@ -40,6 +41,7 @@ const initialNewItemState = {
   critical_stock_threshold: 5,
   one_time_use: false,
   is_tool: false,
+  tags: '',
 };
 
 const Inventory = () => {
@@ -51,34 +53,52 @@ const Inventory = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sortKey, setSortKey] = useState<'name' | 'quantity' | 'movement'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
       fetchItems();
     }
-  }, [user, sortKey, sortDirection]);
+  }, [user, sortKey, sortDirection, searchTerm]);
 
   const fetchItems = async () => {
     if (!user) return;
+
+    let query = supabase
+      .from('items')
+      .select('*, low_stock_threshold, critical_stock_threshold, one_time_use, is_tool, tags')
+      .eq('user_id', user.id);
+
+    if (searchTerm) {
+      const searchTerms = searchTerm.trim().split(/[\s,]+/).filter(Boolean);
+      if (searchTerms.length > 0) {
+        const orFilters = [
+          ...searchTerms.map(term => `name.ilike.%${term}%`),
+          ...searchTerms.map(term => `description.ilike.%${term}%`),
+          `tags.cs.{${searchTerms.join(',')}}`
+        ].join(',');
+        query = query.or(orFilters);
+      }
+    }
 
     let data: Item[] | null = null;
     let error: any = null;
 
     if (sortKey === 'movement') {
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('items')
-        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use, is_tool')
-        .eq('user_id', user.id);
+      const { data: itemsData, error: itemsError } = await query;
 
       if (itemsError) {
         showError(t('error_fetching_items') + itemsError.message);
         return;
       }
 
+      const itemIds = itemsData.map(item => item.id);
+
       const { data: movementData, error: movementError } = await supabase
         .from('item_movement_counts')
-        .select('*');
+        .select('*')
+        .in('item_id', itemIds);
 
       if (movementError) {
         showError(t('error_fetching_item_movement_counts') + movementError.message);
@@ -103,11 +123,8 @@ const Inventory = () => {
       data = itemsWithMovement;
 
     } else {
-      const { data: directData, error: directError } = await supabase
-        .from('items')
-        .select('*, low_stock_threshold, critical_stock_threshold, one_time_use, is_tool')
-        .eq('user_id', user.id)
-        .order(sortKey, { ascending: sortDirection === 'asc' });
+      query = query.order(sortKey, { ascending: sortDirection === 'asc' });
+      const { data: directData, error: directError } = await query;
       data = directData;
       error = directError;
     }
@@ -142,7 +159,7 @@ const Inventory = () => {
     if (editingItem) {
       setEditingItem({ ...editingItem, is_tool: checked, one_time_use: checked ? false : editingItem.one_time_use });
     } else {
-      setNewItem({ ...newItem, is_tool: checked, one_time_use: checked ? false : newItem.one_time_use });
+      setNewItem({ ...newItem, is_tool: checked, one_time_use: checked ? false : newItem.is_tool });
     }
   };
 
@@ -189,6 +206,8 @@ const Inventory = () => {
       return;
     }
 
+    const tagsArray = newItem.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+
     const { data: insertedItem, error: insertError } = await supabase
       .from('items')
       .insert([{ 
@@ -200,7 +219,8 @@ const Inventory = () => {
         critical_stock_threshold: newItem.critical_stock_threshold,
         one_time_use: newItem.one_time_use,
         is_tool: newItem.is_tool,
-        user_id: user.id
+        user_id: user.id,
+        tags: tagsArray,
       }])
       .select()
       .single();
@@ -239,6 +259,9 @@ const Inventory = () => {
       imageUrl = await uploadImage(editingItem.image, editingItem.id);
     }
 
+    const currentTags = (editingItem.tags as unknown as string) || '';
+    const tagsArray = currentTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+
     const { error } = await supabase
       .from('items')
       .update({
@@ -251,7 +274,8 @@ const Inventory = () => {
         critical_stock_threshold: editingItem.critical_stock_threshold,
         one_time_use: editingItem.one_time_use,
         is_tool: editingItem.is_tool,
-        user_id: user.id
+        user_id: user.id,
+        tags: tagsArray,
       })
       .eq('id', editingItem.id);
 
@@ -278,7 +302,10 @@ const Inventory = () => {
   };
 
   const openEditDialog = (item: Item) => {
-    setEditingItem(item);
+    setEditingItem({
+      ...item,
+      tags: item.tags ? item.tags.join(', ') : '',
+    } as any);
     setIsDialogOpen(true);
   };
 
@@ -300,7 +327,7 @@ const Inventory = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-      <Card className="w-full max-w-4xl mx-auto">
+      <Card className="w-full max-w-6xl mx-auto">
         <CardHeader>
           <div className="flex items-center justify-between mb-4">
             <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
@@ -314,7 +341,15 @@ const Inventory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap justify-end gap-2 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder={t('search_by_name_tag_desc')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-[250px]"
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="sort-by">{t('sort_by')}</Label>
               <Select value={sortKey} onValueChange={(value: 'name' | 'quantity' | 'movement') => setSortKey(value)}>
@@ -327,9 +362,6 @@ const Inventory = () => {
                   <SelectItem value="movement">{t('most_movemented')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
               <Label htmlFor="sort-direction">{t('order')}</Label>
               <Select value={sortDirection} onValueChange={(value: 'asc' | 'desc') => setSortDirection(value)}>
                 <SelectTrigger id="sort-direction" className="w-[140px]">
@@ -341,156 +373,167 @@ const Inventory = () => {
                 </SelectContent>
               </Select>
             </div>
-
-            <Link to="/scan-item">
-              <Button variant="outline">
-                <Scan className="mr-2 h-4 w-4" /> {t('scan_item')}
-              </Button>
-            </Link>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => { setEditingItem(null); setNewItem(initialNewItemState); setIsDialogOpen(true); }}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}
+            <div className="flex items-center gap-2">
+              <Link to="/scan-item">
+                <Button variant="outline">
+                  <Scan className="mr-2 h-4 w-4" /> {t('scan_item')}
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>{editingItem ? t('edit_item') : t('add_new_item')}</DialogTitle>
-                  <DialogDescription>
-                    {editingItem ? t('make_changes_to_item') : t('add_new_item_to_inventory')}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">
-                      {t('name')}
-                    </Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={editingItem ? editingItem.name : newItem.name}
-                      onChange={handleInputChange}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="description" className="text-right">
-                      {t('description')}
-                    </Label>
-                    <Input
-                      id="description"
-                      name="description"
-                      value={editingItem ? editingItem.description || '' : newItem.description}
-                      onChange={handleInputChange}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="barcode" className="text-right">
-                      {t('barcode')}
-                    </Label>
-                    <Input
-                      id="barcode"
-                      name="barcode"
-                      value={editingItem ? editingItem.barcode || '' : newItem.barcode}
-                      onChange={handleInputChange}
-                      className="col-span-3"
-                      placeholder={t('enter_barcode_or_scan')}
-                    />
-                    <Button variant="outline" size="icon" className="col-span-1 ml-auto">
-                      <Scan className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="quantity" className="text-right">
-                      {t('quantity')}
-                    </Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      value={editingItem ? editingItem.quantity : newItem.quantity}
-                      onChange={handleInputChange}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="low_stock_threshold" className="text-right">
-                      {t('low_stock_yellow')}
-                    </Label>
-                    <Input
-                      id="low_stock_threshold"
-                      name="low_stock_threshold"
-                      type="number"
-                      value={editingItem ? editingItem.low_stock_threshold || '' : newItem.low_stock_threshold}
-                      onChange={handleInputChange}
-                      className="col-span-3"
-                      placeholder="e.g., 10"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="critical_stock_threshold" className="text-right">
-                      {t('critical_stock_red')}
-                    </Label>
-                    <Input
-                      id="critical_stock_threshold"
-                      name="critical_stock_threshold"
-                      type="number"
-                      value={editingItem ? editingItem.critical_stock_threshold || '' : newItem.critical_stock_threshold}
-                      onChange={handleInputChange}
-                      className="col-span-3"
-                      placeholder="e.g., 5"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="one_time_use" className="text-right">
-                      {t('one_time_use')}
-                    </Label>
-                    <Switch
-                      id="one_time_use"
-                      checked={editingItem ? editingItem.one_time_use : newItem.one_time_use}
-                      onCheckedChange={handleToggleChange}
-                      disabled={editingItem ? editingItem.is_tool : newItem.is_tool}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="is_tool" className="text-right">
-                      {t('tool')}
-                    </Label>
-                    <Switch
-                      id="is_tool"
-                      checked={editingItem ? editingItem.is_tool : newItem.is_tool}
-                      onCheckedChange={handleIsToolToggleChange}
-                      disabled={editingItem ? editingItem.one_time_use : newItem.one_time_use}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="image" className="text-right">
-                      {t('image')}
-                    </Label>
-                    <Input
-                      id="image"
-                      name="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="col-span-3"
-                    />
-                    {editingItem?.image_url && (
-                      <img src={editingItem.image_url} alt={editingItem.name} className="col-span-4 w-24 h-24 object-cover rounded-md mt-2 mx-auto" />
-                    )}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={closeDialog}>{t('cancel')}</Button>
-                  <Button onClick={editingItem ? handleUpdateItem : handleAddItem}>
-                    {editingItem ? t('save_changes') : t('add_new_item')}
+              </Link>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => { setEditingItem(null); setNewItem(initialNewItemState); setIsDialogOpen(true); }}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>{editingItem ? t('edit_item') : t('add_new_item')}</DialogTitle>
+                    <DialogDescription>
+                      {editingItem ? t('make_changes_to_item') : t('add_new_item_to_inventory')}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">
+                        {t('name')}
+                      </Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={editingItem ? (editingItem as any).name : newItem.name}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="description" className="text-right">
+                        {t('description')}
+                      </Label>
+                      <Input
+                        id="description"
+                        name="description"
+                        value={editingItem ? (editingItem as any).description || '' : newItem.description}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="tags" className="text-right">
+                        {t('tags')}
+                      </Label>
+                      <Input
+                        id="tags"
+                        name="tags"
+                        value={editingItem ? (editingItem as any).tags : newItem.tags}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                        placeholder={t('comma_separated_tags')}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="barcode" className="text-right">
+                        {t('barcode')}
+                      </Label>
+                      <Input
+                        id="barcode"
+                        name="barcode"
+                        value={editingItem ? (editingItem as any).barcode || '' : newItem.barcode}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                        placeholder={t('enter_barcode_or_scan')}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="quantity" className="text-right">
+                        {t('quantity')}
+                      </Label>
+                      <Input
+                        id="quantity"
+                        name="quantity"
+                        type="number"
+                        value={editingItem ? (editingItem as any).quantity : newItem.quantity}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="low_stock_threshold" className="text-right">
+                        {t('low_stock_yellow')}
+                      </Label>
+                      <Input
+                        id="low_stock_threshold"
+                        name="low_stock_threshold"
+                        type="number"
+                        value={editingItem ? (editingItem as any).low_stock_threshold || '' : newItem.low_stock_threshold}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                        placeholder="e.g., 10"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="critical_stock_threshold" className="text-right">
+                        {t('critical_stock_red')}
+                      </Label>
+                      <Input
+                        id="critical_stock_threshold"
+                        name="critical_stock_threshold"
+                        type="number"
+                        value={editingItem ? (editingItem as any).critical_stock_threshold || '' : newItem.critical_stock_threshold}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                        placeholder="e.g., 5"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="one_time_use" className="text-right">
+                        {t('one_time_use')}
+                      </Label>
+                      <Switch
+                        id="one_time_use"
+                        checked={editingItem ? (editingItem as any).one_time_use : newItem.one_time_use}
+                        onCheckedChange={handleToggleChange}
+                        disabled={editingItem ? (editingItem as any).is_tool : newItem.is_tool}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="is_tool" className="text-right">
+                        {t('tool')}
+                      </Label>
+                      <Switch
+                        id="is_tool"
+                        checked={editingItem ? (editingItem as any).is_tool : newItem.is_tool}
+                        onCheckedChange={handleIsToolToggleChange}
+                        disabled={editingItem ? (editingItem as any).one_time_use : newItem.one_time_use}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="image" className="text-right">
+                        {t('image')}
+                      </Label>
+                      <Input
+                        id="image"
+                        name="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="col-span-3"
+                      />
+                      {editingItem?.image_url && (
+                        <img src={editingItem.image_url} alt={editingItem.name} className="col-span-4 w-24 h-24 object-cover rounded-md mt-2 mx-auto" />
+                      )}
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={closeDialog}>{t('cancel')}</Button>
+                    <Button onClick={editingItem ? handleUpdateItem : handleAddItem}>
+                      {editingItem ? t('save_changes') : t('add_new_item')}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -499,6 +542,7 @@ const Inventory = () => {
                 <TableRow>
                   <TableHead className="w-[80px]">{t('image')}</TableHead>
                   <TableHead>{t('name')}</TableHead>
+                  <TableHead>{t('tags')}</TableHead>
                   <TableHead>{t('type')}</TableHead>
                   <TableHead>{t('description')}</TableHead>
                   <TableHead>{t('barcode')}</TableHead>
@@ -509,7 +553,7 @@ const Inventory = () => {
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-gray-500">
+                    <TableCell colSpan={8} className="h-24 text-center text-gray-500">
                       {t('no_items_found')}
                     </TableCell>
                   </TableRow>
@@ -526,6 +570,13 @@ const Inventory = () => {
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {item.tags && item.tags.map(tag => (
+                            <Badge key={tag} variant="secondary">{tag}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {item.is_tool ? (
                           <Badge variant="outline">{t('tool')}</Badge>

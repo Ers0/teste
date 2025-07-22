@@ -37,6 +37,7 @@ interface Item {
   one_time_use: boolean;
   is_tool: boolean;
   user_id: string;
+  tags: string[] | null;
 }
 
 interface Transaction {
@@ -448,10 +449,16 @@ const WorkerTransaction = () => {
       return;
     }
 
+    const searchTerms = itemSearchTerm.trim().split(/[\s,]+/).filter(Boolean);
+    const orFilters = [
+        ...searchTerms.map(term => `name.ilike.%${term}%`),
+        `tags.cs.{${searchTerms.join(',')}}`
+    ].join(',');
+
     const { data, error } = await supabase
       .from('items')
-      .select('*, one_time_use, is_tool')
-      .ilike('name', `%${itemSearchTerm.trim()}%`)
+      .select('*, one_time_use, is_tool, tags')
+      .or(orFilters)
       .eq('user_id', user.id);
 
     if (error) {
