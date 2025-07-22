@@ -16,6 +16,7 @@ interface Transaction {
   id: string;
   item_id: string | null;
   worker_id: string | null;
+  company: string | null;
   type: 'takeout' | 'return' | 'restock';
   quantity: number;
   timestamp: string;
@@ -83,7 +84,7 @@ const TransactionsHistory = () => {
     // Fetch transactions with filters
     let query = supabase
       .from('transactions')
-      .select('*, items(name), workers(name)')
+      .select('*, items(name), workers(name), company')
       .eq('user_id', user.id)
       .order('timestamp', { ascending: false });
 
@@ -115,6 +116,7 @@ const TransactionsHistory = () => {
         filteredData = filteredData.filter(transaction =>
           (transaction.items?.name?.toLowerCase().includes(lowerCaseSearchTerm)) ||
           (transaction.workers?.name?.toLowerCase().includes(lowerCaseSearchTerm)) ||
+          (transaction.company?.toLowerCase().includes(lowerCaseSearchTerm)) ||
           (transaction.authorized_by?.toLowerCase().includes(lowerCaseSearchTerm)) ||
           (transaction.given_by?.toLowerCase().includes(lowerCaseSearchTerm))
         );
@@ -131,7 +133,7 @@ const TransactionsHistory = () => {
 
     const formattedData = transactions.map(transaction => ({
       [t('item_name')]: transaction.items?.name || 'N/A',
-      [t('worker_name')]: transaction.workers?.name || 'N/A',
+      [t('recipient')]: transaction.workers?.name || transaction.company || 'N/A',
       [t('transaction_type')]: t(transaction.type),
       [t('quantity')]: transaction.quantity,
       [t('authorized_by')]: transaction.authorized_by || 'N/A',
@@ -221,7 +223,7 @@ const TransactionsHistory = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('item_name')}</TableHead>
-                  <TableHead>{t('worker_name')}</TableHead>
+                  <TableHead>{t('recipient')}</TableHead>
                   <TableHead>{t('transaction_type')}</TableHead>
                   <TableHead className="text-right">{t('quantity')}</TableHead>
                   <TableHead>{t('authorized_by')}</TableHead>
@@ -234,7 +236,7 @@ const TransactionsHistory = () => {
                   transactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell className="font-medium">{transaction.items?.name || 'N/A'}</TableCell>
-                      <TableCell>{transaction.workers?.name || 'N/A'}</TableCell>
+                      <TableCell>{transaction.workers?.name || transaction.company || 'N/A'}</TableCell>
                       <TableCell>
                         <span
                           className={`font-medium px-2 py-1 rounded-full text-xs ${

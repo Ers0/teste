@@ -18,6 +18,7 @@ import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import beepSound from '/beep.mp3';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Worker {
   id: string;
@@ -43,12 +44,13 @@ interface Item {
 interface Transaction {
   id: string;
   item_id: string;
-  worker_id: string;
+  worker_id: string | null;
+  company: string | null;
   type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
   items: { name: string };
-  workers: { name: string };
+  workers: { name: string } | null;
   user_id: string;
   authorized_by: string | null;
   given_by: string | null;
@@ -73,6 +75,10 @@ const WorkerTransaction = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const [selectionMode, setSelectionMode] = useState<'worker' | 'company'>('worker');
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+
   const [scanningWorker, setScanningWorker] = useState(false);
   const [scanningItem, setScanningItem] = useState(false);
   const [isWeb, setIsWeb] = useState(false);
@@ -84,6 +90,27 @@ const WorkerTransaction = () => {
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(e => console.error("Error playing sound:", e));
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchCompanies();
+    }
+  }, [user]);
+
+  const fetchCompanies = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('workers')
+      .select('company')
+      .eq('user_id', user.id);
+
+    if (error) {
+      showError(t('error_fetching_companies') + error.message);
+    } else if (data) {
+      const uniqueCompanies = [...new Set(data.map(w => w.company).filter(Boolean))] as string[];
+      setCompanies(uniqueCompanies.sort());
     }
   };
 
@@ -277,7 +304,7 @@ const WorkerTransaction = () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, items(name), workers(name)')
+        .select('*, items(name), workers(name), company')
         .eq('user_id', user.id)
         .order('timestamp', { ascending: false })
         .limit(5);
@@ -298,7 +325,7 @@ const WorkerTransaction = () => {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, items(name), workers(name)')
+        .select('*, items(name), workers(name), company')
         .eq('user_id', user.id)
         .eq('type', 'takeout')
         .lt('timestamp', twentyFourHoursAgo)
@@ -403,7 +430,8 @@ const WorkerTransaction = () => {
     setWorkerQrCodeInput('');
     setWorkerSearchTerm('');
     setWorkerSearchResults([]);
-    showSuccess(t('worker_selection_cleared'));
+    setSelectedCompany(null);
+    showSuccess(t('selection_cleared'));
   };
 
   const handleScanItem = async (scannedBarcode?: string) => {
@@ -507,8 +535,12 @@ const WorkerTransaction = () => {
   };
 
   const handleRecordTransaction = async () => {
-    if (!scannedWorker) {
+    if (selectionMode === 'worker' && !scannedWorker) {
       showError(t('scan_worker_first'));
+      return;
+    }
+    if (selectionMode === 'company' && !selectedCompany) {
+      showError(t('select_company_first'));
       return;
     }
     if (!scannedItem) {
@@ -551,20 +583,21 @@ const WorkerTransaction = () => {
       return;
     }
 
+    const transactionData = {
+      worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
+      company: selectionMode === 'company' ? selectedCompany : null,
+      item_id: scannedItem.id,
+      type: transactionType,
+      quantity: quantityToChange,
+      user_id: user.id,
+      authorized_by: authorizedBy.trim() || null,
+      given_by: givenBy.trim() || null,
+    };
+
     const { data: insertedTransaction, error: transactionError } = await supabase
       .from('transactions')
-      .insert([
-        {
-          worker_id: scannedWorker.id,
-          item_id: scannedItem.id,
-          type: transactionType,
-          quantity: quantityToChange,
-          user_id: user.id,
-          authorized_by: authorizedBy.trim() || null,
-          given_by: givenBy.trim() || null,
-        },
-      ])
-      .select('*, items(name), workers(name)')
+      .insert([transactionData])
+      .select('*, items(name), workers(name), company')
       .single();
 
     if (transactionError) {
@@ -573,7 +606,8 @@ const WorkerTransaction = () => {
       return;
     }
 
-    showSuccess(t('recorded_transaction_success', { quantity: quantityToChange, itemName: scannedItem.name, type: transactionType === 'takeout' ? t('taken_by') : t('returned_by'), workerName: scannedWorker.name }));
+    const recipient = selectionMode === 'worker' ? scannedWorker!.name : selectedCompany;
+    showSuccess(t('recorded_transaction_success', { quantity: quantityToChange, itemName: scannedItem.name, type: transactionType === 'takeout' ? t('taken_by') : t('returned_by'), workerName: recipient }));
     setScannedItem({ ...scannedItem, quantity: newQuantity });
 
     if (insertedTransaction) {
@@ -600,6 +634,8 @@ const WorkerTransaction = () => {
     setTransactionType('takeout');
     setAuthorizedBy('');
     setGivenBy('');
+    setSelectedCompany(null);
+    setSelectionMode('worker');
     showSuccess(t('transaction_session_cleared'));
     queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
     queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user?.id] });
@@ -696,9 +732,24 @@ const WorkerTransaction = () => {
 
                 <div className="space-y-4 border-b pb-4">
                   <h3 className="text-lg font-semibold flex items-center">
-                    <Users className="mr-2 h-5 w-5" /> {t('worker_information')}
+                    <Users className="mr-2 h-5 w-5" /> {t('recipient')}
                   </h3>
-                  {!scannedWorker ? (
+                  <ToggleGroup
+                    type="single"
+                    value={selectionMode}
+                    onValueChange={(value: 'worker' | 'company') => {
+                      if (value) {
+                        setSelectionMode(value);
+                        handleClearWorker();
+                      }
+                    }}
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    <ToggleGroupItem value="worker">{t('worker')}</ToggleGroupItem>
+                    <ToggleGroupItem value="company">{t('company')}</ToggleGroupItem>
+                  </ToggleGroup>
+
+                  {selectionMode === 'worker' && !scannedWorker && (
                     <>
                       <div className="flex items-center space-x-2">
                         <Input
@@ -748,13 +799,29 @@ const WorkerTransaction = () => {
                         </div>
                       )}
                     </>
-                  ) : (
+                  )}
+                  {selectionMode === 'worker' && scannedWorker && (
                     <div className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">
                       <p><strong>{t('name')}:</strong> {scannedWorker.name}</p>
                       <p><strong>{t('company')}:</strong> {scannedWorker.company || 'N/A'}</p>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleClearWorker}>
                         {t('change_worker')}
                       </Button>
+                    </div>
+                  )}
+                  {selectionMode === 'company' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="company-select">{t('select_company')}</Label>
+                      <Select onValueChange={setSelectedCompany} value={selectedCompany || ''}>
+                        <SelectTrigger id="company-select">
+                          <SelectValue placeholder={t('select_a_company')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companies.map(company => (
+                            <SelectItem key={company} value={company}>{company}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -881,7 +948,7 @@ const WorkerTransaction = () => {
                 </div>
 
                 <div className="pt-4">
-                  <Button onClick={handleRecordTransaction} className="w-full" disabled={!scannedWorker || !scannedItem}>
+                  <Button onClick={handleRecordTransaction} className="w-full" disabled={(!scannedWorker && !selectedCompany) || !scannedItem}>
                     {t(transactionType === 'takeout' ? 'record_takeout' : 'record_return')}
                   </Button>
                 </div>
@@ -902,7 +969,7 @@ const WorkerTransaction = () => {
                     <div className="space-y-2">
                       {transactionsHistory.map((transaction) => (
                         <div key={transaction.id} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
-                          <p><strong>{t('worker')}:</strong> {transaction.workers?.name || 'N/A'}</p>
+                          <p><strong>{t('recipient')}:</strong> {transaction.workers?.name || transaction.company || 'N/A'}</p>
                           <p><strong>{t('item')}:</strong> {transaction.items?.name || 'N/A'}</p>
                           <p>
                             <strong>{t('type')}:</strong>{' '}
@@ -943,7 +1010,7 @@ const WorkerTransaction = () => {
                   <div className="space-y-2">
                     {outstandingTakeouts.map((transaction) => (
                       <div key={transaction.id} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
-                        <p><strong>{t('worker')}:</strong> {transaction.workers?.name || 'N/A'}</p>
+                        <p><strong>{t('recipient')}:</strong> {transaction.workers?.name || transaction.company || 'N/A'}</p>
                         <p><strong>{t('item')}:</strong> {transaction.items?.name || 'N/A'}</p>
                         <p><strong>{t('quantity')}:</strong> {transaction.quantity}</p>
                         {transaction.authorized_by && <p><strong>{t('authorized_by')}:</strong> {transaction.authorized_by}</p>}

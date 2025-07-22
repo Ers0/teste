@@ -15,6 +15,7 @@ interface Transaction {
   id: string;
   item_id: string;
   worker_id: string;
+  company: string | null;
   type: 'takeout' | 'return';
   quantity: number;
   timestamp: string;
@@ -63,7 +64,7 @@ const WorkerReport = () => {
       if (!workerId || !user) return [];
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, items(name), workers(name), authorized_by, given_by') // Select new fields
+        .select('*, items(name), workers(name), authorized_by, given_by, company') // Select new fields
         .eq('worker_id', workerId)
         .eq('user_id', user.id)
         .order('timestamp', { ascending: false });
