@@ -1,4 +1,4 @@
-// src/utils/export.ts
+// src/utils/csv.ts
 
 /**
  * Converts an array of objects to a CSV string.
@@ -68,4 +68,31 @@ export function downloadCsv(csvString: string, filename: string) {
 export function exportToCsv<T extends Record<string, any>>(data: T[], filename: string) {
   const csv = convertToCsv(data);
   downloadCsv(csv, filename);
+}
+
+/**
+ * Parses a CSV string into an array of objects.
+ * @param csvString The CSV string to parse.
+ * @returns An array of objects.
+ */
+export function parseCsv<T extends Record<string, any>>(csvString: string): T[] {
+  const lines = csvString.trim().split(/\r\n|\n/);
+  if (lines.length < 2) {
+    return []; // Not enough data (at least headers and one row)
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim());
+  const data: T[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '') continue; // Skip empty lines
+    const values = lines[i].split(',');
+    const obj: any = {};
+    for (let j = 0; j < headers.length; j++) {
+      obj[headers[j]] = values[j] ? values[j].trim() : '';
+    }
+    data.push(obj as T);
+  }
+
+  return data;
 }

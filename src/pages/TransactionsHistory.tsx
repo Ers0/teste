@@ -10,7 +10,7 @@ import { ArrowLeft, Download, Filter, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
-import { exportToCsv } from '@/utils/export';
+import { exportToCsv } from '@/utils/csv';
 
 interface Transaction {
   id: string;

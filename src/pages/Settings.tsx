@@ -10,7 +10,7 @@ import { useAuth } from '@/integrations/supabase/auth';
 import { Settings as SettingsIcon, ArrowLeft, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/use-profile';
-import { exportToCsv } from '@/utils/export';
+import { exportToCsv } from '@/utils/csv';
 import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 // Define interfaces for the data shapes expected from Supabase queries for export

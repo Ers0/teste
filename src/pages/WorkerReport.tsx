@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { exportToCsv } from '@/utils/export';
+import { exportToCsv } from '@/utils/csv';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 
