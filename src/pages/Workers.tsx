@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Flashlight, Download, Upload } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Flashlight, Download, Upload, Users } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,8 @@ import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-u
 import beepSound from '/beep.mp3';
 import { exportToCsv } from '@/utils/export';
 import { parseCsv } from '@/utils/import';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 
 interface Worker {
   id: string;
@@ -44,6 +46,7 @@ const Workers = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [groupedWorkers, setGroupedWorkers] = useState<Record<string, Worker[]>>({});
   const [newWorker, setNewWorker] = useState<typeof initialNewWorkerState>(initialNewWorkerState);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -74,6 +77,20 @@ const Workers = () => {
       fetchWorkers();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (workers) {
+      const groups = workers.reduce((acc, worker) => {
+        const companyName = worker.company || t('uncategorized');
+        if (!acc[companyName]) {
+          acc[companyName] = [];
+        }
+        acc[companyName].push(worker);
+        return acc;
+      }, {} as Record<string, Worker[]>);
+      setGroupedWorkers(groups);
+    }
+  }, [workers, t]);
 
   useEffect(() => {
     const currentIsWeb = !Capacitor.isNativePlatform();
@@ -656,66 +673,71 @@ const Workers = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px]">{t('photo')}</TableHead>
-                    <TableHead>{t('name')}</TableHead>
-                    <TableHead>{t('company')}</TableHead>
-                    <TableHead className="text-center">{t('qr_code')}</TableHead>
-                    <TableHead className="text-center">{t('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {workers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center text-gray-500">
-                        {t('no_workers_found')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    workers.map((worker) => (
-                      <TableRow key={worker.id}>
-                        <TableCell>
-                          {worker.photo_url ? (
-                            <img src={worker.photo_url} alt={worker.name} className="w-16 h-16 object-cover rounded-full" />
-                          ) : (
-                            <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 text-xs">
-                              <ImageIcon className="h-8 w-8" />
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">{worker.name}</TableCell>
-                        <TableCell>{worker.company || 'N/A'}</TableCell>
-                        <TableCell className="text-center">
-                          {(worker.qr_code_data || worker.external_qr_code_data) ? (
-                            <Button variant="outline" size="sm" onClick={() => openQrCodeDialog(worker.qr_code_data, worker.external_qr_code_data, worker.name)}>
-                              <QrCode className="h-4 w-4 mr-2" /> {t('view_qr')}
-                            </Button>
-                          ) : (
-                            <span className="text-gray-500">{t('not_available')}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center gap-2">
-                            <Button variant="outline" size="icon" onClick={() => openEditDialog(worker)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="destructive" size="icon" onClick={() => handleDeleteWorker(worker.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <Link to={`/worker-report/${worker.id}`}>
-                              <Button variant="outline" size="icon">
-                                <ImageIcon className="h-4 w-4" /> {/* Reusing ImageIcon for report, consider a more fitting icon if available */}
-                              </Button>
-                            </Link>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <Accordion type="multiple" className="w-full">
+                {Object.entries(groupedWorkers).map(([company, companyWorkers]) => (
+                  <AccordionItem value={company} key={company}>
+                    <AccordionTrigger>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-semibold">{company}</span>
+                        <Badge variant="secondary">{companyWorkers.length}</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[80px]">{t('photo')}</TableHead>
+                            <TableHead>{t('name')}</TableHead>
+                            <TableHead className="text-center">{t('qr_code')}</TableHead>
+                            <TableHead className="text-center">{t('actions')}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {companyWorkers.map((worker) => (
+                            <TableRow key={worker.id}>
+                              <TableCell>
+                                {worker.photo_url ? (
+                                  <img src={worker.photo_url} alt={worker.name} className="w-16 h-16 object-cover rounded-full" />
+                                ) : (
+                                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 text-xs">
+                                    <ImageIcon className="h-8 w-8" />
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="font-medium">{worker.name}</TableCell>
+                              <TableCell className="text-center">
+                                {(worker.qr_code_data || worker.external_qr_code_data) ? (
+                                  <Button variant="outline" size="sm" onClick={() => openQrCodeDialog(worker.qr_code_data, worker.external_qr_code_data, worker.name)}>
+                                    <QrCode className="h-4 w-4 mr-2" /> {t('view_qr')}
+                                  </Button>
+                                ) : (
+                                  <span className="text-gray-500">{t('not_available')}</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex justify-center gap-2">
+                                  <Button variant="outline" size="icon" onClick={() => openEditDialog(worker)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="destructive" size="icon" onClick={() => handleDeleteWorker(worker.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                  <Link to={`/worker-report/${worker.id}`}>
+                                    <Button variant="outline" size="icon">
+                                      <ImageIcon className="h-4 w-4" /> {/* Reusing ImageIcon for report, consider a more fitting icon if available */}
+                                    </Button>
+                                  </Link>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           </CardContent>
         </Card>
