@@ -53,7 +53,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
             setProfile(null);
           } else {
             setProfile(profileData || null);
-            i18n.changeLanguage(profileData?.language || 'en');
+            i18n.changeLanguage(profileData?.language || 'pt-BR');
           }
         } catch (err) {
           console.error('Unexpected error during profile fetch:', err);
@@ -64,7 +64,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       } else {
         setProfile(null);
         setProfileLoading(false);
-        i18n.changeLanguage('en');
+        i18n.changeLanguage('pt-BR');
       }
     };
 

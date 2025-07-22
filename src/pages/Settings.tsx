@@ -38,7 +38,7 @@ const Settings = () => {
   const { profile, isLoading: profileLoading, invalidateProfile } = useProfile();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState('pt-BR');
   const [newPassword, setNewPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isPasswordChanging, setIsPasswordChanging] = useState(false);
@@ -54,13 +54,13 @@ const Settings = () => {
     if (!profileLoading && profile) {
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
-      setLanguage(profile.language || 'en');
-      i18n.changeLanguage(profile.language || 'en'); // Set i18n language from profile
+      setLanguage(profile.language || 'pt-BR');
+      i18n.changeLanguage(profile.language || 'pt-BR'); // Set i18n language from profile
     } else if (!profileLoading && !profile) {
       setFirstName('');
       setLastName('');
-      setLanguage('en');
-      i18n.changeLanguage('en'); // Default to English if no profile
+      setLanguage('pt-BR');
+      i18n.changeLanguage('pt-BR'); // Default to English if no profile
     }
   }, [profile, profileLoading, i18n]);
 
