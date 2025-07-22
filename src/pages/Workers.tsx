@@ -482,7 +482,7 @@ const Workers = () => {
         qr_code_data: uuidv4(), // Assign a new system QR code for each imported worker
       }));
 
-      const { error } = await supabase.from('workers').upsert(workersToImport, { onConflict: 'name' });
+      const { error } = await supabase.from('workers').upsert(workersToImport, { onConflict: 'user_id,name' });
 
       if (error) {
         throw error;
