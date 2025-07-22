@@ -585,7 +585,7 @@ const ScanItem = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <Input
                       type="text"
-                      placeholder={t('enter_barcode_manually')}
+                      placeholder={t('enter_item_barcode_manually')}
                       value={barcode}
                       onChange={(e) => setBarcode(e.target.value)}
                       className="flex-grow"

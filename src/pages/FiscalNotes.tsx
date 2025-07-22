@@ -140,7 +140,7 @@ const FiscalNotes = () => {
                       Html5QrcodeSupportedFormats.CODE_128,
                     ]
                   };
-                  const html5Qrcode = new Html5Qrcode(readerElement.id, { formatsToSupport: config.formatsToSupport });
+                  const html5Qrcode = new Html5Qrcode(readerElement.id, { verbose: false, formatsToSupport: config.formatsToSupport });
                   html5QrCodeScannerRef.current = html5Qrcode;
 
                   await html5Qrcode.start(
@@ -414,6 +414,7 @@ const FiscalNotes = () => {
     const toastId = showLoading(t('scanning_image'));
     try {
       const html5QrCode = new Html5Qrcode('fiscal-note-reader-hidden', { 
+        verbose: false,
         formatsToSupport: [
           Html5QrcodeSupportedFormats.QR_CODE,
           Html5QrcodeSupportedFormats.CODE_128,
