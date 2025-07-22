@@ -20,7 +20,7 @@ i18n
         translation: ptBR,
       },
     },
-    lng: 'en', // default language
+    lng: 'pt-BR', // default language
     fallbackLng: 'en', // fallback language if translation is not found
     interpolation: {
       escapeValue: false, // react already escapes by default
