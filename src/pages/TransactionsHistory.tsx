@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download } from 'lucide-react';
+import { Download, ArrowLeft } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 interface Transaction {
   id: string;
@@ -44,6 +45,7 @@ const TransactionsHistory = () => {
   const [filterType, setFilterType] = useState<'all' | 'takeout' | 'return' | 'restock'>('all');
   const [filterItem, setFilterItem] = useState('all');
   const [filterWorker, setFilterWorker] = useState('all');
+  const navigate = useNavigate();
 
   const { data: transactions, isLoading, error } = useQuery<Transaction[], Error>({
     queryKey: ['transactions', user?.id],
@@ -124,8 +126,16 @@ const TransactionsHistory = () => {
     <div className="p-4">
       <Card>
         <CardHeader>
-          <CardTitle>{t('transactions_history_title')}</CardTitle>
-          <CardDescription>{t('all_transactions_overview')}</CardDescription>
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-grow text-center">
+              <CardTitle>{t('transactions_history_title')}</CardTitle>
+              <CardDescription>{t('all_transactions_overview')}</CardDescription>
+            </div>
+            <div className="w-10" /> {/* Spacer */}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-4 mb-4">
