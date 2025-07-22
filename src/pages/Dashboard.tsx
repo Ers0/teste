@@ -21,7 +21,7 @@ const Dashboard = () => {
     ? profile.first_name
     : profile?.last_name
     ? profile.last_name
-    : user?.email || t('guest'); // Translate 'Guest'
+    : t('guest'); // Translate 'Guest'
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
