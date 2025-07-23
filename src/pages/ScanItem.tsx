@@ -560,7 +560,7 @@ const ScanItem = () => {
   return (
     <React.Fragment>
       <audio ref={audioRef} src={beepSound} preload="auto" />
-      <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
+      <div className={`min-h-screen flex items-center justify-center p-4 ${scanning ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
           {isWeb ? (
             <>
