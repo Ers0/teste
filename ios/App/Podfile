@@ -12,6 +12,7 @@ def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/.pnpm/@capacitor+ios@7.4.2_@capacitor+core@7.4.2/node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/.pnpm/@capacitor+ios@7.4.2_@capacitor+core@7.4.2/node_modules/@capacitor/ios'
   pod 'CapacitorCommunityBarcodeScanner', :path => '../../node_modules/.pnpm/@capacitor-community+barcod_d2ba90fa2d4bd2cf43e2dccc478472bb/node_modules/@capacitor-community/barcode-scanner'
+  pod 'CapacitorFilesystem', :path => '../../node_modules/.pnpm/@capacitor+filesystem@7.1.2_@capacitor+core@7.4.2/node_modules/@capacitor/filesystem'
 end
 
 target 'App' do
