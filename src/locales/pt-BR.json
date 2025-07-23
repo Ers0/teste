@@ -302,5 +302,7 @@
   "edit_tag": "Editar Tag",
   "color": "Cor",
   "loading_tags": "Carregando tags...",
-  "no_tags_found": "Nenhuma tag encontrada."
+  "no_tags_found": "Nenhuma tag encontrada.",
+  "scan_worker_then_items": "Escaneie o trabalhador e depois os itens para registrar uma transação.",
+  "timestamp": "Data e Hora"
 }
