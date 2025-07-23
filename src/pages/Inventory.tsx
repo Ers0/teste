@@ -11,13 +11,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Edit, Trash2, Upload, Download, Search } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Upload, Download, Search, ArrowLeft } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import Papa from 'papaparse';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { useNavigate } from 'react-router-dom';
 
 interface Item {
   id: string;
@@ -45,6 +46,7 @@ const Inventory = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
@@ -399,8 +401,16 @@ const Inventory = () => {
     <div className="p-4">
       <Card>
         <CardHeader>
-          <CardTitle>{t('inventory_management_title')}</CardTitle>
-          <CardDescription>{t('manage_warehouse_items')}</CardDescription>
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-grow text-center">
+              <CardTitle>{t('inventory_management_title')}</CardTitle>
+              <CardDescription>{t('manage_warehouse_items')}</CardDescription>
+            </div>
+            <div className="w-10"></div> {/* Spacer */}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-4 mb-4">
