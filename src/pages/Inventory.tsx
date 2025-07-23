@@ -350,6 +350,14 @@ const Inventory = () => {
             <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="lowStock" className="text-right">{t('low_stock_yellow')}</Label>
+            <Input id="lowStock" type="number" value={lowStock} onChange={(e) => setLowStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="criticalStock" className="text-right">{t('critical_stock_red')}</Label>
+            <Input id="criticalStock" type="number" value={criticalStock} onChange={(e) => setCriticalStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="barcode" className="text-right">{t('barcode')}</Label>
             <Input id="barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} className="col-span-3" />
           </div>
