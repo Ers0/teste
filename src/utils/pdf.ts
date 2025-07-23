@@ -33,24 +33,24 @@ export const exportToPdf = (data: RequisitionData) => {
 
   // Title
   doc.setFontSize(16);
-  doc.text(t('csv_header_title'), pageWidth / 2, 20, { align: 'center' });
+  doc.text(t('pdf_header_title'), pageWidth / 2, 20, { align: 'center' });
 
   // Header Info
   doc.setFontSize(10);
   const headerY = 30;
-  doc.text(`${t('csv_header_date')} ${new Date().toLocaleDateString()}`, 14, headerY);
-  doc.text(`${t('csv_header_req_no')} ${requisitionNumber}`, pageWidth - 14, headerY, { align: 'right' });
+  doc.text(`${t('pdf_header_date')} ${new Date().toLocaleDateString()}`, 14, headerY);
+  doc.text(`${t('pdf_header_req_no')} ${requisitionNumber}`, pageWidth - 14, headerY, { align: 'right' });
 
-  doc.text(`${t('csv_header_auth')} ${authorizedBy || 'N/A'}`, 14, headerY + 7);
+  doc.text(`${t('pdf_header_auth')} ${authorizedBy || 'N/A'}`, 14, headerY + 7);
 
-  doc.text(`${t('csv_header_requester')} ${requester || 'N/A'}`, 14, headerY + 14);
-  doc.text(`${t('csv_header_company')} ${company || 'N/A'}`, pageWidth - 14, headerY + 14, { align: 'right' });
+  doc.text(`${t('pdf_header_requester')} ${requester || 'N/A'}`, 14, headerY + 14);
+  doc.text(`${t('pdf_header_company')} ${company || 'N/A'}`, pageWidth - 14, headerY + 14, { align: 'right' });
 
   // Table
   const tableColumn = [
-    t('csv_col_qty'),
-    t('csv_col_material'),
-    t('csv_col_app_location'),
+    t('pdf_col_qty'),
+    t('pdf_col_material'),
+    t('pdf_col_app_location'),
   ];
   const tableRows = transactionItems.map(item => [
     item.quantity,
