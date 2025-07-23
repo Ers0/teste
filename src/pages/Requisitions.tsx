@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Download } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Download, Eye } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { exportToPdf } from '@/utils/pdf';
@@ -130,10 +130,18 @@ const Requisitions = () => {
                       <TableCell>{req.requester_company || 'N/A'}</TableCell>
                       <TableCell className="text-right">{new Date(req.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-center">
-                        <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(req)}>
-                          <Download className="h-4 w-4 mr-2" />
-                          {t('download_pdf')}
-                        </Button>
+                        <div className="flex justify-center gap-2">
+                          <Link to={`/requisition/${req.id}`}>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-2" />
+                              {t('view')}
+                            </Button>
+                          </Link>
+                          <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(req)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            {t('download_pdf')}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
