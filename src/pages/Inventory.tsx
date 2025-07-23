@@ -476,12 +476,20 @@ const Inventory = () => {
                     {item.critical_stock_threshold != null && item.quantity <= item.critical_stock_threshold ? (
                       <Badge variant="destructive">{item.quantity}</Badge>
                     ) : item.low_stock_threshold != null && item.quantity <= item.low_stock_threshold ? (
-                      <Badge variant="secondary" className="bg-yellow-400 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-100">{item.quantity}</Badge>
+                      <Badge variant="secondary" className="bg-yellow-400 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-200">{item.quantity}</Badge>
                     ) : (
                       <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">{item.quantity}</Badge>
                     )}
                   </TableCell>
-                  <TableCell>{item.is_ppe ? t('ppe') : item.is_tool ? t('tool') : t('consumable')}</TableCell>
+                  <TableCell>
+                    {item.is_ppe ? (
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">{t('ppe')}</Badge>
+                    ) : item.is_tool ? (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{t('tool')}</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">{t('consumable')}</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {item.tags?.map(tagId => {
