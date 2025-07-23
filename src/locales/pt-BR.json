@@ -353,5 +353,9 @@
   "error_updating_item_quantity": "Erro ao atualizar a quantidade do item: ",
   "error_recording_transaction": "Erro ao registrar a transação: ",
   "recorded_transaction_success_general": "Registrado {{quantity}} de {{itemName}} como {{type}}.",
-  "new_item_added_successfully": "Novo item adicionado com sucesso!"
+  "new_item_added_successfully": "Novo item adicionado com sucesso!",
+  "take_photo": "Tirar Foto",
+  "capture_photo": "Capturar Foto",
+  "error_accessing_camera": "Erro ao acessar a câmera. Por favor, verifique as permissões.",
+  "select_image": "Selecionar Imagem"
 }

@@ -355,5 +355,9 @@
   "error_updating_item_quantity": "Error updating item quantity: ",
   "error_recording_transaction": "Error recording transaction: ",
   "recorded_transaction_success_general": "Recorded {{quantity}} {{itemName}} as {{type}}.",
-  "new_item_added_successfully": "New item added successfully!"
+  "new_item_added_successfully": "New item added successfully!",
+  "take_photo": "Take Photo",
+  "capture_photo": "Capture Photo",
+  "error_accessing_camera": "Error accessing camera. Please check permissions.",
+  "select_image": "Select Image"
 }
