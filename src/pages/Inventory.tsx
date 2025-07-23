@@ -422,38 +422,42 @@ const Inventory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('search_by_name_tag_desc')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px]"
-              />
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div className="flex flex-1 flex-col md:flex-row gap-2">
+              <div className="relative flex-1 md:flex-initial">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('search_by_name_tag_desc')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 w-full"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder={t('sort_by')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">{t('name')}</SelectItem>
+                    <SelectItem value="quantity">{t('quantity')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder={t('order')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="asc">{t('ascending')}</SelectItem>
+                    <SelectItem value="desc">{t('descending')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={t('sort_by')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">{t('name')}</SelectItem>
-                <SelectItem value="quantity">{t('quantity')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={t('order')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">{t('ascending')}</SelectItem>
-                <SelectItem value="desc">{t('descending')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="ml-auto flex gap-2">
-              <Button onClick={() => setIsImportDialogOpen(true)} variant="outline"><Upload className="mr-2 h-4 w-4" /> {t('import_from_csv')}</Button>
-              <Button onClick={handleExport}><Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}</Button>
-              <Button onClick={handleOpenAddDialog}><PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}</Button>
+            <div className="flex gap-2">
+              <Button onClick={() => setIsImportDialogOpen(true)} variant="outline" className="flex-1 md:flex-initial"><Upload className="mr-2 h-4 w-4" /> {t('import_from_csv')}</Button>
+              <Button onClick={handleExport} className="flex-1 md:flex-initial"><Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}</Button>
+              <Button onClick={handleOpenAddDialog} className="flex-1 md:flex-initial"><PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}</Button>
             </div>
           </div>
           <Table>
