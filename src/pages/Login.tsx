@@ -49,11 +49,7 @@ const Login = () => {
       </div>
       <div className="hidden bg-[#842CD4] lg:flex lg:items-center lg:justify-center lg:flex-col">
         <div className="text-center p-8">
-          <Warehouse className="mx-auto h-24 w-24 text-white drop-shadow-md" />
-          <h2 className="mt-6 text-3xl font-bold text-white drop-shadow-md flex items-center justify-center gap-2">
-            {t('inventory_management_title_part1')}
-            <img src="/yees-logo.png" alt="Yees!" className="h-10 inline-block" />
-          </h2>
+          <img src="/yees-logo.png" alt="Yees!" className="mx-auto h-32 w-auto drop-shadow-md" />
           <p className="mt-2 text-lg text-white drop-shadow-md">
             {t('manage_warehouse_items')}
           </p>
