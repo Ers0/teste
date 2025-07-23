@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import Papa from 'papaparse';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 
 interface Item {
   id: string;
@@ -463,7 +464,15 @@ const Inventory = () => {
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>{item.description}</TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
+                  <TableCell className="text-right">
+                    {item.critical_stock_threshold != null && item.quantity <= item.critical_stock_threshold ? (
+                      <Badge variant="destructive">{item.quantity}</Badge>
+                    ) : item.low_stock_threshold != null && item.quantity <= item.low_stock_threshold ? (
+                      <Badge variant="secondary" className="bg-yellow-400 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-100">{item.quantity}</Badge>
+                    ) : (
+                      item.quantity
+                    )}
+                  </TableCell>
                   <TableCell>{item.is_ppe ? t('ppe') : item.is_tool ? t('tool') : t('consumable')}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
