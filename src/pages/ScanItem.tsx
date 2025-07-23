@@ -308,15 +308,38 @@ const ScanItem = () => {
     }
 
     const searchTerms = itemSearchTerm.trim().split(/[\s,]+/).filter(Boolean);
-    const orFilters = [
-        ...searchTerms.map(term => `name.ilike.%${term}%`),
-        `tags.cs.{${searchTerms.join(',')}}`
-    ].join(',');
+    if (searchTerms.length === 0) {
+      return;
+    }
 
+    // 1. Find tags matching the search terms
+    const tagFilters = searchTerms.map(term => `name.ilike.%${term}%`).join(',');
+    const { data: matchingTags, error: tagsError } = await supabase
+      .from('tags')
+      .select('id')
+      .or(tagFilters)
+      .eq('user_id', user.id);
+
+    if (tagsError) {
+      showError(t('error_searching_tags') + tagsError.message);
+      return;
+    }
+
+    const matchingTagIds = matchingTags.map(tag => tag.id);
+
+    // 2. Build filters for items
+    const nameFilters = searchTerms.map(term => `name.ilike.%${term}%`);
+    const allFilters = [...nameFilters];
+
+    if (matchingTagIds.length > 0) {
+      allFilters.push(`tags.cs.{${matchingTagIds.join(',')}}`);
+    }
+
+    // 3. Search for items
     const { data, error } = await supabase
       .from('items')
       .select('*, one_time_use, is_tool, tags')
-      .or(orFilters)
+      .or(allFilters.join(','))
       .eq('user_id', user.id);
 
     if (error) {
