@@ -289,7 +289,7 @@ const Inventory = () => {
       }));
       exportToCsv(dataToExport, 'inventory.csv');
       showSuccess(t('inventory_exported_successfully'));
-    } catch (err) {
+    } catch (err: any) {
       showError(`${t('error_exporting_inventory')} ${err.message}`);
     }
   };
@@ -454,7 +454,7 @@ const Inventory = () => {
                 </Select>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => setIsImportDialogOpen(true)} variant="outline" className="flex-1 md:flex-initial"><Upload className="mr-2 h-4 w-4" /> {t('import_from_csv')}</Button>
               <Button onClick={handleExport} className="flex-1 md:flex-initial"><Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}</Button>
               <Button onClick={handleOpenAddDialog} className="flex-1 md:flex-initial"><PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_item')}</Button>
