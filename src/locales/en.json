@@ -118,7 +118,6 @@
   "pick_a_date": "Pick a date",
   "photo": "Photo",
   "save_fiscal_note": "Save Fiscal Note",
-  "export_to_csv": "Export to CSV",
   "nfe_key": "NFe Key",
   "fiscal_note_description": "Description",
   "fiscal_note_arrival_date": "Arrival Date",
@@ -251,5 +250,15 @@
   "pdf_header_company": "Company:",
   "pdf_col_qty": "Qty",
   "pdf_col_material": "Material",
-  "pdf_col_app_location": "Application Location"
+  "pdf_col_app_location": "Application Location",
+  "quantity": "Quantity",
+  "scan_worker_qr": "Scan Worker QR",
+  "search_worker_by_name": "Search Worker by Name",
+  "item_name": "Item Name",
+  "worker_name": "Worker Name",
+  "all_workers": "All Workers",
+  "all_types": "All Types",
+  "all_items": "All Items",
+  "timestamp": "Timestamp",
+  "search_transactions": "Search transactions..."
 }

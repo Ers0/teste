@@ -118,7 +118,6 @@
   "pick_a_date": "Elija una fecha",
   "photo": "Foto",
   "save_fiscal_note": "Guardar Nota Fiscal",
-  "export_to_csv": "Exportar a CSV",
   "nfe_key": "Clave de NFe",
   "fiscal_note_description": "Descripción",
   "fiscal_note_arrival_date": "Fecha de Llegada",
@@ -251,5 +250,16 @@
   "pdf_header_company": "Empresa:",
   "pdf_col_qty": "Cant",
   "pdf_col_material": "Material",
-  "pdf_col_app_location": "Lugar de Aplicación"
+  "pdf_col_app_location": "Lugar de Aplicación",
+  "quantity": "Cantidad",
+  "return": "Devolución",
+  "scan_worker_qr": "Escanear QR de Trabajador",
+  "search_worker_by_name": "Buscar Trabajador por Nombre",
+  "item_name": "Nombre del Artículo",
+  "worker_name": "Nombre del Trabajador",
+  "all_workers": "Todos los Trabajadores",
+  "all_types": "Todos los Tipos",
+  "all_items": "Todos los Artículos",
+  "timestamp": "Fecha y Hora",
+  "search_transactions": "Buscar transacciones..."
 }
