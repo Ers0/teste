@@ -8,7 +8,6 @@ import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle, Search
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
-import beepSound from '/beep.mp3';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/integrations/supabase/auth';
@@ -58,15 +57,7 @@ const ScanItem = () => {
   const [givenBy, setGivenBy] = useState('');
   const [scanning, setScanning] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const navigate: NavigateFunction = useNavigate();
-
-  const playBeep = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => console.error("Error playing sound:", e));
-    }
-  };
 
   useEffect(() => {
     const stopWebScanner = async () => {
@@ -118,7 +109,6 @@ const ScanItem = () => {
                       console.log("Web scan successful:", decodedText);
                       setBarcode(decodedText);
                       fetchItemByBarcode(decodedText);
-                      playBeep();
                       setScanning(false);
                     },
                     (errorMessage) => {
@@ -473,7 +463,6 @@ const ScanItem = () => {
 
   return (
     <React.Fragment>
-      <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 ${scanning ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
           <div id="reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>

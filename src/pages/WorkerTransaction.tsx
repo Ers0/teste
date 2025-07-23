@@ -13,7 +13,6 @@ import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Html5Qrcode } from 'html5-qrcode';
-import beepSound from '/beep.mp3';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportToPdf } from '@/utils/pdf';
@@ -93,15 +92,7 @@ const WorkerTransaction = () => {
   const [scanningWorker, setScanningWorker] = useState(false);
   const [scanningItem, setScanningItem] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([]);
-
-  const playBeep = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => console.error("Error playing sound:", e));
-    }
-  };
 
   useEffect(() => {
     if (user) {
@@ -191,14 +182,12 @@ const WorkerTransaction = () => {
       startScanner("worker-qr-reader", (decodedText) => {
         setWorkerQrCodeInput(decodedText);
         handleScanWorker(decodedText);
-        playBeep();
         setScanningWorker(false);
       });
     } else if (scanningItem) {
       startScanner("item-barcode-reader", (decodedText) => {
         setItemBarcodeInput(decodedText);
         handleScanItem(decodedText);
-        playBeep();
         setScanningItem(false);
       });
     } else {
@@ -780,7 +769,6 @@ const WorkerTransaction = () => {
 
   return (
     <React.Fragment>
-      <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanningWorker || scanningItem ? '' : 'hidden'}`}>
           <div id={scanningWorker ? "worker-qr-reader" : "item-barcode-reader"} className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>

@@ -15,7 +15,6 @@ import QRCode from '@/components/QRCodeWrapper';
 import { v4 as uuidv4 } from 'uuid';
 import { Html5Qrcode } from 'html5-qrcode';
 import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
-import beepSound from '/beep.mp3';
 import { exportToCsv } from '@/utils/export';
 import { parseCsv } from '@/utils/import';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -60,14 +59,6 @@ const Workers = () => {
 
   const [isScanningExternalQr, setIsScanningExternalQr] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  const playBeep = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => console.error("Error playing sound:", e));
-    }
-  };
 
   useEffect(() => {
     if (user) {
@@ -150,7 +141,6 @@ const Workers = () => {
                     } else {
                       setNewWorker({ ...newWorker, external_qr_code_data: decodedText });
                     }
-                    playBeep();
                     setIsScanningExternalQr(false);
                     setIsDialogOpen(true);
                   },
@@ -452,7 +442,6 @@ const Workers = () => {
 
   return (
     <React.Fragment>
-      <audio ref={audioRef} src={beepSound} preload="auto" />
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${isScanningExternalQr ? '' : 'hidden'}`}>
           <div id="external-qr-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>

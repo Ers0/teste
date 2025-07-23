@@ -8,7 +8,6 @@ import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2, Cal
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import beepSound from '/beep.mp3';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,14 +42,6 @@ const FiscalNotes = () => {
   const [scanning, setScanning] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  const playBeep = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => console.error("Error playing sound:", e));
-    }
-  };
 
   useEffect(() => {
     if (user) {
@@ -123,7 +114,6 @@ const FiscalNotes = () => {
                   (decodedText) => {
                     console.log("Web scan successful:", decodedText);
                     setNfeKey(decodedText);
-                    playBeep();
                     setScanning(false);
                   },
                   (errorMessage) => {
@@ -339,7 +329,6 @@ const FiscalNotes = () => {
       });
       const decodedText = await html5QrCode.scanFile(file, false);
       setNfeKey(decodedText);
-      playBeep();
       showSuccess(t('barcode_scanned_from_image'));
     } catch (err) {
       console.error("Error scanning file:", err);
@@ -352,7 +341,6 @@ const FiscalNotes = () => {
 
   return (
     <React.Fragment>
-      <audio ref={audioRef} src={beepSound} preload="auto" />
       <div id="fiscal-note-reader-hidden" style={{ display: 'none' }}></div>
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
