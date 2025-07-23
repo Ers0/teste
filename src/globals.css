@@ -137,14 +137,6 @@
   body {
     @apply bg-background text-foreground;
   }
-
-  /* Styles for Capacitor Barcode Scanner to show camera feed */
-  html.barcode-scanner-active,
-  body.barcode-scanner-active,
-  body.barcode-scanner-active #root {
-    background: transparent !important;
-    background-color: transparent !important;
-  }
 }
 
 /* Ensure the video element within the reader div fills its container */
