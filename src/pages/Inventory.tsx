@@ -478,7 +478,7 @@ const Inventory = () => {
                     ) : item.low_stock_threshold != null && item.quantity <= item.low_stock_threshold ? (
                       <Badge variant="secondary" className="bg-yellow-400 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-100">{item.quantity}</Badge>
                     ) : (
-                      item.quantity
+                      <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">{item.quantity}</Badge>
                     )}
                   </TableCell>
                   <TableCell>{item.is_ppe ? t('ppe') : item.is_tool ? t('tool') : t('consumable')}</TableCell>
