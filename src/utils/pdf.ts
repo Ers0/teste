@@ -1,9 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { TFunction } from 'i18next';
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { showSuccess, showError } from '@/utils/toast';
 
 interface TransactionItem {
   item: { name: string };
@@ -71,24 +68,6 @@ export const exportToPdf = async (data: RequisitionData) => {
 
   const filename = `Requisicao_${requisitionNumber}.pdf`;
 
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const pdfData = doc.output('datauristring');
-      const base64Data = pdfData.substring(pdfData.indexOf(',') + 1);
-
-      await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Documents,
-      });
-
-      showSuccess(t('pdf_saved_to_documents', { filename }));
-    } catch (e: any) {
-      console.error('Unable to write file', e);
-      showError(`${t('error_saving_pdf')} ${e.message}`);
-    }
-  } else {
-    // Web implementation
-    doc.save(filename);
-  }
+  // Web implementation
+  doc.save(filename);
 };
