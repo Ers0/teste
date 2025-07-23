@@ -261,5 +261,11 @@
   "all_types": "Todos os Tipos",
   "all_items": "Todos os Itens",
   "timestamp": "Data e Hora",
-  "search_transactions": "Buscar transações..."
+  "search_transactions": "Buscar transações...",
+  "sort_by": "Ordenar por",
+  "order": "Ordem",
+  "ascending": "Crescente",
+  "descending": "Decrescente",
+  "type": "Tipo",
+  "consumable": "Material"
 }
