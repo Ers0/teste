@@ -64,7 +64,7 @@ const Requisitions = () => {
       return;
     }
 
-    exportToPdf({
+    await exportToPdf({
       requisitionNumber: requisition.requisition_number,
       authorizedBy: requisitionDetails.authorized_by || '',
       requester: requisitionDetails.requester_name,
