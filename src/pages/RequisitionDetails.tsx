@@ -76,7 +76,7 @@ const RequisitionDetails = () => {
       company: requisition.requester_company,
       applicationLocation: requisition.application_location || '',
       transactionItems: transactionItems.map(ti => ({
-        item: { name: ti.items?.name || 'N/A' },
+        item: { name: (Array.isArray(ti.items) ? ti.items[0]?.name : ti.items?.name) || 'N/A' },
         quantity: ti.quantity,
       })),
       t,
@@ -147,7 +147,7 @@ const RequisitionDetails = () => {
                 {transactionItems && transactionItems.length > 0 ? (
                   transactionItems.map((item, index) => (
                     <TableRow key={index}>
-                      <TableCell className="font-medium">{item.items?.name || 'N/A'}</TableCell>
+                      <TableCell className="font-medium">{(Array.isArray(item.items) ? item.items[0]?.name : item.items?.name) || 'N/A'}</TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
                     </TableRow>
                   ))

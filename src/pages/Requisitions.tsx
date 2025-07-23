@@ -70,8 +70,8 @@ const Requisitions = () => {
       requester: requisitionDetails.requester_name,
       company: requisitionDetails.requester_company,
       applicationLocation: requisitionDetails.application_location || '',
-      transactionItems: transactionItems.map(ti => ({
-        item: { name: (ti.items as any)?.name || 'N/A' },
+      transactionItems: (transactionItems as any[]).map(ti => ({
+        item: { name: (Array.isArray(ti.items) ? ti.items[0]?.name : ti.items?.name) || 'N/A' },
         quantity: ti.quantity,
       })),
       t,
