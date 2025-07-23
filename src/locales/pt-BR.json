@@ -304,5 +304,7 @@
   "loading_tags": "Carregando tags...",
   "no_tags_found": "Nenhuma tag encontrada.",
   "scan_worker_then_items": "Escaneie o trabalhador e depois os itens para registrar uma transação.",
-  "timestamp": "Data e Hora"
+  "timestamp": "Data e Hora",
+  "finalize_transactions": "Finalizar Transações",
+  "done_with_current_transaction": "Concluído (Limpar Sessão)"
 }
