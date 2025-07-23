@@ -24,7 +24,7 @@ interface RequisitionDetailsData {
 
 interface TransactionItem {
   quantity: number;
-  items: { name: string } | null;
+  items: { name: string } | { name: string }[] | null;
 }
 
 const RequisitionDetails = () => {
