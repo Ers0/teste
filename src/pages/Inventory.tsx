@@ -351,11 +351,11 @@ const Inventory = () => {
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="lowStock" className="text-right">{t('low_stock_yellow')}</Label>
-            <Input id="lowStock" type="number" value={lowStock} onChange={(e) => setLowStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" />
+            <Input id="lowStock" type="number" value={lowStock} onChange={(e) => setLowStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" placeholder="e.g., 10" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="criticalStock" className="text-right">{t('critical_stock_red')}</Label>
-            <Input id="criticalStock" type="number" value={criticalStock} onChange={(e) => setCriticalStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" />
+            <Input id="criticalStock" type="number" value={criticalStock} onChange={(e) => setCriticalStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" placeholder="e.g., 5" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="barcode" className="text-right">{t('barcode')}</Label>
