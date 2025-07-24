@@ -40,5 +40,12 @@
   "return": "Devolução",
   "restock": "Reabastecimento",
   "item_movement_chart_title": "Top 5 Movimentações de Itens",
-  "item_movement_chart_desc_dashboard": "Retiradas vs. devoluções para os itens mais ativos."
+  "item_movement_chart_desc_dashboard": "Retiradas vs. devoluções para os itens mais ativos.",
+  "assigned_ppe_status": "Status dos EPIs Atribuídos",
+  "checked_out": "Retirado",
+  "missing": "Faltando",
+  "no_ppe_assigned": "Nenhum EPI atribuído a este funcionário.",
+  "sync_now": "Sincronizar Agora",
+  "assigned_ppes": "EPIs Atribuídos",
+  "select_ppes": "Selecionar EPIs"
 }

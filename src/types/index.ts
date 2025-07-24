@@ -23,6 +23,7 @@ export interface Worker {
   external_qr_code_data: string | null;
   user_id: string;
   reliability_score: number | null;
+  assigned_ppes: string[] | null;
 }
 
 export interface Tag {

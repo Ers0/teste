@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,8 +23,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { Worker } from '@/types';
 import { useOnlineStatus } from '@/hooks/use-online-status';
+import { MultiSelect } from '@/components/ui/multi-select';
 
-type EditingWorkerState = Worker & { photo?: File | null };
+type EditingWorkerState = Worker & { photo?: File | null; assigned_ppes?: string[] | null; };
 
 const initialNewWorkerState = {
   name: '',
@@ -32,6 +33,7 @@ const initialNewWorkerState = {
   photo: null as File | null,
   qr_code_data: '',
   external_qr_code_data: '',
+  assigned_ppes: [] as string[],
 };
 
 const Workers = () => {
@@ -54,6 +56,9 @@ const Workers = () => {
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
 
   const workers = useLiveQuery(() => db.workers.orderBy('name').toArray(), []);
+  const ppeItems = useLiveQuery(() => db.items.where('is_ppe').equals('true').toArray(), []);
+
+  const ppeOptions = useMemo(() => ppeItems?.map(item => ({ value: item.id, label: item.name })) || [], [ppeItems]);
 
   useEffect(() => {
     if (workers) {
@@ -244,6 +249,7 @@ const Workers = () => {
       user_id: user.id,
       reliability_score: 100,
       photo_url: photoUrl,
+      assigned_ppes: newWorker.assigned_ppes,
     };
 
     try {
@@ -276,6 +282,7 @@ const Workers = () => {
       company: editingWorker.company,
       external_qr_code_data: editingWorker.external_qr_code_data?.trim() || null,
       photo_url: newPhotoUrl,
+      assigned_ppes: editingWorker.assigned_ppes || [],
     };
     delete (updatedData as any).photo;
 
@@ -303,7 +310,7 @@ const Workers = () => {
   };
 
   const openEditDialog = (worker: Worker) => {
-    setEditingWorker(worker);
+    setEditingWorker({ ...worker, assigned_ppes: worker.assigned_ppes || [] });
     setIsDialogOpen(true);
   };
 
@@ -512,6 +519,24 @@ const Workers = () => {
                       <Button variant="outline" size="icon" className="col-span-1 ml-auto" onClick={startExternalQrScan}>
                         <Camera className="h-4 w-4" />
                       </Button>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="assigned_ppes" className="text-right">
+                        {t('assigned_ppes')}
+                      </Label>
+                      <MultiSelect
+                        options={ppeOptions}
+                        selected={editingWorker ? editingWorker.assigned_ppes || [] : newWorker.assigned_ppes}
+                        onChange={(selected) => {
+                          if (editingWorker) {
+                            setEditingWorker({ ...editingWorker, assigned_ppes: selected });
+                          } else {
+                            setNewWorker({ ...newWorker, assigned_ppes: selected });
+                          }
+                        }}
+                        className="col-span-3"
+                        placeholder={t('select_ppes')}
+                      />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="photo" className="text-right">

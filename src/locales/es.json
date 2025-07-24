@@ -40,5 +40,12 @@
   "return": "Devolución",
   "restock": "Reabastecimiento",
   "item_movement_chart_title": "Top 5 Movimientos de Artículos",
-  "item_movement_chart_desc_dashboard": "Retiradas vs. devoluciones de los artículos más activos."
+  "item_movement_chart_desc_dashboard": "Retiradas vs. devoluciones de los artículos más activos.",
+  "assigned_ppe_status": "Estado del EPP Asignado",
+  "checked_out": "Retirado",
+  "missing": "Faltante",
+  "no_ppe_assigned": "No hay EPP asignado a este trabajador.",
+  "sync_now": "Sincronizar Ahora",
+  "assigned_ppes": "EPPs Asignados",
+  "select_ppes": "Seleccionar EPPs"
 }

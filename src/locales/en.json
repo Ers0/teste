@@ -40,5 +40,12 @@
   "return": "Return",
   "restock": "Restock",
   "item_movement_chart_title": "Top 5 Item Movements",
-  "item_movement_chart_desc_dashboard": "Takeouts vs. returns for the most active items."
+  "item_movement_chart_desc_dashboard": "Takeouts vs. returns for the most active items.",
+  "assigned_ppe_status": "Assigned PPE Status",
+  "checked_out": "Checked Out",
+  "missing": "Missing",
+  "no_ppe_assigned": "No PPE assigned to this worker.",
+  "sync_now": "Sync Now",
+  "assigned_ppes": "Assigned PPEs",
+  "select_ppes": "Select PPEs"
 }

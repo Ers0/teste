@@ -11,7 +11,7 @@ import { useNavigate, type NavigateFunction, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -22,6 +22,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Outbox } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { playBeep } from '@/utils/sound';
+import AssignedPpeStatus from '@/components/dashboard/AssignedPpeStatus';
 
 interface TransactionItem {
   item: Item;
@@ -110,24 +111,11 @@ const WorkerTransaction = () => {
                 html5QrCodeScannerRef.current = null;
               }
               try {
-                const config = {
-                  fps: 10,
-                  qrbox: { width: 300, height: 150 },
-                  disableFlip: false,
-                  formatsToSupport: [
-                    Html5QrcodeSupportedFormats.QR_CODE,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                  ]
-                };
-                const html5Qrcode = new Html5Qrcode(readerElementId, { verbose: false, formatsToSupport: config.formatsToSupport });
+                const html5Qrcode = new Html5Qrcode(readerElementId, { verbose: false });
                 html5QrCodeScannerRef.current = html5Qrcode;
                 await html5Qrcode.start(
                   cameraId,
-                  config,
+                  { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
                   onScanSuccess,
                   () => {}
                 );
@@ -723,6 +711,7 @@ const WorkerTransaction = () => {
                       </Select>
                     </div>
                   )}
+                  {scannedWorker && <AssignedPpeStatus worker={scannedWorker} />}
                 </div>
 
                 <div className="space-y-4 border-b pb-4">
