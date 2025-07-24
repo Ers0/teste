@@ -166,13 +166,18 @@ const CreateRequisition = () => {
 
       const outboxOps: Outbox[] = [
         { type: 'create', table: 'requisitions', payload: newRequisition, timestamp: Date.now() },
-        ...newRequisitionItems.map(item => ({ type: 'create', table: 'requisition_items', payload: item, timestamp: Date.now() }))
+        ...newRequisitionItems.map((item): Omit<Outbox, 'id'> => ({
+          type: 'create',
+          table: 'requisition_items',
+          payload: item,
+          timestamp: Date.now()
+        }))
       ];
 
       await db.transaction('rw', db.requisitions, db.requisition_items, db.outbox, async () => {
         await db.requisitions.add(newRequisition);
         await db.requisition_items.bulkAdd(newRequisitionItems);
-        await db.outbox.bulkAdd(outboxOps as any);
+        await db.outbox.bulkAdd(outboxOps);
       });
 
       dismissToast(toastId);

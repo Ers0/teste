@@ -46,16 +46,9 @@ const Approvals = () => {
         }
       }
 
+      const { items, ...requisitionData } = requisition;
       const requisitionToUpdate: Requisition = {
-        id: requisition.id,
-        requisition_number: requisition.requisition_number,
-        user_id: requisition.user_id,
-        authorized_by: requisition.authorized_by,
-        given_by: requisition.given_by,
-        requester_name: requisition.requester_name,
-        requester_company: requisition.requester_company,
-        application_location: requisition.application_location,
-        created_at: requisition.created_at,
+        ...requisitionData,
         status: newStatus,
       };
 
