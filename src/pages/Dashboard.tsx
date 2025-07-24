@@ -8,15 +8,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useProfile } from '@/hooks/use-profile';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Notifications from '@/components/Notifications';
+import { useEffect } from 'react';
 
 const Dashboard = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
+  const queryClient = useQueryClient();
+
+  // Invalidate notifications query on dashboard mount to ensure fresh data
+  useEffect(() => {
+    if (user) {
+      queryClient.invalidateQueries({ queryKey: ['itemsForNotifications', user.id] });
+    }
+  }, [user, queryClient]);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboardStats', user?.id],
