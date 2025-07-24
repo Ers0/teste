@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,6 +13,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Tag } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import { v4 as uuidv4 } from 'uuid';
 
 const initialTagState = { name: '', color: '#842CD4' };
 
@@ -44,28 +44,42 @@ const Tags = () => {
       return;
     }
 
-    const payload = {
-      user_id: user.id,
-      name: tagData.name,
-      color: tagData.color,
-    };
-
-    if (editingTag) {
-      const { error } = await supabase.from('tags').update(payload).eq('id', editingTag.id);
-      if (error) { showError(t('error_updating_tag') + error.message); }
-      else { showSuccess(t('tag_updated_successfully')); closeDialog(); }
-    } else {
-      const { error } = await supabase.from('tags').insert(payload);
-      if (error) { showError(t('error_adding_tag') + error.message); }
-      else { showSuccess(t('tag_added_successfully')); closeDialog(); }
+    try {
+      if (editingTag) {
+        const updatedTag: Tag = {
+          ...editingTag,
+          name: tagData.name,
+          color: tagData.color,
+        };
+        await db.tags.put(updatedTag);
+        await db.outbox.add({ type: 'update', table: 'tags', payload: updatedTag, timestamp: Date.now() });
+        showSuccess(t('tag_updated_locally'));
+      } else {
+        const newTag: Tag = {
+          id: uuidv4(),
+          user_id: user.id,
+          name: tagData.name,
+          color: tagData.color,
+        };
+        await db.tags.add(newTag);
+        await db.outbox.add({ type: 'create', table: 'tags', payload: newTag, timestamp: Date.now() });
+        showSuccess(t('tag_saved_locally'));
+      }
+      closeDialog();
+    } catch (error: any) {
+      showError(t('error_saving_tag') + error.message);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm(t('confirm_delete_tag'))) {
-      const { error } = await supabase.from('tags').delete().eq('id', id);
-      if (error) { showError(t('error_deleting_tag') + error.message); }
-      else { showSuccess(t('tag_deleted_successfully')); }
+      try {
+        await db.tags.delete(id);
+        await db.outbox.add({ type: 'delete', table: 'tags', payload: { id }, timestamp: Date.now() });
+        showSuccess(t('tag_deleted_locally'));
+      } catch (error: any) {
+        showError(t('error_deleting_tag') + error.message);
+      }
     }
   };
 
