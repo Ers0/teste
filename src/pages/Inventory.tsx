@@ -27,12 +27,14 @@ import QRCode from '@/components/QRCodeWrapper';
 import { Item, Tag } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 const Inventory = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const isOnline = useOnlineStatus();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
@@ -131,6 +133,7 @@ const Inventory = () => {
   };
 
   const handleAddItem = async () => {
+    if (!isOnline) { showError(t('offline_action_error')); return; }
     if (!name || quantity < 0) { showError(t('fill_item_name_quantity')); return; }
     if (!user) { showError(t('user_not_authenticated_login')); return; }
 
@@ -155,6 +158,7 @@ const Inventory = () => {
   };
 
   const handleUpdateItem = async () => {
+    if (!isOnline) { showError(t('offline_action_error')); return; }
     if (!editingItem) return; if (!name || quantity < 0) { showError(t('fill_item_name_quantity')); return; }
     
     const updatedItemData: Partial<Item> = {
@@ -178,6 +182,7 @@ const Inventory = () => {
   };
 
   const handleDeleteItem = async (itemId: string) => {
+    if (!isOnline) { showError(t('offline_action_error')); return; }
     if (window.confirm(t('confirm_delete_item'))) {
       const { error } = await supabase.from('items').delete().eq('id', itemId);
       if (error) { showError(`${t('error_deleting_item')} ${error.message}`); }
@@ -198,6 +203,7 @@ const Inventory = () => {
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isOnline) { showError(t('offline_action_error')); return; }
     const file = event.target.files?.[0]; if (!file || !user) return;
     const toastId = showLoading(t('importing'));
     try {
@@ -217,6 +223,7 @@ const Inventory = () => {
   const handlePrintBarcode = () => { window.print(); };
 
   const handleBulkDelete = async () => {
+    if (!isOnline) { showError(t('offline_action_error')); return; }
     const toastId = showLoading(t('deleting_items', { count: selectedItemIds.length }));
     const { error } = await supabase.from('items').delete().in('id', selectedItemIds);
     if (error) { dismissToast(toastId); showError(t('error_deleting_items') + error.message); }
@@ -225,6 +232,7 @@ const Inventory = () => {
   };
 
   const handleBulkAddTags = async () => {
+    if (!isOnline) { showError(t('offline_action_error')); return; }
     if (tagsToAdd.length === 0) { showError(t('please_select_tags_to_add')); return; }
     const toastId = showLoading(t('adding_tags_to_items', { count: selectedItemIds.length }));
     
