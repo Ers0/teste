@@ -88,7 +88,7 @@
   "confirm_bulk_delete_items": "Esta ação não pode ser desfeita. Isso excluirá permanentemente {{count}} itens.",
   "delete": "Excluir",
   "est_stockout": "Esgotamento Est.",
-  "forecast_tooltip": "Estimativa de dias até o esgotamento do estoque, com base no consumo médio dos últimos 90 dias.",
+  "forecast_tooltip": "Estimativa de dias até o esgotamento do estoque, com base no consumo médio dos últimos 7 dias.",
   "days": "dias",
   "uncategorized": "Sem Categoria",
   "worker_management_title": "Gerenciamento de Funcionários",

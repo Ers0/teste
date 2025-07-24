@@ -88,7 +88,7 @@
   "confirm_bulk_delete_items": "This action cannot be undone. This will permanently delete {{count}} items.",
   "delete": "Delete",
   "est_stockout": "Est. Stockout",
-  "forecast_tooltip": "Estimated days until stock runs out, based on average consumption over the last 90 days.",
+  "forecast_tooltip": "Estimated days until stock runs out, based on average consumption over the last 7 days.",
   "days": "days",
   "uncategorized": "Uncategorized",
   "worker_management_title": "Worker Management",

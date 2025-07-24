@@ -88,7 +88,7 @@
   "confirm_bulk_delete_items": "Esta acción no se puede deshacer. Esto eliminará permanentemente {{count}} artículos.",
   "delete": "Eliminar",
   "est_stockout": "Agotamiento Est.",
-  "forecast_tooltip": "Días estimados hasta que se agote el stock, basado en el consumo promedio de los últimos 90 días.",
+  "forecast_tooltip": "Días estimados hasta que se agote el stock, basado en el consumo promedio de los últimos 7 días.",
   "days": "días",
   "uncategorized": "Sin Categoría",
   "worker_management_title": "Gestión de Trabajadores",
