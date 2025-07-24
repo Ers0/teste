@@ -22,6 +22,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useQuery } from '@tanstack/react-query';
 import { Worker } from '@/types';
 
+type EditingWorkerState = Worker & { photo?: File | null };
+
 const initialNewWorkerState = {
   name: '',
   company: '',
@@ -35,7 +37,7 @@ const Workers = () => {
   const { user } = useAuth();
   const [groupedWorkers, setGroupedWorkers] = useState<Record<string, Worker[]>>({});
   const [newWorker, setNewWorker] = useState<typeof initialNewWorkerState>(initialNewWorkerState);
-  const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
+  const [editingWorker, setEditingWorker] = useState<EditingWorkerState | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [fileToImport, setFileToImport] = useState<File | null>(null);
@@ -196,7 +198,7 @@ const Workers = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       if (editingWorker) {
-        setEditingWorker({ ...editingWorker, photo: e.target.files[0] as any });
+        setEditingWorker({ ...editingWorker, photo: e.target.files[0] });
       } else {
         setNewWorker({ ...newWorker, photo: e.target.files[0] });
       }
@@ -279,8 +281,8 @@ const Workers = () => {
       photo_url: editingWorker.photo_url,
     };
 
-    if ((editingWorker as any).photo instanceof File) {
-      updatedData.photo_url = await uploadPhoto((editingWorker as any).photo, editingWorker.id);
+    if (editingWorker.photo instanceof File) {
+      updatedData.photo_url = await uploadPhoto(editingWorker.photo, editingWorker.id);
     }
     const { error } = await supabase.from('workers').update(updatedData).eq('id', editingWorker.id);
     if (error) {

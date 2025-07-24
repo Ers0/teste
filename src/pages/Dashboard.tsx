@@ -22,7 +22,7 @@ const Dashboard = () => {
     queryKey: ['items', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('items').select('id').eq('user_id', user.id);
+      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
       if (error) throw error;
       return data;
     },
@@ -33,7 +33,7 @@ const Dashboard = () => {
     queryKey: ['workers', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('workers').select('id').eq('user_id', user.id);
+      const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id);
       if (error) throw error;
       return data;
     },
