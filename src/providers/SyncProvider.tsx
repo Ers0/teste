@@ -3,9 +3,7 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/db';
 import { useAuth } from '@/integrations/supabase/auth';
-import { showLoading, dismissToast, showSuccess, showError } from '@/utils/toast';
-import { useTranslation } from 'react-i18next';
-import { TFunction } from 'i18next';
+import { useTranslation, TFunction } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
 
 interface SyncContextType {
@@ -21,7 +19,6 @@ const processOutbox = async (t: TFunction) => {
   if (operations.length === 0) return true;
 
   console.log(`Processing ${operations.length} offline operations...`);
-  const toastId = showLoading(t('syncing_offline_changes', { count: operations.length }));
 
   for (const op of operations) {
     try {
@@ -49,13 +46,11 @@ const processOutbox = async (t: TFunction) => {
       }
     } catch (err: any) {
       console.error('Failed to sync operation:', op, err);
-      dismissToast(toastId);
-      showError(t('failed_to_sync_change', { error: err.message }));
+      // No user-facing error here, as the indicator shows the state.
       return false; // Stop processing on first error
     }
   }
-  dismissToast(toastId);
-  showSuccess(t('offline_changes_synced'));
+  console.log('Offline changes synced successfully.');
   return true;
 };
 
@@ -66,9 +61,15 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const isSyncingRef = useRef(false);
+  
+  const userRef = useRef<User | null>(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const syncData = useCallback(async () => {
-    if (!isOnline || !user || isSyncingRef.current) return;
+    const currentUser = userRef.current;
+    if (!isOnline || !currentUser || isSyncingRef.current) return;
 
     isSyncingRef.current = true;
     setIsSyncing(true);
@@ -80,7 +81,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const toastId = showLoading(t('syncing_data'));
+    console.log('Syncing data from server...');
 
     try {
       const tablesToSync = [
@@ -90,13 +91,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       for (const tableName of tablesToSync) {
         if (tableName === 'profiles') {
-          const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id);
+          const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', currentUser.id);
           if (profileError) throw profileError;
           await db.profiles.clear();
           await db.profiles.bulkPut(profileData);
         } else {
           // @ts-ignore
-          const { data, error } = await supabase.from(tableName).select('*').eq('user_id', user.id);
+          const { data, error } = await supabase.from(tableName).select('*').eq('user_id', currentUser.id);
           if (error) throw error;
           if (data) {
             // @ts-ignore
@@ -108,17 +109,14 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setLastSync(new Date());
-      dismissToast(toastId);
-      showSuccess(t('data_synced_successfully'));
+      console.log('Data synced successfully.');
     } catch (error: any) {
       console.error('Sync failed:', error);
-      dismissToast(toastId);
-      showError(`${t('data_sync_failed')}: ${error.message}`);
     } finally {
       setIsSyncing(false);
       isSyncingRef.current = false;
     }
-  }, [isOnline, user, t]);
+  }, [isOnline, t]);
 
   useEffect(() => {
     if (isOnline && user) {
