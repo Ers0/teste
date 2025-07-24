@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from '@/components/QRCodeWrapper';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { db } from '@/lib/db';
 
 interface Item {
   id: string;
@@ -78,27 +80,27 @@ const Inventory = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const { data: items, isLoading, error } = useQuery<Item[], Error>({
-    queryKey: ['items', user?.id],
-    queryFn: async () => {
+  const { data: items, isLoading, error } = useOfflineQuery<Item>(
+    ['items', user?.id],
+    'items',
+    async () => {
       if (!user) return [];
       const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
       if (error) throw new Error(error.message);
       return data as Item[];
-    },
-    enabled: !!user,
-  });
+    }
+  );
 
-  const { data: tags } = useQuery<Tag[], Error>({
-    queryKey: ['tags', user?.id],
-    queryFn: async () => {
+  const { data: tags } = useOfflineQuery<Tag>(
+    ['tags', user?.id],
+    'tags',
+    async () => {
       if (!user) return [];
       const { data, error } = await supabase.from('tags').select('*').eq('user_id', user.id);
       if (error) throw new Error(error.message);
       return data;
-    },
-    enabled: !!user,
-  });
+    }
+  );
 
   const tagOptions = useMemo(() => tags?.map(tag => ({ value: tag.id, label: tag.name })) || [], [tags]);
 

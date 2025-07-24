@@ -3,6 +3,8 @@ import { Session, User } from '@supabase/supabase-js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/client';
 import i18n from '@/i18n';
+import { syncAllData } from '@/lib/sync';
+import { db } from '@/lib/db';
 
 interface Profile {
   id: string;
@@ -25,15 +27,12 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true); // Overall loading for auth state
-  const [profileLoading, setProfileLoading] = useState(true); // Loading specifically for profile data
+  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    console.log('SessionContextProvider: Initializing auth state listener.');
-
-    // Function to handle session and profile updates
     const updateAuthStates = async (currentSession: Session | null) => {
       setSession(currentSession);
       setUser(currentSession?.user || null);
@@ -41,22 +40,25 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       if (currentSession?.user) {
         setProfileLoading(true);
         try {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, language')
-            .eq('id', currentSession.user.id)
-            .limit(1)
-            .single();
+          if (navigator.onLine) {
+            await syncAllData(currentSession.user.id);
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, language')
+              .eq('id', currentSession.user.id)
+              .limit(1)
+              .single();
 
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('Error fetching profile:', profileError);
-            setProfile(null);
-          } else {
+            if (profileError && profileError.code !== 'PGRST116') throw profileError;
             setProfile(profileData || null);
             i18n.changeLanguage(profileData?.language || 'pt-BR');
+          } else {
+            // In offline mode, we can't fetch the profile.
+            // A more advanced implementation would sync this to IndexedDB as well.
+            console.log("Offline: Cannot fetch profile.");
           }
         } catch (err) {
-          console.error('Unexpected error during profile fetch:', err);
+          console.error('Error during profile fetch:', err);
           setProfile(null);
         } finally {
           setProfileLoading(false);
@@ -68,71 +70,48 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       }
     };
 
-    // Function to perform initial session check and setup
     const setupAuth = async () => {
-      setLoading(true); // Start overall loading
+      setLoading(true);
       try {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-        console.log('Initial getSession result:', initialSession, 'Error:', sessionError);
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        await updateAuthStates(initialSession);
 
-        await updateAuthStates(initialSession); // Update states based on initial session
-
-        // Handle initial navigation based on session
-        if (initialSession?.user) {
-          if (location.pathname === '/login') {
-            console.log('Initial session found, navigating from login to /');
-            navigate('/');
-          }
-        } else {
-          if (location.pathname !== '/login') {
-            console.log('No initial session found, navigating to /login');
-            navigate('/login');
-          }
+        if (!initialSession?.user && navigator.onLine && location.pathname !== '/login') {
+          navigate('/login');
         }
       } catch (err) {
-        console.error('Unexpected error during initial session check:', err);
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setProfileLoading(false);
-        if (location.pathname !== '/login') {
+        console.error('Error during initial session check:', err);
+        if (navigator.onLine && location.pathname !== '/login') {
           navigate('/login');
         }
       } finally {
-        setLoading(false); // Always set overall loading to false after initial check
+        setLoading(false);
       }
 
-      // Set up the real-time listener for subsequent changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-        console.log('Auth State Change Event (from listener):', event, 'Session:', currentSession);
-        updateAuthStates(currentSession); // Update states for ongoing changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+        await updateAuthStates(currentSession);
 
-        // Handle navigation for ongoing changes
-        if (currentSession?.user) {
-          if (location.pathname === '/login') {
-            console.log('User signed in or updated, navigating from login to /');
-            navigate('/');
-          }
-        } else {
-          if (location.pathname !== '/login') {
-            console.log('User signed out, navigating to /login');
+        if (event === 'SIGNED_OUT') {
+          await db.delete().then(() => db.open()); // Clear local DB on logout
+          if (navigator.onLine) {
             navigate('/login');
           }
+        } else if (event === 'SIGNED_IN' && location.pathname === '/login') {
+          navigate('/');
         }
       });
 
       return () => {
-        console.log('SessionContextProvider: Unsubscribing from auth state listener.');
         subscription.unsubscribe();
       };
     };
 
-    const cleanup = setupAuth(); // Call the setup function and capture its cleanup
+    const cleanupPromise = setupAuth();
 
     return () => {
-      cleanup.then(unsubscribe => unsubscribe()); // Ensure unsubscribe is called
+      cleanupPromise.then(cleanup => cleanup && cleanup());
     };
-  }, [navigate, location.pathname]); // Dependencies remain the same
+  }, [navigate, location.pathname]);
 
   return (
     <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
