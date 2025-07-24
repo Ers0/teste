@@ -16,7 +16,8 @@ import TransactionsHistory from "./pages/TransactionsHistory";
 import FiscalNotes from "./pages/FiscalNotes";
 import Requisitions from "./pages/Requisitions";
 import RequisitionDetails from "./pages/RequisitionDetails";
-import Tags from "./pages/Tags"; // Import the new Tags component
+import Tags from "./pages/Tags";
+import Analytics from "./pages/Analytics"; // Import the new Analytics page
 import { SessionContextProvider } from "./integrations/supabase/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useEffect } from "react";
@@ -55,7 +56,8 @@ const App = () => {
               <Route path="/fiscal-notes" element={<ProtectedRoute><FiscalNotes /></ProtectedRoute>} />
               <Route path="/requisitions" element={<ProtectedRoute><Requisitions /></ProtectedRoute>} />
               <Route path="/requisition/:requisitionId" element={<ProtectedRoute><RequisitionDetails /></ProtectedRoute>} />
-              <Route path="/tags" element={<ProtectedRoute><Tags /></ProtectedRoute>} /> {/* New protected route for Tags */}
+              <Route path="/tags" element={<ProtectedRoute><Tags /></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} /> {/* New protected route for Analytics */}
             </Routes>
           </SessionContextProvider>
         </BrowserRouter>

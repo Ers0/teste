@@ -397,5 +397,19 @@
   "this_is_a_tool": "Esta é uma ferramenta.",
   "download": "Baixar",
   "no_file_selected": "Nenhum arquivo selecionado.",
-  "worker_photo": "Foto do funcionário"
+  "worker_photo": "Foto do funcionário",
+  "analytics": "Análises",
+  "analytics_dashboard": "Painel de Análises",
+  "analytics_subtitle": "Visualize tendências e insights dos seus dados.",
+  "item_movement_chart_title": "Movimentação de Itens (Top 10)",
+  "item_movement_chart_desc": "Itens mais retirados do estoque.",
+  "transaction_volume_title": "Volume de Transações por Dia",
+  "transaction_volume_desc": "Contagem de transações diárias.",
+  "stock_status_title": "Status do Estoque",
+  "stock_status_desc": "Distribuição dos itens por nível de estoque.",
+  "total_takeouts": "Total de Retiradas",
+  "transactions": "Transações",
+  "stock_ok": "OK",
+  "stock_low": "Baixo",
+  "stock_critical": "Crítico"
 }
