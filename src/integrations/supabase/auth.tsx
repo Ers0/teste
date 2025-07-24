@@ -25,28 +25,33 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   useEffect(() => {
     const getInitialSession = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      setSession(initialSession);
-      const currentUser = initialSession?.user ?? null;
-      setUser(currentUser);
-      
-      if (currentUser) {
-        setProfileLoading(true);
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, language')
-          .eq('id', currentUser.id)
-          .single();
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        setSession(initialSession);
+        const currentUser = initialSession?.user ?? null;
+        setUser(currentUser);
+        
+        if (currentUser) {
+          setProfileLoading(true);
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, language')
+            .eq('id', currentUser.id)
+            .single();
 
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Error fetching profile:', profileError);
-        } else if (profileData) {
-          setProfile(profileData as Profile);
-          i18n.changeLanguage(profileData.language || 'pt-BR');
+          if (profileError && profileError.code !== 'PGRST116') {
+            console.error('Error fetching profile:', profileError);
+          } else if (profileData) {
+            setProfile(profileData as Profile);
+            i18n.changeLanguage(profileData.language || 'pt-BR');
+          }
+          setProfileLoading(false);
         }
-        setProfileLoading(false);
+      } catch (error) {
+        console.error("Error getting initial session:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     getInitialSession();
