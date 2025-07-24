@@ -100,5 +100,8 @@
   "pdf_header_company": "Empresa:",
   "pdf_col_qty": "Qtd.",
   "pdf_col_material": "Material",
-  "pdf_col_app_location": "Local de Aplicação"
+  "pdf_col_app_location": "Local de Aplicação",
+  "take_photo": "Tirar Foto",
+  "capture_photo": "Capturar Foto",
+  "error_accessing_camera": "Erro ao acessar a câmera"
 }

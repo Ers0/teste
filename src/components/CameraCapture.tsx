@@ -23,6 +23,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           videoElement.srcObject = stream;
+          videoElement.play(); // Explicitly play the video stream
         } catch (err) {
           console.error("Error accessing camera:", err);
           showError(t('error_accessing_camera'));
