@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/db';
 import { useAuth } from '@/integrations/supabase/auth';
 import { showLoading, dismissToast, showSuccess, showError } from '@/utils/toast';
-import { useTranslation, TFunction } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
+import { TFunction } from 'i18next';
 import { User } from '@supabase/supabase-js';
 
 interface SyncContextType {
