@@ -12,12 +12,11 @@ export const syncAllData = async (userId: string) => {
   console.log("Starting data synchronization...");
 
   try {
-    const tables = ['items', 'workers', 'tags', 'kits', 'kit_items', 'profiles'];
+    const tablesToSync = ['items', 'workers', 'tags', 'kits', 'kit_items', 'profiles', 'requisitions'];
     
-    for (const tableName of tables) {
+    for (const tableName of tablesToSync) {
       const query = supabase.from(tableName).select('*');
       
-      // The 'profiles' table has 'id' as the foreign key, not 'user_id'
       if (tableName === 'profiles') {
         // @ts-ignore
         query.eq('id', userId);
@@ -32,6 +31,19 @@ export const syncAllData = async (userId: string) => {
         // @ts-ignore
         await db[tableName].bulkPut(data);
       }
+    }
+
+    // Special handling for transactions to limit sync size
+    const { data: transactions, error: txError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('timestamp', { ascending: false })
+      .limit(100); // Sync last 100 transactions
+
+    if (txError) throw txError;
+    if (transactions) {
+      await db.transactions.bulkPut(transactions);
     }
 
     console.log("Data synchronization complete.");

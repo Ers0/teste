@@ -56,6 +56,34 @@ export interface Profile {
   language: string | null;
 }
 
+export interface Transaction {
+  id: string;
+  item_id: string;
+  worker_id: string | null;
+  company: string | null;
+  type: 'takeout' | 'return' | 'restock';
+  quantity: number;
+  timestamp: string;
+  user_id: string;
+  authorized_by: string | null;
+  given_by: string | null;
+  requisition_id: string | null;
+  is_broken: boolean;
+}
+
+export interface Requisition {
+  id: string;
+  requisition_number: string;
+  user_id: string;
+  authorized_by: string | null;
+  given_by: string | null;
+  requester_name: string | null;
+  requester_company: string | null;
+  application_location: string | null;
+  created_at: string;
+}
+
+
 export interface OfflineAction {
   id?: number;
   type: 'create' | 'update' | 'delete';
@@ -71,17 +99,21 @@ class LocalDatabase extends Dexie {
   kits!: Table<Kit, string>;
   kit_items!: Table<KitItem, string>;
   profiles!: Table<Profile, string>;
+  transactions!: Table<Transaction, string>;
+  requisitions!: Table<Requisition, string>;
   offline_queue!: Table<OfflineAction, number>;
 
   constructor() {
     super('YeesInventoryDB');
-    this.version(3).stores({
+    this.version(4).stores({
       items: '&id, name, *tags',
       workers: '&id, name, company',
       tags: '&id, name',
       kits: '&id, name',
       kit_items: '&id, kit_id, item_id',
       profiles: '&id',
+      transactions: '&id, item_id, worker_id, requisition_id, user_id',
+      requisitions: '&id, requisition_number, user_id',
       offline_queue: '++id, timestamp',
     });
   }
