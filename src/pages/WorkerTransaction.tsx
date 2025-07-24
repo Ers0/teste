@@ -1018,7 +1018,7 @@ const WorkerTransaction = () => {
                           </Button>
                         </div>
                       </div>
-                      {transactionType === 'return' && (
+                      {transactionType === 'return' && scannedItem.is_tool && (
                         <div className="flex items-center space-x-2 mt-2">
                           <Switch id="is-broken" checked={isBroken} onCheckedChange={setIsBroken} />
                           <Label htmlFor="is-broken">{t('mark_as_broken')}</Label>
