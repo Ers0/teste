@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/db';
 import { useAuth } from '@/integrations/supabase/auth';
 import { showLoading, dismissToast, showSuccess, showError } from '@/utils/toast';
-import { useTranslation } from 'react-i18next';
-import { TFunction } from 'i18next';
+import { useTranslation, TFunction } from 'react-i18next';
+import { User } from '@supabase/supabase-js';
 
 interface SyncContextType {
   isSyncing: boolean;
@@ -65,9 +65,15 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const isSyncingRef = useRef(false);
+  
+  const userRef = useRef<User | null>(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const syncData = useCallback(async () => {
-    if (!isOnline || !user || isSyncingRef.current) return;
+    const currentUser = userRef.current;
+    if (!isOnline || !currentUser || isSyncingRef.current) return;
 
     isSyncingRef.current = true;
     setIsSyncing(true);
@@ -88,22 +94,21 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ];
 
       for (const tableName of tablesToSync) {
-        // @ts-ignore
-        const { data, error } = await supabase.from(tableName).select('*').eq('user_id', user.id);
-        if (error && error.code !== '42P01') { // 42P01 = undefined_table (profiles doesn't have user_id)
-            if (tableName === 'profiles') {
-                 const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id);
-                 if (profileError) throw profileError;
-                 await db.profiles.clear();
-                 await db.profiles.bulkPut(profileData);
-            } else {
-                throw error;
-            }
-        } else if (data) {
+        if (tableName === 'profiles') {
+          const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', currentUser.id);
+          if (profileError) throw profileError;
+          await db.profiles.clear();
+          await db.profiles.bulkPut(profileData);
+        } else {
+          // @ts-ignore
+          const { data, error } = await supabase.from(tableName).select('*').eq('user_id', currentUser.id);
+          if (error) throw error;
+          if (data) {
             // @ts-ignore
             await db[tableName].clear();
             // @ts-ignore
             await db[tableName].bulkPut(data);
+          }
         }
       }
 
@@ -118,13 +123,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSyncing(false);
       isSyncingRef.current = false;
     }
-  }, [isOnline, user, t]);
+  }, [isOnline, t]);
 
   useEffect(() => {
     if (isOnline && user) {
       syncData();
     }
-  }, [isOnline, user, syncData]);
+  }, [isOnline, user?.id, syncData]);
 
   return (
     <SyncContext.Provider value={{ isSyncing, lastSync, syncData }}>
