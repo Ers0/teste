@@ -31,6 +31,15 @@ const RequisitionDetails = () => {
 
   const isLoading = requisition === undefined || transactionItems === undefined;
 
+  const safeFormatDateTime = (dateStr: string | null | undefined) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+        return 'N/A';
+    }
+    return date.toLocaleString();
+  };
+
   const handleDownloadPdf = async () => {
     if (!requisition || !transactionItems) {
       showError(t('requisition_data_not_loaded'));
@@ -85,7 +94,7 @@ const RequisitionDetails = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-sm">
-            <div><strong>{t('date')}:</strong> {new Date(requisition.created_at).toLocaleString()}</div>
+            <div><strong>{t('date')}:</strong> {safeFormatDateTime(requisition.created_at)}</div>
             <div><strong>{t('requester')}:</strong> {requisition.requester_name || 'N/A'}</div>
             <div><strong>{t('company')}:</strong> {requisition.requester_company || 'N/A'}</div>
             <div><strong>{t('authorized_by')}:</strong> {requisition.authorized_by || 'N/A'}</div>

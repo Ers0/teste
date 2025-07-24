@@ -10,14 +10,33 @@ import { useTranslation } from 'react-i18next';
 import { exportToPdf } from '@/utils/pdf';
 import { showError } from '@/utils/toast';
 import { Requisition } from '@/types';
+import { useMemo } from 'react';
 
 const Requisitions = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const requisitions = useLiveQuery(() => db.requisitions.orderBy('created_at').reverse().toArray(), []);
+  const requisitionsUnsorted = useLiveQuery(() => db.requisitions.toArray(), []);
+  const requisitions = useMemo(() => {
+    if (!requisitionsUnsorted) return undefined;
+    return requisitionsUnsorted.sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+    });
+  }, [requisitionsUnsorted]);
+
   const isLoading = requisitions === undefined;
+
+  const safeFormatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+        return 'N/A';
+    }
+    return date.toLocaleDateString();
+  };
 
   const handleDownloadPdf = async (requisition: Requisition) => {
     if (!user) return;
@@ -84,7 +103,7 @@ const Requisitions = () => {
                       <TableCell className="font-medium">{req.requisition_number}</TableCell>
                       <TableCell>{req.requester_name || 'N/A'}</TableCell>
                       <TableCell>{req.requester_company || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{new Date(req.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">{safeFormatDate(req.created_at)}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center gap-2">
                           <Link to={`/requisition/${req.id}`}>
