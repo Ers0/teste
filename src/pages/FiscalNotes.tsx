@@ -42,6 +42,15 @@ const FiscalNotes = () => {
   const fiscalNotes = useLiveQuery(() => db.fiscal_notes.orderBy('created_at').reverse().toArray(), []);
   const isLoading = fiscalNotes === undefined;
 
+  const safeFormatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+        return 'N/A';
+    }
+    return date.toLocaleDateString();
+  };
+
   const startWebScanner = useCallback(async () => {
     try {
       const cameras = await Html5Qrcode.getCameras();
@@ -448,8 +457,8 @@ const FiscalNotes = () => {
                         </TableCell>
                         <TableCell className="font-medium">{note.nfe_key}</TableCell>
                         <TableCell>{note.description || 'N/A'}</TableCell>
-                        <TableCell>{note.arrival_date ? new Date(note.arrival_date).toLocaleDateString() : 'N/A'}</TableCell>
-                        <TableCell className="text-right">{note.created_at ? new Date(note.created_at).toLocaleDateString() : 'N/A'}</TableCell>
+                        <TableCell>{safeFormatDate(note.arrival_date)}</TableCell>
+                        <TableCell className="text-right">{safeFormatDate(note.created_at)}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex justify-center gap-2">
                             <Button variant="destructive" size="icon" onClick={() => handleDeleteFiscalNote(note.id)}>
