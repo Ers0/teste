@@ -8,11 +8,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useProfile } from '@/hooks/use-profile';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Notifications from '@/components/Notifications';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { Item } from '@/lib/db';
+import { Worker } from '@/lib/db';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -20,41 +23,45 @@ const Dashboard = () => {
   const { profile, isLoading: profileLoading } = useProfile();
   const queryClient = useQueryClient();
 
-  // Invalidate notifications query on dashboard mount to ensure fresh data
   useEffect(() => {
     if (user) {
       queryClient.invalidateQueries({ queryKey: ['itemsForNotifications', user.id] });
     }
   }, [user, queryClient]);
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboardStats', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { count: itemsCount } = await supabase.from('items').select('*', { count: 'exact', head: true });
-      const { count: workersCount } = await supabase.from('workers').select('*', { count: 'exact', head: true });
-      
-      const { data: lowStockItems } = await supabase.from('items').select('id, name, quantity, low_stock_threshold, critical_stock_threshold').order('quantity', { ascending: true });
-      const criticalStockItems = lowStockItems?.filter(item => item.critical_stock_threshold && item.quantity <= item.critical_stock_threshold) || [];
-      const warningStockItems = lowStockItems?.filter(item => item.low_stock_threshold && item.critical_stock_threshold && item.quantity <= item.low_stock_threshold && item.quantity > item.critical_stock_threshold) || [];
+  const { data: items, isLoading: itemsLoading } = useOfflineQuery<Item>(
+    ['items', user?.id], 'items', async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
+      if (error) throw error;
+      return data;
+    }
+  );
 
-      const { data: lowReliabilityWorkers } = await supabase
-        .from('workers')
-        .select('id, name, reliability_score')
-        .lt('reliability_score', 80)
-        .order('reliability_score', { ascending: true })
-        .limit(5);
+  const { data: workers, isLoading: workersLoading } = useOfflineQuery<Worker>(
+    ['workers', user?.id], 'workers', async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id);
+      if (error) throw error;
+      return data;
+    }
+  );
 
-      return {
-        itemsCount,
-        workersCount,
-        criticalStockItems,
-        warningStockItems,
-        lowReliabilityWorkers,
-      };
-    },
-    enabled: !!user,
-  });
+  const stats = useMemo(() => {
+    if (!items || !workers) return null;
+
+    const criticalStockItems = items.filter(item => item.critical_stock_threshold && item.quantity <= item.critical_stock_threshold) || [];
+    const warningStockItems = items.filter(item => item.low_stock_threshold && item.critical_stock_threshold && item.quantity <= item.low_stock_threshold && item.quantity > item.critical_stock_threshold) || [];
+    const lowReliabilityWorkers = workers.filter(worker => worker.reliability_score !== null && worker.reliability_score < 80).sort((a, b) => (a.reliability_score || 100) - (b.reliability_score || 100)).slice(0, 5);
+
+    return {
+      itemsCount: items.length,
+      workersCount: workers.length,
+      criticalStockItems,
+      warningStockItems,
+      lowReliabilityWorkers,
+    };
+  }, [items, workers]);
 
   const userName = profile?.first_name || t('guest');
 
@@ -67,7 +74,7 @@ const Dashboard = () => {
     }
   };
 
-  const isLoading = profileLoading || statsLoading;
+  const isLoading = profileLoading || itemsLoading || workersLoading;
 
   const getScoreVariant = (score: number | null): 'secondary' | 'destructive' => {
     if (score === null) return 'destructive';

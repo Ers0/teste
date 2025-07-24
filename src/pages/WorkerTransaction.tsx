@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,28 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-
-interface Worker {
-  id: string;
-  name: string;
-  company: string | null;
-  qr_code_data: string | null;
-  external_qr_code_data: string | null;
-  user_id: string;
-  reliability_score: number;
-}
-
-interface Item {
-  id: string;
-  name: string;
-  description: string | null;
-  barcode: string | null;
-  quantity: number;
-  one_time_use: boolean;
-  is_tool: boolean;
-  user_id: string;
-  tags: string[] | null;
-}
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { Item, Worker, Kit } from '@/lib/db';
 
 interface Transaction {
   id: string;
@@ -73,11 +53,6 @@ interface OutstandingItem {
   outstanding_quantity: number;
 }
 
-interface Kit {
-  id: string;
-  name: string;
-}
-
 const WorkerTransaction = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -100,7 +75,6 @@ const WorkerTransaction = () => {
   const queryClient = useQueryClient();
 
   const [selectionMode, setSelectionMode] = useState<'worker' | 'company'>('worker');
-  const [companies, setCompanies] = useState<string[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
   const [scanningWorker, setScanningWorker] = useState(false);
@@ -109,37 +83,32 @@ const WorkerTransaction = () => {
   const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([]);
   const [isKitDialogOpen, setIsKitDialogOpen] = useState(false);
 
-  const { data: kits } = useQuery<Kit[], Error>({
-    queryKey: ['kits', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('kits').select('id, name').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
+  const { data: allWorkers } = useOfflineQuery<Worker>(['workers', user?.id], 'workers', async () => {
+    if (!user) return [];
+    const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id);
+    if (error) throw error;
+    return data;
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchCompanies();
-    }
-  }, [user]);
+  const { data: allItems } = useOfflineQuery<Item>(['items', user?.id], 'items', async () => {
+    if (!user) return [];
+    const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
+    if (error) throw error;
+    return data;
+  });
 
-  const fetchCompanies = async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('workers')
-      .select('company')
-      .eq('user_id', user.id);
+  const { data: kits } = useOfflineQuery<Kit>(['kits', user?.id], 'kits', async () => {
+    if (!user) return [];
+    const { data, error } = await supabase.from('kits').select('id, name').eq('user_id', user.id);
+    if (error) throw error;
+    return data;
+  });
 
-    if (error) {
-      showError(t('error_fetching_companies') + error.message);
-    } else if (data) {
-      const uniqueCompanies = [...new Set(data.map(w => w.company).filter(Boolean))] as string[];
-      setCompanies(uniqueCompanies.sort());
-    }
-  };
+  const companies = useMemo(() => {
+    if (!allWorkers) return [];
+    const uniqueCompanies = [...new Set(allWorkers.map(w => w.company).filter(Boolean))] as string[];
+    return uniqueCompanies.sort();
+  }, [allWorkers]);
 
   useEffect(() => {
     const stopWebScanner = async () => {
@@ -249,9 +218,8 @@ const WorkerTransaction = () => {
     setScanningItem(false);
   };
 
-  const { data: transactionsHistory, isLoading: isHistoryLoading, error: historyError } = useQuery<Transaction[], Error>({
-    queryKey: ['transactions', user?.id],
-    queryFn: async () => {
+  const { data: transactionsHistory, isLoading: isHistoryLoading, error: historyError } = useOfflineQuery<Transaction>(
+    ['transactions', user?.id], 'transactions', async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('transactions')
@@ -259,32 +227,19 @@ const WorkerTransaction = () => {
         .eq('user_id', user.id)
         .order('timestamp', { ascending: false })
         .limit(5);
-
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw error;
       return data as Transaction[];
-    },
-    enabled: !!user,
-    staleTime: 1000 * 10,
-  });
+    }
+  );
 
-  const { data: outstandingItems, isLoading: isOutstandingLoading, error: outstandingError } = useQuery<OutstandingItem[], Error>({
-    queryKey: ['outstandingItems', user?.id],
-    queryFn: async () => {
+  const { data: outstandingItems, isLoading: isOutstandingLoading, error: outstandingError } = useOfflineQuery<OutstandingItem>(
+    ['outstandingItems', user?.id], 'outstanding_items', async () => {
       if (!user) return [];
-      const { data, error } = await supabase
-        .from('outstanding_items')
-        .select('*');
-
-      if (error) {
-        throw new Error(error.message);
-      }
+      const { data, error } = await supabase.from('outstanding_items').select('*');
+      if (error) throw error;
       return data as OutstandingItem[];
-    },
-    enabled: !!user && activeTab === 'outstanding-takeouts',
-    staleTime: 1000 * 60 * 5,
-  });
+    }
+  );
 
   useEffect(() => {
     if (historyError) {
@@ -298,63 +253,29 @@ const WorkerTransaction = () => {
     }
   }, [outstandingError, t]);
 
-  const handleScanWorker = async (qrCodeData: string) => {
-    if (!qrCodeData) {
-      showError(t('enter_worker_qr_code_scan'));
-      return;
-    }
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('workers')
-      .select('*')
-      .or(`qr_code_data.eq.${qrCodeData},external_qr_code_data.eq.${qrCodeData}`)
-      .eq('user_id', user.id)
-      .single();
-
-    if (error) {
-      showError(t('worker_not_found_error') + error.message);
-      setScannedWorker(null);
-    } else {
-      setScannedWorker(data);
-      showSuccess(t('worker_found', { workerName: data.name }));
+  const handleScanWorker = (qrCodeData: string) => {
+    if (!qrCodeData) { showError(t('enter_worker_qr_code_scan')); return; }
+    const worker = allWorkers?.find(w => w.qr_code_data === qrCodeData || w.external_qr_code_data === qrCodeData);
+    if (worker) {
+      setScannedWorker(worker);
+      showSuccess(t('worker_found', { workerName: worker.name }));
       setWorkerQrCodeInput(qrCodeData);
       setWorkerSearchTerm('');
       setWorkerSearchResults([]);
+    } else {
+      showError(t('worker_not_found_error'));
+      setScannedWorker(null);
     }
   };
 
-  const handleSearchWorkerByName = async () => {
-    if (!workerSearchTerm.trim()) {
-      showError(t('enter_worker_name_to_search'));
-      return;
-    }
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('workers')
-      .select('*')
-      .ilike('name', `%${workerSearchTerm.trim()}%`)
-      .eq('user_id', user.id);
-
-    if (error) {
-      showError(t('error_searching_workers') + error.message);
-      setWorkerSearchResults([]);
-    } else if (data && data.length > 0) {
-      if (data.length === 1) {
-        setScannedWorker(data[0]);
-        showSuccess(t('worker_found', { workerName: data[0].name }));
-        setWorkerQrCodeInput(data[0].qr_code_data || data[0].external_qr_code_data || '');
-        setWorkerSearchTerm('');
-        setWorkerSearchResults([]);
+  const handleSearchWorkerByName = () => {
+    if (!workerSearchTerm.trim()) { showError(t('enter_worker_name_to_search')); return; }
+    const results = allWorkers?.filter(w => w.name.toLowerCase().includes(workerSearchTerm.trim().toLowerCase())) || [];
+    if (results.length > 0) {
+      if (results.length === 1) {
+        handleSelectWorker(results[0]);
       } else {
-        setWorkerSearchResults(data);
+        setWorkerSearchResults(results);
         showSuccess(t('multiple_workers_found_select'));
       }
     } else {
@@ -387,101 +308,35 @@ const WorkerTransaction = () => {
     showSuccess(t('selection_cleared'));
   };
 
-  const handleScanItem = async (scannedBarcode?: string) => {
+  const handleScanItem = (scannedBarcode?: string) => {
     const barcodeToSearch = scannedBarcode || itemBarcodeInput;
-    if (!barcodeToSearch) {
-      showError(t('enter_item_barcode_scan'));
-      return;
-    }
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('items')
-      .select('*, one_time_use, is_tool')
-      .eq('barcode', barcodeToSearch)
-      .eq('user_id', user.id)
-      .single();
-
-    if (error) {
-      showError(t('item_not_found_error') + error.message);
-      setScannedItem(null);
-      setItemSearchTerm('');
+    if (!barcodeToSearch) { showError(t('enter_item_barcode_scan')); return; }
+    const item = allItems?.find(i => i.barcode === barcodeToSearch);
+    if (item) {
+      setScannedItem(item);
+      showSuccess(t('item_found', { itemName: item.name }));
+      setItemSearchTerm(item.name);
       setItemSearchResults([]);
-    } else {
-      setScannedItem(data);
-      showSuccess(t('item_found', { itemName: data.name }));
-      setItemSearchTerm(data.name);
-      setItemSearchResults([]);
-      if (data.one_time_use) {
+      if (item.one_time_use) {
         setTransactionType('takeout');
         showError(t('this_is_one_time_use_item_takeout_only'));
       }
+    } else {
+      showError(t('item_not_found_error'));
+      setScannedItem(null);
+      setItemSearchTerm('');
+      setItemSearchResults([]);
     }
   };
 
-  const handleSearchItemByName = async () => {
-    if (!itemSearchTerm.trim()) {
-      showError(t('enter_item_name_to_search'));
-      return;
-    }
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
-    }
-
-    const searchTerms = itemSearchTerm.trim().split(/[\s,]+/).filter(Boolean);
-    if (searchTerms.length === 0) {
-      return;
-    }
-
-    // 1. Find tags matching the search terms
-    const tagFilters = searchTerms.map(term => `name.ilike.%${term}%`).join(',');
-    const { data: matchingTags, error: tagsError } = await supabase
-      .from('tags')
-      .select('id')
-      .or(tagFilters)
-      .eq('user_id', user.id);
-
-    if (tagsError) {
-      showError(t('error_searching_tags') + tagsError.message);
-      return;
-    }
-
-    const matchingTagIds = matchingTags.map(tag => tag.id);
-
-    // 2. Build filters for items
-    const nameFilters = searchTerms.map(term => `name.ilike.%${term}%`);
-    const allFilters = [...nameFilters];
-
-    if (matchingTagIds.length > 0) {
-      allFilters.push(`tags.cs.{${matchingTagIds.join(',')}}`);
-    }
-
-    // 3. Search for items
-    const { data, error } = await supabase
-      .from('items')
-      .select('*, one_time_use, is_tool, tags')
-      .or(allFilters.join(','))
-      .eq('user_id', user.id);
-
-    if (error) {
-      showError(t('error_searching_items') + error.message);
-      setItemSearchResults([]);
-    } else if (data && data.length > 0) {
-      if (data.length === 1) {
-        setScannedItem(data[0]);
-        showSuccess(t('item_found', { itemName: data[0].name }));
-        setItemBarcodeInput(data[0].barcode || '');
-        setItemSearchResults([]);
-        if (data[0].one_time_use) {
-          setTransactionType('takeout');
-          showError(t('this_is_one_time_use_item_takeout_only'));
-        }
+  const handleSearchItemByName = () => {
+    if (!itemSearchTerm.trim()) { showError(t('enter_item_name_to_search')); return; }
+    const results = allItems?.filter(i => i.name.toLowerCase().includes(itemSearchTerm.trim().toLowerCase())) || [];
+    if (results.length > 0) {
+      if (results.length === 1) {
+        handleSelectItem(results[0]);
       } else {
-        setItemSearchResults(data);
+        setItemSearchResults(results);
         showSuccess(t('multiple_items_found_select'));
       }
     } else {
@@ -754,7 +609,6 @@ const WorkerTransaction = () => {
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message);
-      fetchCompanies();
     }
   };
 
