@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,25 +14,16 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
-
-interface Item {
-  id: string;
-  name: string;
-}
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { Item, Kit, KitItem as DbKitItem } from '@/lib/db';
 
 interface KitItem extends Item {
   quantity: number;
-  kit_item_id?: string; // Not in DB, just for client-side mapping
+  kit_item_id?: string;
 }
 
-interface Kit {
-  id: string;
-  name: string;
-  description: string | null;
-  kit_items: {
-    quantity: number;
-    items: { id: string; name: string; } | null;
-  }[];
+interface PopulatedKit extends Kit {
+  kit_items: KitItem[];
 }
 
 const Kits = () => {
@@ -42,47 +33,56 @@ const Kits = () => {
   const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingKit, setEditingKit] = useState<Kit | null>(null);
+  const [editingKit, setEditingKit] = useState<PopulatedKit | null>(null);
   const [kitName, setKitName] = useState('');
   const [kitDescription, setKitDescription] = useState('');
   const [selectedItems, setSelectedItems] = useState<Map<string, KitItem>>(new Map());
   const [isItemSearchOpen, setIsItemSearchOpen] = useState(false);
 
-  const { data: kits, isLoading: kitsLoading } = useQuery<Kit[], Error>({
-    queryKey: ['kits', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('kits')
-        .select('*, kit_items(*, items(id, name))')
-        .eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
+  const { data: kits, isLoading: kitsLoading } = useOfflineQuery<Kit>(['kits', user?.id], 'kits', async () => {
+    if (!user) return [];
+    const { data, error } = await supabase.from('kits').select('*').eq('user_id', user.id);
+    if (error) throw new Error(error.message);
+    return data;
   });
 
-  const { data: allItems } = useQuery<Item[], Error>({
-    queryKey: ['items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('items').select('id, name').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
+  const { data: allKitItems, isLoading: kitItemsLoading } = useOfflineQuery<DbKitItem>(['kit_items', user?.id], 'kit_items', async () => {
+    if (!user) return [];
+    const { data, error } = await supabase.from('kit_items').select('*').eq('user_id', user.id);
+    if (error) throw new Error(error.message);
+    return data;
   });
 
-  const openDialog = (kit: Kit | null = null) => {
+  const { data: allItems, isLoading: itemsLoading } = useOfflineQuery<Item>(['items', user?.id], 'items', async () => {
+    if (!user) return [];
+    const { data, error } = await supabase.from('items').select('id, name').eq('user_id', user.id);
+    if (error) throw new Error(error.message);
+    return data;
+  });
+
+  const populatedKits = useMemo<PopulatedKit[]>(() => {
+    if (!kits || !allKitItems || !allItems) return [];
+    const itemsMap = new Map(allItems.map(item => [item.id, item]));
+    return kits.map(kit => {
+      const kitItemsForThisKit = allKitItems
+        .filter(ki => ki.kit_id === kit.id)
+        .map(ki => {
+          const itemDetails = itemsMap.get(ki.item_id);
+          return itemDetails ? { ...itemDetails, quantity: ki.quantity } : null;
+        })
+        .filter((i): i is KitItem => i !== null);
+      return { ...kit, kit_items: kitItemsForThisKit };
+    });
+  }, [kits, allKitItems, allItems]);
+
+  const openDialog = (kit: PopulatedKit | null = null) => {
     if (kit) {
       setEditingKit(kit);
       setKitName(kit.name);
       setKitDescription(kit.description || '');
       const itemsMap = new Map<string, KitItem>();
       kit.kit_items.forEach(ki => {
-        if (ki.items) {
-          itemsMap.set(ki.items.id, { ...ki.items, quantity: ki.quantity });
-        }
+        itemsMap.set(ki.id, { ...ki });
       });
       setSelectedItems(itemsMap);
     } else {
@@ -102,7 +102,7 @@ const Kits = () => {
       }
       return newMap;
     });
-    setIsItemSearchOpen(false); // Close popover on selection
+    setIsItemSearchOpen(false);
   };
 
   const handleQuantityChange = (itemId: string, quantity: number) => {
@@ -149,7 +149,6 @@ const Kits = () => {
 
       if (!kitId) throw new Error('Failed to get kit ID.');
 
-      // Simple approach: delete all existing items and re-insert
       const { error: deleteError } = await supabase.from('kit_items').delete().eq('kit_id', kitId);
       if (deleteError) throw deleteError;
 
@@ -167,6 +166,7 @@ const Kits = () => {
       showSuccess(`Kit "${kitName}" saved successfully!`);
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['kits', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['kit_items', user?.id] });
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message);
@@ -181,11 +181,13 @@ const Kits = () => {
       } else {
         showSuccess('Kit deleted successfully.');
         queryClient.invalidateQueries({ queryKey: ['kits', user?.id] });
+        queryClient.invalidateQueries({ queryKey: ['kit_items', user?.id] });
       }
     }
   };
 
   const selectedItemsArray = useMemo(() => Array.from(selectedItems.values()), [selectedItems]);
+  const isLoading = kitsLoading || kitItemsLoading || itemsLoading;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
@@ -209,10 +211,10 @@ const Kits = () => {
             </Button>
           </div>
           <div className="space-y-4">
-            {kitsLoading ? (
+            {isLoading ? (
               <p>Loading kits...</p>
-            ) : kits && kits.length > 0 ? (
-              kits.map(kit => (
+            ) : populatedKits && populatedKits.length > 0 ? (
+              populatedKits.map(kit => (
                 <Card key={kit.id}>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
@@ -226,9 +228,9 @@ const Kits = () => {
                   </CardHeader>
                   <CardContent>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                      {kit.kit_items.map(ki => ki.items ? (
-                        <li key={ki.items.id}>{ki.items.name} <Badge variant="secondary">x{ki.quantity}</Badge></li>
-                      ) : null)}
+                      {kit.kit_items.map(ki => (
+                        <li key={ki.id}>{ki.name} <Badge variant="secondary">x{ki.quantity}</Badge></li>
+                      ))}
                     </ul>
                   </CardContent>
                 </Card>

@@ -26,6 +26,7 @@ import { v4 as uuidv4 } from 'uuid';
 import QRCode from '@/components/QRCodeWrapper';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { db } from '@/lib/db';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 interface Item {
   id: string;
@@ -52,6 +53,7 @@ interface Tag {
 const Inventory = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -80,7 +82,7 @@ const Inventory = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const { data: items, isLoading, error } = useOfflineQuery<Item>(
+  const { data: items, isLoading, error, refetch: refetchItems } = useOfflineQuery<Item>(
     ['items', user?.id],
     'items',
     async () => {
@@ -173,37 +175,78 @@ const Inventory = () => {
   const handleAddItem = async () => {
     if (!name || quantity < 0) { showError(t('fill_item_name_quantity')); return; }
     if (!user) { showError(t('user_not_authenticated_login')); return; }
-    let imageUrl = null; if (imageFile) { imageUrl = await uploadImage(imageFile); }
-    const { error } = await supabase.from('items').insert({
-      name, description, quantity, barcode: barcode.trim() === '' ? null : barcode.trim(),
+
+    const newItem: Item = {
+      id: uuidv4(),
+      name,
+      description,
+      quantity,
+      barcode: barcode.trim() === '' ? null : barcode.trim(),
       low_stock_threshold: lowStock === '' ? null : Number(lowStock),
       critical_stock_threshold: criticalStock === '' ? null : Number(criticalStock),
-      one_time_use: itemType === 'material', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
-      tags: selectedTags, image_url: imageUrl, user_id: user.id,
-    });
-    if (error) { showError(`${t('error_adding_item')} ${error.message}`); }
-    else { showSuccess(t('item_added_successfully')); queryClient.invalidateQueries({ queryKey: ['items'] }); setIsAddDialogOpen(false); }
+      one_time_use: itemType === 'material',
+      is_tool: itemType === 'tool',
+      is_ppe: itemType === 'ppe',
+      tags: selectedTags,
+      image_url: null, // Handled separately
+      user_id: user.id,
+    };
+
+    if (isOnline) {
+      let imageUrl = null; if (imageFile) { imageUrl = await uploadImage(imageFile); }
+      newItem.image_url = imageUrl;
+      const { error } = await supabase.from('items').insert(newItem);
+      if (error) { showError(`${t('error_adding_item')} ${error.message}`); }
+      else { showSuccess(t('item_added_successfully')); refetchItems(); setIsAddDialogOpen(false); }
+    } else {
+      await db.items.add(newItem);
+      await db.offline_queue.add({ type: 'create', tableName: 'items', payload: newItem, timestamp: Date.now() });
+      showSuccess(t('item_saved_offline'));
+      setIsAddDialogOpen(false);
+    }
   };
 
   const handleUpdateItem = async () => {
     if (!editingItem) return; if (!name || quantity < 0) { showError(t('fill_item_name_quantity')); return; }
-    let imageUrl = editingItem.image_url; if (imageFile) { imageUrl = await uploadImage(imageFile); }
-    const { error } = await supabase.from('items').update({
-      name, description, quantity, barcode: barcode.trim() === '' ? null : barcode.trim(),
+    
+    const updatedItemData = {
+      name,
+      description,
+      quantity,
+      barcode: barcode.trim() === '' ? null : barcode.trim(),
       low_stock_threshold: lowStock === '' ? null : Number(lowStock),
       critical_stock_threshold: criticalStock === '' ? null : Number(criticalStock),
-      one_time_use: itemType === 'material', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
-      tags: selectedTags, image_url: imageUrl,
-    }).eq('id', editingItem.id);
-    if (error) { showError(`${t('error_updating_item')} ${error.message}`); }
-    else { showSuccess(t('item_updated_successfully')); queryClient.invalidateQueries({ queryKey: ['items'] }); setIsEditDialogOpen(false); }
+      one_time_use: itemType === 'material',
+      is_tool: itemType === 'tool',
+      is_ppe: itemType === 'ppe',
+      tags: selectedTags,
+      image_url: editingItem.image_url,
+    };
+
+    if (isOnline) {
+      if (imageFile) { updatedItemData.image_url = await uploadImage(imageFile); }
+      const { error } = await supabase.from('items').update(updatedItemData).eq('id', editingItem.id);
+      if (error) { showError(`${t('error_updating_item')} ${error.message}`); }
+      else { showSuccess(t('item_updated_successfully')); refetchItems(); setIsEditDialogOpen(false); }
+    } else {
+      await db.items.update(editingItem.id, updatedItemData);
+      await db.offline_queue.add({ type: 'update', tableName: 'items', payload: { id: editingItem.id, ...updatedItemData }, timestamp: Date.now() });
+      showSuccess(t('item_update_saved_offline'));
+      setIsEditDialogOpen(false);
+    }
   };
 
   const handleDeleteItem = async (itemId: string) => {
     if (window.confirm(t('confirm_delete_item'))) {
-      const { error } = await supabase.from('items').delete().eq('id', itemId);
-      if (error) { showError(`${t('error_deleting_item')} ${error.message}`); }
-      else { showSuccess(t('item_deleted_successfully')); queryClient.invalidateQueries({ queryKey: ['items'] }); }
+      if (isOnline) {
+        const { error } = await supabase.from('items').delete().eq('id', itemId);
+        if (error) { showError(`${t('error_deleting_item')} ${error.message}`); }
+        else { showSuccess(t('item_deleted_successfully')); refetchItems(); }
+      } else {
+        await db.items.delete(itemId);
+        await db.offline_queue.add({ type: 'delete', tableName: 'items', payload: { id: itemId }, timestamp: Date.now() });
+        showSuccess(t('item_deleted_offline'));
+      }
     }
   };
 
@@ -232,7 +275,7 @@ const Inventory = () => {
       }));
       const { error } = await supabase.from('items').insert(itemsToImport); if (error) { throw error; }
       dismissToast(toastId); showSuccess(t('items_imported_successfully', { count: itemsToImport.length }));
-      queryClient.invalidateQueries({ queryKey: ['items'] }); setIsImportDialogOpen(false);
+      refetchItems(); setIsImportDialogOpen(false);
     } catch (error: any) { dismissToast(toastId); showError(`${t('error_importing_items')} ${error.message}`); }
   };
 
@@ -240,26 +283,44 @@ const Inventory = () => {
 
   const handleBulkDelete = async () => {
     const toastId = showLoading(t('deleting_items', { count: selectedItemIds.length }));
-    const { error } = await supabase.from('items').delete().in('id', selectedItemIds);
-    dismissToast(toastId);
-    if (error) { showError(t('error_deleting_items') + error.message); }
-    else { showSuccess(t('items_deleted_successfully')); setSelectedItemIds([]); queryClient.invalidateQueries({ queryKey: ['items'] }); }
+    if (isOnline) {
+      const { error } = await supabase.from('items').delete().in('id', selectedItemIds);
+      if (error) { dismissToast(toastId); showError(t('error_deleting_items') + error.message); }
+      else { dismissToast(toastId); showSuccess(t('items_deleted_successfully')); setSelectedItemIds([]); refetchItems(); }
+    } else {
+      await db.items.bulkDelete(selectedItemIds);
+      const actions = selectedItemIds.map(id => ({ type: 'delete', tableName: 'items', payload: { id }, timestamp: Date.now() }));
+      await db.offline_queue.bulkAdd(actions as any);
+      dismissToast(toastId);
+      showSuccess(t('items_deleted_offline'));
+      setSelectedItemIds([]);
+    }
     setIsBulkDeleteDialogOpen(false);
   };
 
   const handleBulkAddTags = async () => {
     if (tagsToAdd.length === 0) { showError(t('please_select_tags_to_add')); return; }
     const toastId = showLoading(t('adding_tags_to_items', { count: selectedItemIds.length }));
-    const { data: itemsToUpdate, error: fetchError } = await supabase.from('items').select('*').in('id', selectedItemIds);
-    if (fetchError) { dismissToast(toastId); showError(t('error_fetching_items_for_update')); return; }
+    
+    const itemsToUpdate = items?.filter(item => selectedItemIds.includes(item.id)) || [];
     const updates = itemsToUpdate.map(item => ({
       ...item,
       tags: [...new Set([...(item.tags || []), ...tagsToAdd])]
     }));
-    const { error: updateError } = await supabase.from('items').upsert(updates);
-    dismissToast(toastId);
-    if (updateError) { showError(t('error_updating_tags') + updateError.message); }
-    else { showSuccess(t('tags_added_successfully')); setSelectedItemIds([]); setTagsToAdd([]); queryClient.invalidateQueries({ queryKey: ['items'] }); }
+
+    if (isOnline) {
+      const { error: updateError } = await supabase.from('items').upsert(updates);
+      if (updateError) { dismissToast(toastId); showError(t('error_updating_tags') + updateError.message); }
+      else { dismissToast(toastId); showSuccess(t('tags_added_successfully')); setSelectedItemIds([]); setTagsToAdd([]); refetchItems(); }
+    } else {
+      await db.items.bulkPut(updates);
+      const actions = updates.map(item => ({ type: 'update', tableName: 'items', payload: item, timestamp: Date.now() }));
+      await db.offline_queue.bulkAdd(actions as any);
+      dismissToast(toastId);
+      showSuccess(t('tags_update_saved_offline'));
+      setSelectedItemIds([]);
+      setTagsToAdd([]);
+    }
     setIsBulkTagDialogOpen(false);
   };
 
