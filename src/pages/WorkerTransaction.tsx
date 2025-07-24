@@ -8,7 +8,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction, Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -102,7 +102,7 @@ const WorkerTransaction = () => {
 
   const { data: kits } = useOfflineQuery<Kit>(['kits', user?.id], 'kits', async () => {
     if (!user) return [];
-    const { data, error } = await supabase.from('kits').select('id, name').eq('user_id', user.id);
+    const { data, error } = await supabase.from('kits').select('*').eq('user_id', user.id);
     if (error) throw error;
     return data;
   });
@@ -235,14 +235,16 @@ const WorkerTransaction = () => {
     }
   );
 
-  const { data: outstandingItems, isLoading: isOutstandingLoading, error: outstandingError } = useOfflineQuery<OutstandingItem>(
-    ['outstandingItems', user?.id], 'outstanding_items', async () => {
+  const { data: outstandingItems, isLoading: isOutstandingLoading, error: outstandingError } = useQuery<OutstandingItem[]>({
+    queryKey: ['outstandingItems', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase.from('outstanding_items').select('*');
       if (error) throw error;
       return data as OutstandingItem[];
-    }
-  );
+    },
+    enabled: !!user && isOnline,
+  });
 
   useEffect(() => {
     if (historyError) {
