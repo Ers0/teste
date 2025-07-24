@@ -21,12 +21,6 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url "$rootDir/capacitor-cordova-android-plugins/src/main/libs"
-        }
-        maven {
-            url "$rootDir/app/libs"
-        }
     }
 }
 
