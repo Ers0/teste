@@ -19,6 +19,7 @@ import RequisitionDetails from "./pages/RequisitionDetails";
 import Tags from "./pages/Tags";
 import Analytics from "./pages/Analytics";
 import Kits from "./pages/Kits";
+import CreateRequisition from "./pages/CreateRequisition";
 import { SessionContextProvider } from "./integrations/supabase/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useEffect } from "react";
@@ -65,6 +66,7 @@ const App = () => {
                 <Route path="/tags" element={<ProtectedRoute><Tags /></ProtectedRoute>} />
                 <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                 <Route path="/kits" element={<ProtectedRoute><Kits /></ProtectedRoute>} />
+                <Route path="/create-requisition" element={<ProtectedRoute><CreateRequisition /></ProtectedRoute>} />
               </Routes>
             </SyncProvider>
           </SessionContextProvider>
