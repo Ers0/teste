@@ -65,15 +65,9 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const isSyncingRef = useRef(false);
-  
-  const userRef = useRef<User | null>(user);
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
 
   const syncData = useCallback(async () => {
-    const currentUser = userRef.current;
-    if (!isOnline || !currentUser || isSyncingRef.current) return;
+    if (!isOnline || !user || isSyncingRef.current) return;
 
     isSyncingRef.current = true;
     setIsSyncing(true);
@@ -95,13 +89,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       for (const tableName of tablesToSync) {
         if (tableName === 'profiles') {
-          const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', currentUser.id);
+          const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id);
           if (profileError) throw profileError;
           await db.profiles.clear();
           await db.profiles.bulkPut(profileData);
         } else {
           // @ts-ignore
-          const { data, error } = await supabase.from(tableName).select('*').eq('user_id', currentUser.id);
+          const { data, error } = await supabase.from(tableName).select('*').eq('user_id', user.id);
           if (error) throw error;
           if (data) {
             // @ts-ignore
@@ -123,13 +117,14 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSyncing(false);
       isSyncingRef.current = false;
     }
-  }, [isOnline, t]);
+  }, [isOnline, user, t]);
 
   useEffect(() => {
     if (isOnline && user) {
       syncData();
     }
-  }, [isOnline, user?.id, syncData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, user?.id]);
 
   return (
     <SyncContext.Provider value={{ isSyncing, lastSync, syncData }}>
