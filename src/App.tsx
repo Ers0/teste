@@ -20,8 +20,10 @@ import Tags from "./pages/Tags";
 import Analytics from "./pages/Analytics";
 import Kits from "./pages/Kits";
 import CreateRequisition from "./pages/CreateRequisition";
+import Approvals from "./pages/Approvals";
 import { SessionContextProvider } from "./integrations/supabase/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import { useEffect } from "react";
 import { SyncProvider } from "./providers/SyncProvider";
 import SyncStatusIndicator from "./components/SyncStatusIndicator";
@@ -67,6 +69,7 @@ const App = () => {
                 <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                 <Route path="/kits" element={<ProtectedRoute><Kits /></ProtectedRoute>} />
                 <Route path="/create-requisition" element={<ProtectedRoute><CreateRequisition /></ProtectedRoute>} />
+                <Route path="/approvals" element={<AdminRoute><Approvals /></AdminRoute>} />
               </Routes>
             </SyncProvider>
           </SessionContextProvider>

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck, Tags, LogOut, AreaChart, PackagePlus, FileSignature } from 'lucide-react';
+import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck, Tags, LogOut, AreaChart, PackagePlus, FileSignature, FileCheck2 } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,6 +58,10 @@ const Dashboard = () => {
     { to: "/kits", icon: PackagePlus, label: t('manage_kits') },
     { to: "/settings", icon: SettingsIcon, label: t('settings') },
   ];
+
+  if (profile?.role === 'admin') {
+    quickLinks.splice(5, 0, { to: "/approvals", icon: FileCheck2, label: t('approvals') });
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8">
