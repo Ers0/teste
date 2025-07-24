@@ -515,12 +515,12 @@ const WorkerTransaction = () => {
   };
 
   const handleSelectKit = async (kitId: string) => {
-    const toastId = showLoading('Adding items from kit...');
+    const toastId = showLoading(t('adding_items_from_kit'));
     try {
       const kitItems = await db.kit_items.where('kit_id').equals(kitId).toArray();
 
       if (!kitItems || kitItems.length === 0) {
-        showError('This kit is empty.');
+        showError(t('kit_is_empty'));
         return;
       }
 
@@ -546,7 +546,7 @@ const WorkerTransaction = () => {
 
       if (!stockError) {
         setTransactionItems(prev => [...prev, ...itemsToAdd]);
-        showSuccess('Items from kit added to the list.');
+        showSuccess(t('items_from_kit_added'));
         setIsKitDialogOpen(false);
       }
     } catch (error: any) {
@@ -720,7 +720,7 @@ const WorkerTransaction = () => {
                       <Package className="mr-2 h-5 w-5" /> {t('item_information')}
                     </h3>
                     <Button variant="outline" size="sm" onClick={() => setIsKitDialogOpen(true)} disabled={!scannedWorker && !selectedCompany}>
-                      <PackagePlus className="mr-2 h-4 w-4" /> Add from Kit
+                      <PackagePlus className="mr-2 h-4 w-4" /> {t('add_from_kit')}
                     </Button>
                   </div>
                   {!scannedItem ? (
@@ -964,7 +964,7 @@ const WorkerTransaction = () => {
       <Dialog open={isKitDialogOpen} onOpenChange={setIsKitDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Select a Kit</DialogTitle>
+            <DialogTitle>{t('select_a_kit')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-4">
             {kits && kits.length > 0 ? (
@@ -974,7 +974,7 @@ const WorkerTransaction = () => {
                 </Button>
               ))
             ) : (
-              <p className="text-center text-muted-foreground">No kits available. <Link to="/kits" className="underline">Create one now</Link>.</p>
+              <p className="text-center text-muted-foreground">{t('no_kits_available')} <Link to="/kits" className="underline">{t('create_one_now')}</Link>.</p>
             )}
           </div>
         </DialogContent>

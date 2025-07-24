@@ -54,7 +54,7 @@ const Dashboard = () => {
     { to: "/fiscal-notes", icon: FileText, label: t('fiscal_notes') },
     { to: "/requisitions", icon: ClipboardCheck, label: t('requisitions') },
     { to: "/tags", icon: Tags, label: t('manage_tags') },
-    { to: "/kits", icon: PackagePlus, label: "Manage Kits" },
+    { to: "/kits", icon: PackagePlus, label: t('manage_kits') },
     { to: "/settings", icon: SettingsIcon, label: t('settings') },
   ];
 
