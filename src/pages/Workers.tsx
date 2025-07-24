@@ -19,6 +19,7 @@ import { parseCsv } from '@/utils/import';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 
 interface Worker {
   id: string;
@@ -43,7 +44,6 @@ const initialNewWorkerState = {
 const Workers = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [workers, setWorkers] = useState<Worker[]>([]);
   const [groupedWorkers, setGroupedWorkers] = useState<Record<string, Worker[]>>({});
   const [newWorker, setNewWorker] = useState<typeof initialNewWorkerState>(initialNewWorkerState);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
@@ -59,11 +59,20 @@ const Workers = () => {
   const [isScanningExternalQr, setIsScanningExternalQr] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      fetchWorkers();
+  const { data: workers, isLoading: workersLoading, refetch: fetchWorkers } = useOfflineQuery<Worker>(
+    ['workers', user?.id],
+    'workers',
+    async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('workers')
+        .select('*, external_qr_code_data, reliability_score')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
+      if (error) throw new Error(error.message);
+      return data;
     }
-  }, [user]);
+  );
 
   useEffect(() => {
     if (workers) {
@@ -184,22 +193,6 @@ const Workers = () => {
   const stopExternalQrScan = () => {
     setIsScanningExternalQr(false);
     setIsDialogOpen(true);
-  };
-
-  const fetchWorkers = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('workers')
-      .select('*, external_qr_code_data, reliability_score')
-      .eq('user_id', user.id)
-      .order('name', { ascending: true });
-
-    if (error) {
-      showError(t('error_fetching_workers') + error.message);
-    } else {
-      setWorkers(data || []);
-    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
