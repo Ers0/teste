@@ -63,6 +63,15 @@ interface TransactionItem {
   is_broken?: boolean;
 }
 
+interface OutstandingItem {
+  worker_id: string;
+  item_id: string;
+  worker_name: string;
+  company: string | null;
+  item_name: string;
+  outstanding_quantity: number;
+}
+
 const WorkerTransaction = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -242,23 +251,18 @@ const WorkerTransaction = () => {
     staleTime: 1000 * 10,
   });
 
-  const { data: outstandingTakeouts, isLoading: isOutstandingLoading, error: outstandingError } = useQuery<Transaction[], Error>({
-    queryKey: ['outstandingTakeouts', user?.id],
+  const { data: outstandingItems, isLoading: isOutstandingLoading, error: outstandingError } = useQuery<OutstandingItem[], Error>({
+    queryKey: ['outstandingItems', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
-        .from('transactions')
-        .select('*, items(name), workers(name), company')
-        .eq('user_id', user.id)
-        .eq('type', 'takeout')
-        .lt('timestamp', twentyFourHoursAgo)
-        .order('timestamp', { ascending: false });
+        .from('outstanding_items')
+        .select('*');
 
       if (error) {
         throw new Error(error.message);
       }
-      return data as Transaction[];
+      return data as OutstandingItem[];
     },
     enabled: !!user && activeTab === 'outstanding-takeouts',
     staleTime: 1000 * 60 * 5,
@@ -755,7 +759,7 @@ const WorkerTransaction = () => {
     setTransactionItems([]);
     showSuccess(t('transaction_session_cleared'));
     queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
-    queryClient.refetchQueries({ queryKey: ['outstandingTakeouts', user?.id] });
+    queryClient.refetchQueries({ queryKey: ['outstandingItems', user?.id] });
   };
 
   const incrementQuantity = () => {
@@ -1147,18 +1151,13 @@ const WorkerTransaction = () => {
                 </p>
                 {isOutstandingLoading ? (
                   <p className="text-gray-500">{t('loading_outstanding_takeouts')}</p>
-                ) : outstandingTakeouts && outstandingTakeouts.length > 0 ? (
+                ) : outstandingItems && outstandingItems.length > 0 ? (
                   <div className="space-y-2">
-                    {outstandingTakeouts.map((transaction) => (
-                      <div key={transaction.id} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
-                        <p><strong>{t('recipient')}:</strong> {transaction.workers?.name || transaction.company || 'N/A'}</p>
-                        <p><strong>{t('item')}:</strong> {transaction.items?.name || 'N/A'}</p>
-                        <p><strong>{t('quantity')}:</strong> {transaction.quantity}</p>
-                        {transaction.authorized_by && <p><strong>{t('authorized_by')}:</strong> {transaction.authorized_by}</p>}
-                        {transaction.given_by && <p><strong>{t('given_by')}:</strong> {transaction.given_by}</p>}
-                        <p className="text-xs text-gray-500">
-                          {t('taken_on')}: {new Date(transaction.timestamp).toLocaleString()}
-                        </p>
+                    {outstandingItems.map((item) => (
+                      <div key={`${item.worker_id}-${item.item_id}`} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
+                        <p><strong>{t('recipient')}:</strong> {item.worker_name} ({item.company || 'N/A'})</p>
+                        <p><strong>{t('item')}:</strong> {item.item_name}</p>
+                        <p><strong>{t('quantity')}:</strong> {item.outstanding_quantity}</p>
                       </div>
                     ))}
                   </div>
