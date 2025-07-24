@@ -25,6 +25,9 @@ i18n
     interpolation: {
       escapeValue: false, // react already escapes by default
     },
+    react: {
+      useSuspense: false,
+    },
   });
 
 export default i18n;
