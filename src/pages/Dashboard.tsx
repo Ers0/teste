@@ -1,37 +1,28 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck, Tags, AlertTriangle, Star, LogOut, AreaChart, PackagePlus } from 'lucide-react';
+import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck, Tags, LogOut, AreaChart, PackagePlus } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useProfile } from '@/hooks/use-profile';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import Notifications from '@/components/Notifications';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Item, Worker } from '@/types';
 
 const Dashboard = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (user) {
-      queryClient.invalidateQueries({ queryKey: ['itemsForNotifications', user.id] });
-    }
-  }, [user, queryClient]);
 
   const { data: items, isLoading: itemsLoading } = useQuery<Item[]>({
     queryKey: ['items', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
+      const { data, error } = await supabase.from('items').select('id').eq('user_id', user.id);
       if (error) throw error;
       return data;
     },
@@ -42,7 +33,7 @@ const Dashboard = () => {
     queryKey: ['workers', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id);
+      const { data, error } = await supabase.from('workers').select('id').eq('user_id', user.id);
       if (error) throw error;
       return data;
     },
@@ -52,16 +43,9 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     if (!items || !workers) return null;
 
-    const criticalStockItems = items.filter(item => item.critical_stock_threshold && item.quantity <= item.critical_stock_threshold) || [];
-    const warningStockItems = items.filter(item => item.low_stock_threshold && item.critical_stock_threshold && item.quantity <= item.low_stock_threshold && item.quantity > item.critical_stock_threshold) || [];
-    const lowReliabilityWorkers = workers.filter(worker => worker.reliability_score !== null && worker.reliability_score < 80).sort((a, b) => (a.reliability_score || 100) - (b.reliability_score || 100)).slice(0, 5);
-
     return {
       itemsCount: items.length,
       workersCount: workers.length,
-      criticalStockItems,
-      warningStockItems,
-      lowReliabilityWorkers,
     };
   }, [items, workers]);
 
@@ -77,12 +61,6 @@ const Dashboard = () => {
   };
 
   const isLoading = profileLoading || itemsLoading || workersLoading;
-
-  const getScoreVariant = (score: number | null): 'secondary' | 'destructive' => {
-    if (score === null) return 'destructive';
-    if (score >= 50) return 'secondary';
-    return 'destructive';
-  };
 
   const quickLinks = [
     { to: "/inventory", icon: Package, label: t('inventory_management') },
@@ -107,7 +85,6 @@ const Dashboard = () => {
             <p className="text-muted-foreground">{t('dashboard_subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Notifications />
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               {t('log_out')}
@@ -116,7 +93,7 @@ const Dashboard = () => {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex-1 pr-2">{t('total_items')}</CardTitle>
@@ -133,88 +110,6 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{stats?.workersCount ?? 0}</div>}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex-1 pr-2">{t('critical_stock_items')}</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold text-destructive">{stats?.criticalStockItems.length ?? 0}</div>}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex-1 pr-2">{t('low_reliability_workers')}</CardTitle>
-              <Star className="h-4 w-4 text-amber-500" />
-            </CardHeader>
-            <CardContent>
-              {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold text-amber-500">{stats?.lowReliabilityWorkers?.length ?? 0}</div>}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Alerts and Lists */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('stock_alerts')}</CardTitle>
-              <CardDescription>{t('items_needing_attention')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-2/3" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {stats?.criticalStockItems && stats.criticalStockItems.length > 0 ? (
-                    stats.criticalStockItems.map(item => (
-                      <div key={item.id} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <Link to="/inventory" className="font-medium hover:underline">{item.name}</Link>
-                        <Badge variant="destructive">{t('quantity')}: {item.quantity}</Badge>
-                      </div>
-                    ))
-                  ) : <p className="text-sm text-muted-foreground">{t('no_critical_stock_items')}</p>}
-                  {stats?.warningStockItems && stats.warningStockItems.length > 0 && (
-                    stats.warningStockItems.map(item => (
-                      <div key={item.id} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <Link to="/inventory" className="font-medium hover:underline">{item.name}</Link>
-                        <Badge variant="secondary" className="bg-amber-500 text-white">{t('quantity')}: {item.quantity}</Badge>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('low_reliability_workers')}</CardTitle>
-              <CardDescription>{t('workers_with_lowest_scores')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-2/3" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {stats?.lowReliabilityWorkers && stats.lowReliabilityWorkers.length > 0 ? (
-                    stats.lowReliabilityWorkers.map(worker => (
-                      <div key={worker.id} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <Link to={`/worker-report/${worker.id}`} className="font-medium hover:underline">{worker.name}</Link>
-                        <Badge variant={getScoreVariant(worker.reliability_score)}>{t('score')}: {worker.reliability_score ?? t('not_available')}</Badge>
-                      </div>
-                    ))
-                  ) : <p className="text-sm text-muted-foreground">{t('all_workers_good_standing')}</p>}
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
