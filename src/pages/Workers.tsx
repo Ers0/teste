@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Download, Upload, Users, Star } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { Worker } from '@/types';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 type EditingWorkerState = Worker & { photo?: File | null };
 
@@ -36,6 +37,7 @@ const initialNewWorkerState = {
 const Workers = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isOnline = useOnlineStatus();
   const [groupedWorkers, setGroupedWorkers] = useState<Record<string, Worker[]>>({});
   const [newWorker, setNewWorker] = useState<typeof initialNewWorkerState>(initialNewWorkerState);
   const [editingWorker, setEditingWorker] = useState<EditingWorkerState | null>(null);
@@ -226,14 +228,15 @@ const Workers = () => {
       return;
     }
 
-    const workerId = uuidv4();
     let photoUrl = null;
-    if (newWorker.photo) {
-      photoUrl = await uploadPhoto(newWorker.photo, workerId);
+    if (isOnline && newWorker.photo) {
+      photoUrl = await uploadPhoto(newWorker.photo, uuidv4());
+    } else if (!isOnline && newWorker.photo) {
+      showError("Photo upload is not available offline.");
     }
 
-    const { error: insertError } = await supabase.from('workers').insert({
-      id: workerId,
+    const newWorkerData: Worker = {
+      id: uuidv4(),
       name: newWorker.name,
       company: newWorker.company,
       qr_code_data: uuidv4(),
@@ -241,14 +244,17 @@ const Workers = () => {
       user_id: user.id,
       reliability_score: 100,
       photo_url: photoUrl,
-    });
-    if (insertError) {
-      showError(t('error_adding_worker') + insertError.message);
-      return;
+    };
+
+    try {
+      await db.workers.add(newWorkerData);
+      await db.outbox.add({ type: 'create', table: 'workers', payload: newWorkerData, timestamp: Date.now() });
+      showSuccess(t('worker_saved_locally'));
+      setNewWorker(initialNewWorkerState);
+      setIsDialogOpen(false);
+    } catch (error: any) {
+      showError(t('error_adding_worker') + error.message);
     }
-    showSuccess(t('worker_added_successfully'));
-    setNewWorker(initialNewWorkerState);
-    setIsDialogOpen(false);
   };
 
   const handleUpdateWorker = async () => {
@@ -256,39 +262,42 @@ const Workers = () => {
       showError(t('worker_name_required'));
       return;
     }
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
+
+    let newPhotoUrl = editingWorker.photo_url;
+    if (isOnline && editingWorker.photo instanceof File) {
+      newPhotoUrl = await uploadPhoto(editingWorker.photo, editingWorker.id);
+    } else if (!isOnline && editingWorker.photo instanceof File) {
+      showError("Photo upload is not available offline.");
     }
 
-    const updatedData: Partial<Worker> = {
+    const updatedData: Worker = {
+      ...editingWorker,
       name: editingWorker.name,
       company: editingWorker.company,
       external_qr_code_data: editingWorker.external_qr_code_data?.trim() || null,
-      photo_url: editingWorker.photo_url,
+      photo_url: newPhotoUrl,
     };
+    delete (updatedData as any).photo;
 
-    if (editingWorker.photo instanceof File) {
-      updatedData.photo_url = await uploadPhoto(editingWorker.photo, editingWorker.id);
-    }
-    const { error } = await supabase.from('workers').update(updatedData).eq('id', editingWorker.id);
-    if (error) {
+    try {
+      await db.workers.put(updatedData);
+      await db.outbox.add({ type: 'update', table: 'workers', payload: updatedData, timestamp: Date.now() });
+      showSuccess(t('worker_updated_locally'));
+      setEditingWorker(null);
+      setIsDialogOpen(false);
+    } catch (error: any) {
       showError(t('error_updating_worker') + error.message);
-    } else {
-      showSuccess(t('worker_updated_successfully'));
     }
-
-    setEditingWorker(null);
-    setIsDialogOpen(false);
   };
 
   const handleDeleteWorker = async (id: string) => {
     if (window.confirm(t('confirm_delete_worker'))) {
-      const { error } = await supabase.from('workers').delete().eq('id', id);
-      if (error) {
+      try {
+        await db.workers.delete(id);
+        await db.outbox.add({ type: 'delete', table: 'workers', payload: { id }, timestamp: Date.now() });
+        showSuccess(t('worker_deleted_locally'));
+      } catch (error: any) {
         showError(t('error_deleting_worker') + error.message);
-      } else {
-        showSuccess(t('worker_deleted_successfully'));
       }
     }
   };
@@ -352,6 +361,7 @@ const Workers = () => {
   };
 
   const handleImport = async () => {
+    if (!isOnline) { showError(t('offline_action_error')); return; }
     if (!fileToImport || !user) {
       showError(t('no_file_selected'));
       return;
