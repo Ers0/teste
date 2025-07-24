@@ -46,8 +46,6 @@ const Approvals = () => {
         }
       }
 
-      const updatedRequisition = { ...requisition, status: newStatus };
-      // This is a simplified version of the object for Dexie's put method.
       const requisitionToUpdate: Requisition = {
         id: requisition.id,
         requisition_number: requisition.requisition_number,
