@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { TFunction } from 'i18next';
 
 interface TransactionItem {
   item: { name: string };
@@ -14,7 +13,15 @@ interface RequisitionData {
   company: string | null;
   applicationLocation: string;
   transactionItems: TransactionItem[];
-  t: TFunction;
+  pdf_header_title: string;
+  pdf_header_date: string;
+  pdf_header_req_no: string;
+  pdf_header_auth: string;
+  pdf_header_requester: string;
+  pdf_header_company: string;
+  pdf_col_qty: string;
+  pdf_col_material: string;
+  pdf_col_app_location: string;
 }
 
 export const exportToPdf = async (data: RequisitionData) => {
@@ -25,7 +32,15 @@ export const exportToPdf = async (data: RequisitionData) => {
     company,
     applicationLocation,
     transactionItems,
-    t,
+    pdf_header_title,
+    pdf_header_date,
+    pdf_header_req_no,
+    pdf_header_auth,
+    pdf_header_requester,
+    pdf_header_company,
+    pdf_col_qty,
+    pdf_col_material,
+    pdf_col_app_location,
   } = data;
 
   const doc = new jsPDF();
@@ -33,24 +48,24 @@ export const exportToPdf = async (data: RequisitionData) => {
 
   // Title
   doc.setFontSize(16);
-  doc.text(t('pdf_header_title'), pageWidth / 2, 20, { align: 'center' });
+  doc.text(pdf_header_title, pageWidth / 2, 20, { align: 'center' });
 
   // Header Info
   doc.setFontSize(10);
   const headerY = 30;
-  doc.text(`${t('pdf_header_date')} ${new Date().toLocaleDateString()}`, 14, headerY);
-  doc.text(`${t('pdf_header_req_no')} ${requisitionNumber}`, pageWidth - 14, headerY, { align: 'right' });
+  doc.text(`${pdf_header_date} ${new Date().toLocaleDateString()}`, 14, headerY);
+  doc.text(`${pdf_header_req_no} ${requisitionNumber}`, pageWidth - 14, headerY, { align: 'right' });
 
-  doc.text(`${t('pdf_header_auth')} ${authorizedBy || 'N/A'}`, 14, headerY + 7);
+  doc.text(`${pdf_header_auth} ${authorizedBy || 'N/A'}`, 14, headerY + 7);
 
-  doc.text(`${t('pdf_header_requester')} ${requester || 'N/A'}`, 14, headerY + 14);
-  doc.text(`${t('pdf_header_company')} ${company || 'N/A'}`, pageWidth - 14, headerY + 14, { align: 'right' });
+  doc.text(`${pdf_header_requester} ${requester || 'N/A'}`, 14, headerY + 14);
+  doc.text(`${pdf_header_company} ${company || 'N/A'}`, pageWidth - 14, headerY + 14, { align: 'right' });
 
   // Table
   const tableColumn = [
-    t('pdf_col_qty'),
-    t('pdf_col_material'),
-    t('pdf_col_app_location'),
+    pdf_col_qty,
+    pdf_col_material,
+    pdf_col_app_location,
   ];
   const tableRows = transactionItems.map(item => [
     item.quantity,

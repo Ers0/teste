@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Download } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useIntl } from 'react-intl';
 import { exportToPdf } from '@/utils/pdf';
 import { showError } from '@/utils/toast';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -11,7 +11,7 @@ import { db } from '@/lib/db';
 import { Requisition } from '@/types';
 
 const RequisitionDetails = () => {
-  const { t } = useTranslation();
+  const intl = useIntl();
   const { requisitionId } = useParams<{ requisitionId: string }>();
   const navigate = useNavigate();
 
@@ -42,7 +42,7 @@ const RequisitionDetails = () => {
 
   const handleDownloadPdf = async () => {
     if (!requisition || !transactionItems) {
-      showError(t('requisition_data_not_loaded'));
+      showError(intl.formatMessage({ id: 'requisition_data_not_loaded' }));
       return;
     }
     await exportToPdf({
@@ -55,14 +55,22 @@ const RequisitionDetails = () => {
         item: { name: ti.items?.[0]?.name || 'N/A' },
         quantity: ti.quantity,
       })),
-      t,
+      pdf_header_title: intl.formatMessage({ id: 'pdf_header_title' }),
+      pdf_header_date: intl.formatMessage({ id: 'pdf_header_date' }),
+      pdf_header_req_no: intl.formatMessage({ id: 'pdf_header_req_no' }),
+      pdf_header_auth: intl.formatMessage({ id: 'pdf_header_auth' }),
+      pdf_header_requester: intl.formatMessage({ id: 'pdf_header_requester' }),
+      pdf_header_company: intl.formatMessage({ id: 'pdf_header_company' }),
+      pdf_col_qty: intl.formatMessage({ id: 'pdf_col_qty' }),
+      pdf_col_material: intl.formatMessage({ id: 'pdf_col_material' }),
+      pdf_col_app_location: intl.formatMessage({ id: 'pdf_col_app_location' }),
     });
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-gray-600 dark:text-gray-400">{t('loading_requisition_details')}</p>
+        <p className="text-gray-600 dark:text-gray-400">{intl.formatMessage({ id: 'loading_requisition_details' })}</p>
       </div>
     );
   }
@@ -70,7 +78,7 @@ const RequisitionDetails = () => {
   if (!requisition) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p>{t('requisition_not_found')}</p>
+        <p>{intl.formatMessage({ id: 'requisition_not_found' })}</p>
       </div>
     );
   }
@@ -84,8 +92,8 @@ const RequisitionDetails = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-3xl font-bold">{t('requisition_details_title')}</CardTitle>
-              <CardDescription>{t('requisition_number')}: {requisition.requisition_number}</CardDescription>
+              <CardTitle className="text-3xl font-bold">{intl.formatMessage({ id: 'requisition_details_title' })}</CardTitle>
+              <CardDescription>{intl.formatMessage({ id: 'requisition_number' })}: {requisition.requisition_number}</CardDescription>
             </div>
             <Button variant="outline" size="icon" onClick={handleDownloadPdf}>
               <Download className="h-4 w-4" />
@@ -94,21 +102,21 @@ const RequisitionDetails = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-sm">
-            <div><strong>{t('date')}:</strong> {safeFormatDateTime(requisition.created_at)}</div>
-            <div><strong>{t('requester')}:</strong> {requisition.requester_name || 'N/A'}</div>
-            <div><strong>{t('company')}:</strong> {requisition.requester_company || 'N/A'}</div>
-            <div><strong>{t('authorized_by')}:</strong> {requisition.authorized_by || 'N/A'}</div>
-            <div><strong>{t('given_by')}:</strong> {requisition.given_by || 'N/A'}</div>
-            <div><strong>{t('application_location')}:</strong> {requisition.application_location || 'N/A'}</div>
+            <div><strong>{intl.formatMessage({ id: 'date' })}:</strong> {safeFormatDateTime(requisition.created_at)}</div>
+            <div><strong>{intl.formatMessage({ id: 'requester' })}:</strong> {requisition.requester_name || 'N/A'}</div>
+            <div><strong>{intl.formatMessage({ id: 'company' })}:</strong> {requisition.requester_company || 'N/A'}</div>
+            <div><strong>{intl.formatMessage({ id: 'authorized_by' })}:</strong> {requisition.authorized_by || 'N/A'}</div>
+            <div><strong>{intl.formatMessage({ id: 'given_by' })}:</strong> {requisition.given_by || 'N/A'}</div>
+            <div><strong>{intl.formatMessage({ id: 'application_location' })}:</strong> {requisition.application_location || 'N/A'}</div>
           </div>
 
-          <h4 className="text-lg font-semibold mb-2">{t('items')}</h4>
+          <h4 className="text-lg font-semibold mb-2">{intl.formatMessage({ id: 'items' })}</h4>
           <div className="overflow-x-auto border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('item_name')}</TableHead>
-                  <TableHead className="text-right">{t('quantity')}</TableHead>
+                  <TableHead>{intl.formatMessage({ id: 'item_name' })}</TableHead>
+                  <TableHead className="text-right">{intl.formatMessage({ id: 'quantity' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -122,7 +130,7 @@ const RequisitionDetails = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={2} className="h-24 text-center text-gray-500">
-                      {t('no_items_found_for_requisition')}
+                      {intl.formatMessage({ id: 'no_items_found_for_requisition' })}
                     </TableCell>
                   </TableRow>
                 )}

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../supabase/client';
-import i18n from '@/i18n';
 import { Profile } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
@@ -46,12 +45,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     () => (user ? db.profiles.get(user.id) : undefined),
     [user?.id]
   );
-
-  useEffect(() => {
-    if (profile?.language) {
-      i18n.changeLanguage(profile.language);
-    }
-  }, [profile]);
 
   const value = {
     session,

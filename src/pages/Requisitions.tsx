@@ -6,14 +6,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, Download, Eye } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
-import { useTranslation } from 'react-i18next';
+import { useIntl } from 'react-intl';
 import { exportToPdf } from '@/utils/pdf';
 import { showError } from '@/utils/toast';
 import { Requisition } from '@/types';
 import { useMemo } from 'react';
 
 const Requisitions = () => {
-  const { t } = useTranslation();
+  const intl = useIntl();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -57,14 +57,22 @@ const Requisitions = () => {
       company: requisition.requester_company,
       applicationLocation: requisition.application_location || '',
       transactionItems: populatedItems,
-      t,
+      pdf_header_title: intl.formatMessage({ id: 'pdf_header_title' }),
+      pdf_header_date: intl.formatMessage({ id: 'pdf_header_date' }),
+      pdf_header_req_no: intl.formatMessage({ id: 'pdf_header_req_no' }),
+      pdf_header_auth: intl.formatMessage({ id: 'pdf_header_auth' }),
+      pdf_header_requester: intl.formatMessage({ id: 'pdf_header_requester' }),
+      pdf_header_company: intl.formatMessage({ id: 'pdf_header_company' }),
+      pdf_col_qty: intl.formatMessage({ id: 'pdf_col_qty' }),
+      pdf_col_material: intl.formatMessage({ id: 'pdf_col_material' }),
+      pdf_col_app_location: intl.formatMessage({ id: 'pdf_col_app_location' }),
     });
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-gray-600 dark:text-gray-400">{t('loading_requisitions')}</p>
+        <p className="text-gray-600 dark:text-gray-400">{intl.formatMessage({ id: 'loading_requisitions' })}</p>
       </div>
     );
   }
@@ -78,8 +86,8 @@ const Requisitions = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-3xl font-bold">{t('requisitions')}</CardTitle>
-              <CardDescription>{t('view_and_download_past_requisitions')}</CardDescription>
+              <CardTitle className="text-3xl font-bold">{intl.formatMessage({ id: 'requisitions' })}</CardTitle>
+              <CardDescription>{intl.formatMessage({ id: 'view_and_download_past_requisitions' })}</CardDescription>
             </div>
             <div className="w-10"></div>
           </div>
@@ -89,11 +97,11 @@ const Requisitions = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('requisition_number')}</TableHead>
-                  <TableHead>{t('requester')}</TableHead>
-                  <TableHead>{t('company')}</TableHead>
-                  <TableHead className="text-right">{t('date')}</TableHead>
-                  <TableHead className="text-center">{t('actions')}</TableHead>
+                  <TableHead>{intl.formatMessage({ id: 'requisition_number' })}</TableHead>
+                  <TableHead>{intl.formatMessage({ id: 'requester' })}</TableHead>
+                  <TableHead>{intl.formatMessage({ id: 'company' })}</TableHead>
+                  <TableHead className="text-right">{intl.formatMessage({ id: 'date' })}</TableHead>
+                  <TableHead className="text-center">{intl.formatMessage({ id: 'actions' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -109,12 +117,12 @@ const Requisitions = () => {
                           <Link to={`/requisition/${req.id}`}>
                             <Button variant="outline" size="sm">
                               <Eye className="h-4 w-4 mr-2" />
-                              {t('view')}
+                              {intl.formatMessage({ id: 'view' })}
                             </Button>
                           </Link>
                           <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(req)}>
                             <Download className="h-4 w-4 mr-2" />
-                            {t('download_pdf')}
+                            {intl.formatMessage({ id: 'download_pdf' })}
                           </Button>
                         </div>
                       </TableCell>
@@ -123,7 +131,7 @@ const Requisitions = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center text-gray-500">
-                      {t('no_requisitions_found')}
+                      {intl.formatMessage({ id: 'no_requisitions_found' })}
                     </TableCell>
                   </TableRow>
                 )}
