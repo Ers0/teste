@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Item, Kit, KitItem as DbKitItem } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 interface KitItem extends Item {
   quantity: number;
@@ -30,6 +31,7 @@ const Kits = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isOnline = useOnlineStatus();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingKit, setEditingKit] = useState<PopulatedKit | null>(null);
@@ -108,6 +110,10 @@ const Kits = () => {
   };
 
   const handleSubmit = async () => {
+    if (!isOnline) {
+      showError(t('offline_action_error'));
+      return;
+    }
     if (!kitName.trim()) {
       showError('Kit name is required.');
       return;
@@ -155,6 +161,10 @@ const Kits = () => {
   };
 
   const handleDeleteKit = async (kitId: string) => {
+    if (!isOnline) {
+      showError(t('offline_action_error'));
+      return;
+    }
     if (window.confirm('Are you sure you want to delete this kit? This action cannot be undone.')) {
       const { error } = await supabase.from('kits').delete().eq('id', kitId);
       if (error) {
