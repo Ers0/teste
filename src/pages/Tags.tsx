@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +12,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { showSuccess, showError } from '@/utils/toast';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { db } from '@/lib/db';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Tag {
   id: string;
   name: string;
   color: string;
+  user_id: string;
 }
 
 const initialTagState = { name: '', color: '#842CD4' };
@@ -24,6 +29,7 @@ const initialTagState = { name: '', color: '#842CD4' };
 const Tags = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isOnline = useNetworkStatus();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -31,9 +37,10 @@ const Tags = () => {
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [tagData, setTagData] = useState(initialTagState);
 
-  const { data: tags, isLoading } = useQuery<Tag[], Error>({
-    queryKey: ['tags', user?.id],
-    queryFn: async () => {
+  const { data: tags, isLoading, refetch: refetchTags } = useOfflineQuery<Tag>(
+    ['tags', user?.id],
+    'tags',
+    async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('tags')
@@ -42,9 +49,8 @@ const Tags = () => {
         .order('name', { ascending: true });
       if (error) throw new Error(error.message);
       return data;
-    },
-    enabled: !!user,
-  });
+    }
+  );
 
   useEffect(() => {
     if (editingTag) {
@@ -69,35 +75,49 @@ const Tags = () => {
       return;
     }
 
-    const upsertData = {
-      user_id: user.id,
-      name: tagData.name,
-      color: tagData.color,
-    };
-
-    const query = editingTag
-      ? supabase.from('tags').update(upsertData).eq('id', editingTag.id)
-      : supabase.from('tags').insert(upsertData);
-
-    const { error } = await query;
-
-    if (error) {
-      showError(editingTag ? t('error_updating_tag') + error.message : t('error_adding_tag') + error.message);
+    if (editingTag) {
+      // Update logic
+      const updatedTag = { ...editingTag, ...tagData };
+      if (isOnline) {
+        const { error } = await supabase.from('tags').update({ name: tagData.name, color: tagData.color }).eq('id', editingTag.id);
+        if (error) { showError(t('error_updating_tag') + error.message); }
+        else { showSuccess(t('tag_updated_successfully')); refetchTags(); }
+      } else {
+        await db.tags.update(editingTag.id, { name: tagData.name, color: tagData.color });
+        await db.offline_queue.add({ type: 'update', tableName: 'tags', payload: { id: editingTag.id, name: tagData.name, color: tagData.color }, timestamp: Date.now() });
+        showSuccess(t('tag_update_saved_offline'));
+      }
     } else {
-      showSuccess(editingTag ? t('tag_updated_successfully') : t('tag_added_successfully'));
-      closeDialog();
-      queryClient.invalidateQueries({ queryKey: ['tags', user?.id] });
+      // Create logic
+      const newTag: Tag = {
+        id: uuidv4(),
+        user_id: user.id,
+        name: tagData.name,
+        color: tagData.color,
+      };
+      if (isOnline) {
+        const { error } = await supabase.from('tags').insert(newTag);
+        if (error) { showError(t('error_adding_tag') + error.message); }
+        else { showSuccess(t('tag_added_successfully')); refetchTags(); }
+      } else {
+        await db.tags.add(newTag);
+        await db.offline_queue.add({ type: 'create', tableName: 'tags', payload: newTag, timestamp: Date.now() });
+        showSuccess(t('tag_saved_offline'));
+      }
     }
+    closeDialog();
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm(t('confirm_delete_tag'))) {
-      const { error } = await supabase.from('tags').delete().eq('id', id);
-      if (error) {
-        showError(t('error_deleting_tag') + error.message);
+      if (isOnline) {
+        const { error } = await supabase.from('tags').delete().eq('id', id);
+        if (error) { showError(t('error_deleting_tag') + error.message); }
+        else { showSuccess(t('tag_deleted_successfully')); refetchTags(); }
       } else {
-        showSuccess(t('tag_deleted_successfully'));
-        queryClient.invalidateQueries({ queryKey: ['tags', user?.id] });
+        await db.tags.delete(id);
+        await db.offline_queue.add({ type: 'delete', tableName: 'tags', payload: { id }, timestamp: Date.now() });
+        showSuccess(t('tag_deleted_offline'));
       }
     }
   };

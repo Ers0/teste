@@ -19,6 +19,9 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { v4 as uuidv4 } from 'uuid';
 import CameraCapture from '@/components/CameraCapture';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { db } from '@/lib/db';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 interface FiscalNote {
   id: string;
@@ -33,23 +36,32 @@ interface FiscalNote {
 const FiscalNotes = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isOnline = useNetworkStatus();
   const navigate = useNavigate();
 
   const [nfeKey, setNfeKey] = useState('');
   const [description, setDescription] = useState('');
   const [arrivalDate, setArrivalDate] = useState<Date | undefined>(undefined);
   const [photo, setPhoto] = useState<File | null>(null);
-  const [fiscalNotes, setFiscalNotes] = useState<FiscalNote[]>([]);
   const [scanning, setScanning] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchFiscalNotes();
+  const { data: fiscalNotes, isLoading, refetch: refetchFiscalNotes } = useOfflineQuery<FiscalNote>(
+    ['fiscal_notes', user?.id],
+    'fiscal_notes',
+    async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('fiscal_notes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data;
     }
-  }, [user]);
+  );
 
   const startWebScanner = useCallback(async () => {
     try {
@@ -167,21 +179,6 @@ const FiscalNotes = () => {
     setScanning(false);
   };
 
-  const fetchFiscalNotes = async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('fiscal_notes')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      showError(t('error_fetching_fiscal_notes') + error.message);
-    } else {
-      setFiscalNotes(data || []);
-    }
-  };
-
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setPhoto(e.target.files[0]);
@@ -221,86 +218,78 @@ const FiscalNotes = () => {
       return;
     }
 
-    const { data: existingNote, error: existingError } = await supabase
-      .from('fiscal_notes')
-      .select('id')
-      .eq('nfe_key', nfeKey)
-      .eq('user_id', user.id)
-      .single();
-
+    const existingNote = fiscalNotes?.find(note => note.nfe_key === nfeKey);
     if (existingNote) {
       showError(t('fiscal_note_already_exists'));
       return;
     }
-    if (existingError && existingError.code !== 'PGRST116') {
-      showError(t('error_checking_existing_fiscal_note') + existingError.message);
-      return;
-    }
 
     const toastId = showLoading(t('saving_fiscal_note'));
-    let photoUrl: string | null = null;
     const fiscalNoteId = uuidv4();
+    
+    const newFiscalNote: FiscalNote = {
+      id: fiscalNoteId,
+      nfe_key: nfeKey,
+      description: description.trim() || null,
+      arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      photo_url: null,
+    };
 
-    try {
-      if (photo) {
-        photoUrl = await uploadPhoto(photo, fiscalNoteId);
-        if (!photoUrl) {
-          dismissToast(toastId);
-          return;
+    if (isOnline) {
+      try {
+        if (photo) {
+          newFiscalNote.photo_url = await uploadPhoto(photo, fiscalNoteId);
         }
+        const { error: insertError } = await supabase.from('fiscal_notes').insert(newFiscalNote);
+        if (insertError) throw insertError;
+        dismissToast(toastId);
+        showSuccess(t('fiscal_note_saved_successfully'));
+        refetchFiscalNotes();
+      } catch (error: any) {
+        dismissToast(toastId);
+        showError(t('error_saving_fiscal_note') + error.message);
+        return;
       }
-
-      const { error: insertError } = await supabase
-        .from('fiscal_notes')
-        .insert([{
-          id: fiscalNoteId,
-          nfe_key: nfeKey,
-          description: description.trim() || null,
-          arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
-          user_id: user.id,
-          photo_url: photoUrl,
-        }]);
-
-      if (insertError) {
-        throw insertError;
+    } else {
+      // Offline logic - can't upload photo
+      if (photo) {
+        showError("Cannot upload photos while offline. Please save the note and add the photo later.");
+        dismissToast(toastId);
+        return;
       }
-
+      await db.fiscal_notes.add(newFiscalNote);
+      await db.offline_queue.add({ type: 'create', tableName: 'fiscal_notes', payload: newFiscalNote, timestamp: Date.now() });
       dismissToast(toastId);
-      showSuccess(t('fiscal_note_saved_successfully'));
-      setNfeKey('');
-      setDescription('');
-      setArrivalDate(undefined);
-      setPhoto(null);
-      fetchFiscalNotes();
-    } catch (error: any) {
-      dismissToast(toastId);
-      showError(t('error_saving_fiscal_note') + error.message);
+      showSuccess(t('fiscal_note_saved_offline'));
     }
+
+    setNfeKey('');
+    setDescription('');
+    setArrivalDate(undefined);
+    setPhoto(null);
   };
 
   const handleDeleteFiscalNote = async (id: string) => {
     if (window.confirm(t('confirm_delete_fiscal_note'))) {
-      const noteToDelete = fiscalNotes.find(note => note.id === id);
-      if (noteToDelete && noteToDelete.photo_url && user) {
-        const urlParts = noteToDelete.photo_url.split('/');
-        const fileName = urlParts[urlParts.length - 1];
-        const filePath = `${user.id}/${fileName}`;
-        if (fileName) {
-          const { error: storageError } = await supabase.storage
-            .from('fiscal-note-photos')
-            .remove([filePath]);
-          if (storageError) {
-            showError(t('error_deleting_photo_from_storage') + storageError.message);
+      if (isOnline) {
+        const noteToDelete = fiscalNotes?.find(note => note.id === id);
+        if (noteToDelete && noteToDelete.photo_url && user) {
+          const urlParts = noteToDelete.photo_url.split('/');
+          const fileName = urlParts[urlParts.length - 1];
+          const filePath = `${user.id}/${fileName}`;
+          if (fileName) {
+            await supabase.storage.from('fiscal-note-photos').remove([filePath]);
           }
         }
-      }
-
-      const { error } = await supabase.from('fiscal_notes').delete().eq('id', id);
-      if (error) {
-        showError(t('error_deleting_fiscal_note') + error.message);
+        const { error } = await supabase.from('fiscal_notes').delete().eq('id', id);
+        if (error) { showError(t('error_deleting_fiscal_note') + error.message); }
+        else { showSuccess(t('fiscal_note_deleted_successfully')); refetchFiscalNotes(); }
       } else {
-        showSuccess(t('fiscal_note_deleted_successfully'));
-        fetchFiscalNotes();
+        await db.fiscal_notes.delete(id);
+        await db.offline_queue.add({ type: 'delete', tableName: 'fiscal_notes', payload: { id }, timestamp: Date.now() });
+        showSuccess(t('fiscal_note_deleted_offline'));
       }
     }
   };
@@ -469,7 +458,7 @@ const FiscalNotes = () => {
             </div>
 
             <div className="flex justify-end mb-4">
-              <Button onClick={handleExportFiscalNotes} disabled={fiscalNotes.length === 0}>
+              <Button onClick={handleExportFiscalNotes} disabled={!fiscalNotes || fiscalNotes.length === 0}>
                 <Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}
               </Button>
             </div>
@@ -487,13 +476,9 @@ const FiscalNotes = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fiscalNotes.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-gray-500">
-                        {t('no_fiscal_notes_found')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={6} className="h-24 text-center">{t('loading_fiscal_notes')}</TableCell></TableRow>
+                  ) : fiscalNotes && fiscalNotes.length > 0 ? (
                     fiscalNotes.map((note) => (
                       <TableRow key={note.id}>
                         <TableCell>
@@ -523,6 +508,12 @@ const FiscalNotes = () => {
                         </TableCell>
                       </TableRow>
                     ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center text-gray-500">
+                        {t('no_fiscal_notes_found')}
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
