@@ -414,5 +414,12 @@
   "stock_critical": "Crítico",
   "low_stock_items": "Itens com Estoque Baixo",
   "threshold": "Limite",
-  "no_low_stock_items": "Nenhum item com estoque baixo ou crítico."
+  "no_low_stock_items": "Nenhum item com estoque baixo ou crítico.",
+  "notifications": "Notificações",
+  "loading_notifications": "Carregando notificações",
+  "critical_stock_alert": "Alerta de Estoque Crítico",
+  "low_stock_warning": "Aviso de Estoque Baixo",
+  "no_new_notifications": "Nenhuma notificação nova.",
+  "notification_critical_stock": "'{{itemName}}' está com estoque crítico (apenas {{quantity}} restantes).",
+  "notification_low_stock": "'{{itemName}}' está abaixo do limite de estoque baixo ({{quantity}} restantes)."
 }

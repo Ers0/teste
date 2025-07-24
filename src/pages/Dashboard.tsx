@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import Notifications from '@/components/Notifications';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -80,10 +81,13 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold">{t('welcome_user', { userName })}</h1>
             <p className="text-muted-foreground">{t('dashboard_subtitle')}</p>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            {t('log_out')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Notifications />
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              {t('log_out')}
+            </Button>
+          </div>
         </div>
 
         {/* Key Metrics */}
