@@ -16,8 +16,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { v4 as uuidv4 } from 'uuid';
+import CameraCapture from '@/components/CameraCapture';
 
 interface FiscalNote {
   id: string;
@@ -43,8 +44,6 @@ const FiscalNotes = () => {
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -148,42 +147,6 @@ const FiscalNotes = () => {
       stopWebScanner();
     };
   }, [scanning, t]);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-  
-    const startCamera = async () => {
-      if (isCameraOpen && videoRef.current) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          videoRef.current.srcObject = stream;
-        } catch (err) {
-          console.error("Error accessing camera:", err);
-          showError(t('error_accessing_camera'));
-          setIsCameraOpen(false);
-        }
-      }
-    };
-  
-    const stopCamera = () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-    };
-  
-    if (isCameraOpen) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-  
-    return () => {
-      stopCamera();
-    };
-  }, [isCameraOpen, t]);
 
   const startScan = () => {
     setNfeKey('');
@@ -379,29 +342,8 @@ const FiscalNotes = () => {
     }
   };
 
-  const handleCapture = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-  
-      if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-  
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const photoFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            setPhoto(photoFile);
-            setIsCameraOpen(false);
-          }
-        }, 'image/jpeg');
-      }
-    }
-  };
-  
-  const handleCloseCamera = () => {
+  const handlePhotoCaptured = (file: File) => {
+    setPhoto(file);
     setIsCameraOpen(false);
   };
 
@@ -577,19 +519,12 @@ const FiscalNotes = () => {
         </Card>
 
         <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('take_photo')}</DialogTitle>
-            </DialogHeader>
-            <div className="relative">
-              <video ref={videoRef} autoPlay playsInline className="w-full h-auto rounded-md aspect-video object-cover bg-black"></video>
-              <canvas ref={canvasRef} className="hidden"></canvas>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={handleCloseCamera}>{t('cancel')}</Button>
-              <Button onClick={handleCapture}>{t('capture_photo')}</Button>
-            </DialogFooter>
-          </DialogContent>
+          {isCameraOpen && (
+            <CameraCapture
+              onCapture={handlePhotoCaptured}
+              onClose={() => setIsCameraOpen(false)}
+            />
+          )}
         </Dialog>
 
         <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
