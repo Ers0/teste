@@ -238,9 +238,12 @@ const Inventory = () => {
   const handleBulkAddTags = async () => {
     if (tagsToAdd.length === 0) { showError(t('please_select_tags_to_add')); return; }
     const toastId = showLoading(t('adding_tags_to_items', { count: selectedItemIds.length }));
-    const { data: itemsToUpdate, error: fetchError } = await supabase.from('items').select('id, tags').in('id', selectedItemIds);
+    const { data: itemsToUpdate, error: fetchError } = await supabase.from('items').select('*').in('id', selectedItemIds);
     if (fetchError) { dismissToast(toastId); showError(t('error_fetching_items_for_update')); return; }
-    const updates = itemsToUpdate.map(item => ({ id: item.id, tags: [...new Set([...(item.tags || []), ...tagsToAdd])] }));
+    const updates = itemsToUpdate.map(item => ({
+      ...item,
+      tags: [...new Set([...(item.tags || []), ...tagsToAdd])]
+    }));
     const { error: updateError } = await supabase.from('items').upsert(updates);
     dismissToast(toastId);
     if (updateError) { showError(t('error_updating_tags') + updateError.message); }
