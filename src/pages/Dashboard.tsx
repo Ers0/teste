@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck, Tags, AlertTriangle, Star, LogOut, AreaChart } from 'lucide-react';
+import { Package, Users, Barcode, Settings as SettingsIcon, ClipboardList, History as HistoryIcon, FileText, ClipboardCheck, Tags, AlertTriangle, Star, LogOut, AreaChart, PackagePlus } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { useAuth } from '@/integrations/supabase/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,6 +85,7 @@ const Dashboard = () => {
     { to: "/fiscal-notes", icon: FileText, label: t('fiscal_notes') },
     { to: "/requisitions", icon: ClipboardCheck, label: t('requisitions') },
     { to: "/tags", icon: Tags, label: t('manage_tags') },
+    { to: "/kits", icon: PackagePlus, label: "Manage Kits" },
     { to: "/settings", icon: SettingsIcon, label: t('settings') },
   ];
 

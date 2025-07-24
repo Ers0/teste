@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2 } from 'lucide-react';
+import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Worker {
   id: string;
@@ -72,6 +73,11 @@ interface OutstandingItem {
   outstanding_quantity: number;
 }
 
+interface Kit {
+  id: string;
+  name: string;
+}
+
 const WorkerTransaction = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -101,6 +107,18 @@ const WorkerTransaction = () => {
   const [scanningItem, setScanningItem] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([]);
+  const [isKitDialogOpen, setIsKitDialogOpen] = useState(false);
+
+  const { data: kits } = useQuery<Kit[], Error>({
+    queryKey: ['kits', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('kits').select('id, name').eq('user_id', user.id);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (user) {
@@ -770,6 +788,50 @@ const WorkerTransaction = () => {
     setQuantityToChange(prev => Math.max(1, prev - 1));
   };
 
+  const handleSelectKit = async (kitId: string) => {
+    const toastId = showLoading('Adding items from kit...');
+    try {
+      const { data: kitItems, error: kitError } = await supabase
+        .from('kit_items')
+        .select('quantity, items(*)')
+        .eq('kit_id', kitId);
+
+      if (kitError) throw kitError;
+      if (!kitItems || kitItems.length === 0) {
+        showError('This kit is empty.');
+        return;
+      }
+
+      const itemsToAdd: TransactionItem[] = [];
+      let stockError = false;
+
+      for (const ki of kitItems) {
+        const item = ki.items as Item;
+        if (item.quantity < ki.quantity) {
+          showError(`Not enough stock for ${item.name}. Required: ${ki.quantity}, Available: ${item.quantity}`);
+          stockError = true;
+          break;
+        }
+        itemsToAdd.push({
+          item,
+          quantity: ki.quantity,
+          type: 'takeout',
+          is_broken: false,
+        });
+      }
+
+      if (!stockError) {
+        setTransactionItems(prev => [...prev, ...itemsToAdd]);
+        showSuccess('Items from kit added to the list.');
+        setIsKitDialogOpen(false);
+      }
+    } catch (error: any) {
+      showError(error.message);
+    } finally {
+      dismissToast(toastId);
+    }
+  };
+
   return (
     <React.Fragment>
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
@@ -928,9 +990,14 @@ const WorkerTransaction = () => {
                 </div>
 
                 <div className="space-y-4 border-b pb-4">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <Package className="mr-2 h-5 w-5" /> {t('item_information')}
-                  </h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <Package className="mr-2 h-5 w-5" /> {t('item_information')}
+                    </h3>
+                    <Button variant="outline" size="sm" onClick={() => setIsKitDialogOpen(true)} disabled={!scannedWorker && !selectedCompany}>
+                      <PackagePlus className="mr-2 h-4 w-4" /> Add from Kit
+                    </Button>
+                  </div>
                   {!scannedItem ? (
                     <>
                       <div className="flex flex-wrap items-center gap-2">
@@ -1169,6 +1236,24 @@ const WorkerTransaction = () => {
           </CardContent>
         </Card>
       </div>
+      <Dialog open={isKitDialogOpen} onOpenChange={setIsKitDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select a Kit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {kits && kits.length > 0 ? (
+              kits.map(kit => (
+                <Button key={kit.id} variant="outline" className="w-full justify-start" onClick={() => handleSelectKit(kit.id)}>
+                  {kit.name}
+                </Button>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">No kits available. <Link to="/kits" className="underline">Create one now</Link>.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </React.Fragment>
   );
 };
