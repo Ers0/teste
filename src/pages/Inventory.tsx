@@ -301,7 +301,7 @@ const Inventory = () => {
     </Dialog>
   );
 
-  if (items === undefined) return <div>Loading...</div>;
+  if (items === undefined) return <div>{t('loading')}</div>;
 
   return (
     <div className="p-4">
