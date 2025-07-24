@@ -29,7 +29,7 @@ interface Worker {
   external_qr_code_data: string | null;
   user_id: string;
   photo?: File | null;
-  reliability_score: number;
+  reliability_score: number | null;
 }
 
 const initialNewWorkerState = {
@@ -433,9 +433,10 @@ const Workers = () => {
     }
   };
 
-  const getScoreVariant = (score: number): 'default' | 'secondary' | 'destructive' => {
-    if (score >= 80) return 'default';
-    if (score >= 50) return 'secondary';
+  const getScoreVariant = (score: number | null): 'default' | 'secondary' | 'destructive' => {
+    const currentScore = score ?? 100;
+    if (currentScore >= 80) return 'default';
+    if (currentScore >= 50) return 'secondary';
     return 'destructive';
   };
 
@@ -665,7 +666,7 @@ const Workers = () => {
                               <TableCell>
                                 <Badge variant={getScoreVariant(worker.reliability_score)}>
                                   <Star className="mr-1 h-3 w-3" />
-                                  {worker.reliability_score}
+                                  {worker.reliability_score ?? 100}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-center">

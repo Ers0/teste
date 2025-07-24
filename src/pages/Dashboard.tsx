@@ -69,6 +69,12 @@ const Dashboard = () => {
 
   const isLoading = profileLoading || statsLoading;
 
+  const getScoreVariant = (score: number | null): 'secondary' | 'destructive' => {
+    if (score === null) return 'destructive';
+    if (score >= 50) return 'secondary';
+    return 'destructive';
+  };
+
   const quickLinks = [
     { to: "/inventory", icon: Package, label: t('inventory_management') },
     { to: "/workers", icon: Users, label: t('worker_management') },
@@ -193,7 +199,7 @@ const Dashboard = () => {
                     stats.lowReliabilityWorkers.map(worker => (
                       <div key={worker.id} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <Link to={`/worker-report/${worker.id}`} className="font-medium hover:underline">{worker.name}</Link>
-                        <Badge variant="secondary">{t('score')}: {worker.reliability_score}</Badge>
+                        <Badge variant={getScoreVariant(worker.reliability_score)}>{t('score')}: {worker.reliability_score ?? t('not_available')}</Badge>
                       </div>
                     ))
                   ) : <p className="text-sm text-muted-foreground">{t('all_workers_good_standing')}</p>}

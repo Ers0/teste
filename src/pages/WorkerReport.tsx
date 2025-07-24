@@ -33,7 +33,7 @@ interface Worker {
   company: string | null;
   qr_code_data: string | null; // System generated QR
   external_qr_code_data: string | null; // New field for pre-existing QR
-  reliability_score: number;
+  reliability_score: number | null;
 }
 
 const WorkerReport = () => {
@@ -106,9 +106,10 @@ const WorkerReport = () => {
     showSuccess(t('report_downloaded_successfully'));
   };
 
-  const getScoreVariant = (score: number): 'default' | 'secondary' | 'destructive' => {
-    if (score >= 80) return 'default';
-    if (score >= 50) return 'secondary';
+  const getScoreVariant = (score: number | null): 'default' | 'secondary' | 'destructive' => {
+    const currentScore = score ?? 100;
+    if (currentScore >= 80) return 'default';
+    if (currentScore >= 50) return 'secondary';
     return 'destructive';
   };
 
@@ -150,7 +151,7 @@ const WorkerReport = () => {
               <div className="mt-2">
                 <Badge variant={getScoreVariant(workerDetails.reliability_score)}>
                   <Star className="mr-2 h-4 w-4" />
-                  {t('reliability_score')}: {workerDetails.reliability_score}
+                  {t('reliability_score')}: {workerDetails.reliability_score ?? 100}
                 </Badge>
               </div>
             </div>
