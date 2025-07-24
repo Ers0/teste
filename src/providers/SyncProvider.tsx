@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/db';
 import { useAuth } from '@/integrations/supabase/auth';
 import { showLoading, dismissToast, showSuccess, showError } from '@/utils/toast';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, TFunction } from 'react-i18next';
 
 interface SyncContextType {
   isSyncing: boolean;
@@ -13,6 +13,49 @@ interface SyncContextType {
 }
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
+
+const processOutbox = async (t: TFunction) => {
+  const operations = await db.outbox.orderBy('timestamp').toArray();
+  if (operations.length === 0) return true;
+
+  console.log(`Processing ${operations.length} offline operations...`);
+  const toastId = showLoading(t('syncing_offline_changes', { count: operations.length }));
+
+  for (const op of operations) {
+    try {
+      let error;
+      switch (op.type) {
+        case 'create':
+          ({ error } = await supabase.from(op.table).insert(op.payload));
+          break;
+        case 'update':
+          ({ error } = await supabase.from(op.table).update(op.payload).eq('id', op.payload.id));
+          break;
+        case 'delete':
+          ({ error } = await supabase.from(op.table).delete().eq('id', op.payload.id));
+          break;
+      }
+      if (error) {
+        if (error.code === '23505') { // unique_violation
+          console.warn(`Conflict detected for operation ${op.id}, skipping. Data will be overwritten by server pull.`);
+          await db.outbox.delete(op.id!);
+        } else {
+          throw error;
+        }
+      } else {
+        await db.outbox.delete(op.id!);
+      }
+    } catch (err: any) {
+      console.error('Failed to sync operation:', op, err);
+      dismissToast(toastId);
+      showError(t('failed_to_sync_change', { error: err.message }));
+      return false; // Stop processing on first error
+    }
+  }
+  dismissToast(toastId);
+  showSuccess(t('offline_changes_synced'));
+  return true;
+};
 
 export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { t } = useTranslation();
@@ -25,6 +68,13 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isOnline || !user || isSyncing) return;
 
     setIsSyncing(true);
+    
+    const outboxSuccess = await processOutbox(t);
+    if (!outboxSuccess) {
+      setIsSyncing(false);
+      return;
+    }
+
     const toastId = showLoading(t('syncing_data'));
 
     try {
@@ -69,7 +119,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isOnline && user) {
       syncData();
     }
-  }, [isOnline, user]);
+  }, [isOnline, user, syncData]);
 
   return (
     <SyncContext.Provider value={{ isSyncing, lastSync, syncData }}>
