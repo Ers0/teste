@@ -28,7 +28,12 @@ const Dashboard = () => {
       const criticalStockItems = lowStockItems?.filter(item => item.critical_stock_threshold && item.quantity <= item.critical_stock_threshold) || [];
       const warningStockItems = lowStockItems?.filter(item => item.low_stock_threshold && item.critical_stock_threshold && item.quantity <= item.low_stock_threshold && item.quantity > item.critical_stock_threshold) || [];
 
-      const { data: lowReliabilityWorkers } = await supabase.from('workers').select('id, name, reliability_score').order('reliability_score', { ascending: true }).limit(5);
+      const { data: lowReliabilityWorkers } = await supabase
+        .from('workers')
+        .select('id, name, reliability_score')
+        .lt('reliability_score', 80) // Corrected logic: only fetch workers with score < 80
+        .order('reliability_score', { ascending: true })
+        .limit(5);
 
       return {
         itemsCount,
