@@ -38,5 +38,7 @@
   "system_user": "System User",
   "takeout": "Takeout",
   "return": "Return",
-  "restock": "Restock"
+  "restock": "Restock",
+  "item_movement_chart_title": "Top 5 Item Movements",
+  "item_movement_chart_desc_dashboard": "Takeouts vs. returns for the most active items."
 }

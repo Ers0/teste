@@ -14,6 +14,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import LowStockAlerts from '@/components/dashboard/LowStockAlerts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
+import ItemMovementChart from '@/components/analytics/ItemMovementChart';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -99,6 +100,17 @@ const Dashboard = () => {
           <LowStockAlerts />
           <RecentActivity />
         </div>
+
+        {/* Analytics Snapshot */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('item_movement_chart_title')}</CardTitle>
+            <CardDescription>{t('item_movement_chart_desc_dashboard')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ItemMovementChart />
+          </CardContent>
+        </Card>
 
         {/* Quick Actions */}
         <Card>

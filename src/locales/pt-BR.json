@@ -38,5 +38,7 @@
   "system_user": "Usuário do Sistema",
   "takeout": "Retirada",
   "return": "Devolução",
-  "restock": "Reabastecimento"
+  "restock": "Reabastecimento",
+  "item_movement_chart_title": "Top 5 Movimentações de Itens",
+  "item_movement_chart_desc_dashboard": "Retiradas vs. devoluções para os itens mais ativos."
 }
