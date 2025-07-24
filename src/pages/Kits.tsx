@@ -115,15 +115,15 @@ const Kits = () => {
       return;
     }
     if (!kitName.trim()) {
-      showError('Kit name is required.');
+      showError(t('kit_name_required'));
       return;
     }
     if (selectedItems.size === 0) {
-      showError('A kit must have at least one item.');
+      showError(t('kit_must_have_item'));
       return;
     }
 
-    const toastId = showLoading(editingKit ? 'Updating kit...' : 'Creating kit...');
+    const toastId = showLoading(editingKit ? t('updating_kit') : t('creating_kit'));
     try {
       let kitId = editingKit?.id;
 
@@ -152,7 +152,7 @@ const Kits = () => {
       if (insertError) throw insertError;
 
       dismissToast(toastId);
-      showSuccess(`Kit "${kitName}" saved successfully!`);
+      showSuccess(t('kit_saved_successfully', { kitName }));
       setIsDialogOpen(false);
     } catch (error: any) {
       dismissToast(toastId);
@@ -165,12 +165,12 @@ const Kits = () => {
       showError(t('offline_action_error'));
       return;
     }
-    if (window.confirm('Are you sure you want to delete this kit? This action cannot be undone.')) {
+    if (window.confirm(t('confirm_delete_kit'))) {
       const { error } = await supabase.from('kits').delete().eq('id', kitId);
       if (error) {
         showError(error.message);
       } else {
-        showSuccess('Kit deleted successfully.');
+        showSuccess(t('kit_deleted_successfully'));
       }
     }
   };
@@ -186,8 +186,8 @@ const Kits = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-grow text-center">
-              <CardTitle className="text-3xl font-bold">Manage Kits</CardTitle>
-              <CardDescription>Create and manage bundles of items for quick checkout.</CardDescription>
+              <CardTitle className="text-3xl font-bold">{t('manage_kits_title')}</CardTitle>
+              <CardDescription>{t('manage_kits_description')}</CardDescription>
             </div>
             <div className="w-10"></div>
           </div>
@@ -195,12 +195,12 @@ const Kits = () => {
         <CardContent>
           <div className="flex justify-end mb-4">
             <Button onClick={() => openDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create New Kit
+              <PlusCircle className="mr-2 h-4 w-4" /> {t('create_new_kit')}
             </Button>
           </div>
           <div className="space-y-4">
             {isLoading ? (
-              <p>Loading kits...</p>
+              <p>{t('loading_kits')}</p>
             ) : populatedKits && populatedKits.length > 0 ? (
               populatedKits.map(kit => (
                 <Card key={kit.id}>
@@ -224,7 +224,7 @@ const Kits = () => {
                 </Card>
               ))
             ) : (
-              <p className="text-center text-muted-foreground">No kits created yet. Get started by creating one!</p>
+              <p className="text-center text-muted-foreground">{t('no_kits_created')}</p>
             )}
           </div>
         </CardContent>
@@ -233,30 +233,30 @@ const Kits = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingKit ? 'Edit Kit' : 'Create New Kit'}</DialogTitle>
+            <DialogTitle>{editingKit ? t('edit_kit') : t('create_new_kit')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="kit-name">Kit Name</Label>
+              <Label htmlFor="kit-name">{t('kit_name')}</Label>
               <Input id="kit-name" value={kitName} onChange={(e) => setKitName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="kit-description">Description (Optional)</Label>
+              <Label htmlFor="kit-description">{t('description_optional')}</Label>
               <Input id="kit-description" value={kitDescription} onChange={(e) => setKitDescription(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Items in Kit</Label>
+              <Label>{t('items_in_kit')}</Label>
               <Popover open={isItemSearchOpen} onOpenChange={setIsItemSearchOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+                    <PlusCircle className="mr-2 h-4 w-4" /> {t('add_item')}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Search for an item..." />
+                    <CommandInput placeholder={t('search_for_item')} />
                     <CommandList>
-                      <CommandEmpty>No items found.</CommandEmpty>
+                      <CommandEmpty>{t('no_items_found')}</CommandEmpty>
                       <CommandGroup>
                         {allItems?.map(item => (
                           <CommandItem key={item.id} onSelect={() => handleSelectItem(item)}>
@@ -274,7 +274,7 @@ const Kits = () => {
                 <div key={item.id} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-accent">
                   <span className="font-medium">{item.name}</span>
                   <div className="flex items-center gap-2">
-                    <Label htmlFor={`qty-${item.id}`} className="text-sm">Qty:</Label>
+                    <Label htmlFor={`qty-${item.id}`} className="text-sm">{t('qty')}</Label>
                     <Input
                       id={`qty-${item.id}`}
                       type="number"
@@ -288,12 +288,12 @@ const Kits = () => {
                     </Button>
                   </div>
                 </div>
-              )) : <p className="text-sm text-center text-muted-foreground py-4">No items added to the kit yet.</p>}
+              )) : <p className="text-sm text-center text-muted-foreground py-4">{t('no_items_added_to_kit')}</p>}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>Save Kit</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>{t('cancel')}</Button>
+            <Button onClick={handleSubmit}>{t('save_kit')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
