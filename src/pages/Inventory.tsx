@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Edit, Trash2, Upload, Download, Search, ArrowLeft, Printer } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Upload, Download, Search, ArrowLeft, Printer, HelpCircle } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
 import { useAuth } from '@/integrations/supabase/auth';
@@ -27,6 +27,14 @@ import { Item, Tag } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { useOnlineStatus } from '@/hooks/use-online-status';
+import { useQuery } from '@tanstack/react-query';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+interface Forecast {
+  item_id: string;
+  avg_daily_usage: number | null;
+  days_until_stockout: number | null;
+}
 
 const Inventory = () => {
   const { t } = useTranslation();
@@ -60,6 +68,25 @@ const Inventory = () => {
 
   const items = useLiveQuery(() => db.items.toArray(), []);
   const tags = useLiveQuery(() => db.tags.toArray(), []);
+
+  const { data: forecastData } = useQuery<Forecast[]>({
+    queryKey: ['inventoryForecast', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.rpc('get_inventory_with_forecast');
+      if (error) throw error;
+      return data;
+    },
+    enabled: isOnline && !!user,
+  });
+
+  const forecastMap = useMemo(() => {
+    const map = new Map<string, Omit<Forecast, 'item_id'>>();
+    if (forecastData) {
+      forecastData.forEach(f => map.set(f.item_id, { avg_daily_usage: f.avg_daily_usage, days_until_stockout: f.days_until_stockout }));
+    }
+    return map;
+  }, [forecastData]);
 
   const tagOptions = useMemo(() => tags?.map(tag => ({ value: tag.id, label: tag.name })) || [], [tags]);
 
@@ -303,9 +330,27 @@ const Inventory = () => {
             </div>
           </div>
           <Table>
-            <TableHeader><TableRow><TableHead className="w-[50px]"><Checkbox checked={selectedItemIds.length === filteredAndSortedItems.length && filteredAndSortedItems.length > 0} onCheckedChange={(checked) => setSelectedItemIds(checked ? filteredAndSortedItems.map(i => i.id) : [])} /></TableHead><TableHead>{t('name')}</TableHead><TableHead>{t('description')}</TableHead><TableHead className="text-right">{t('quantity')}</TableHead><TableHead>{t('type')}</TableHead><TableHead>{t('tags')}</TableHead><TableHead>{t('actions')}</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-[50px]"><Checkbox checked={selectedItemIds.length === filteredAndSortedItems.length && filteredAndSortedItems.length > 0} onCheckedChange={(checked) => setSelectedItemIds(checked ? filteredAndSortedItems.map(i => i.id) : [])} /></TableHead><TableHead>{t('name')}</TableHead><TableHead>{t('description')}</TableHead><TableHead className="text-right">{t('quantity')}</TableHead><TableHead>{t('type')}</TableHead><TableHead>{t('tags')}</TableHead>
+            <TableHead>
+                <div className="flex items-center">
+                  {t('est_stockout')}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 ml-1 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('forecast_tooltip')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </TableHead>
+            <TableHead>{t('actions')}</TableHead></TableRow></TableHeader>
             <TableBody>
-              {filteredAndSortedItems.map((item) => (
+              {filteredAndSortedItems.map((item) => {
+                const forecast = forecastMap.get(item.id);
+                return (
                 <TableRow key={item.id} data-state={selectedItemIds.includes(item.id) && "selected"}>
                   <TableCell><Checkbox checked={selectedItemIds.includes(item.id)} onCheckedChange={(checked) => setSelectedItemIds(prev => checked ? [...prev, item.id] : prev.filter(id => id !== item.id))} /></TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>
@@ -313,9 +358,12 @@ const Inventory = () => {
                   <TableCell className="text-right">{item.quantity}</TableCell>
                   <TableCell>{item.is_ppe ? (<Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">{t('ppe')}</Badge>) : item.is_tool ? (<Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{t('tool')}</Badge>) : (<Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">{t('consumable')}</Badge>)}</TableCell>
                   <TableCell><div className="flex flex-wrap gap-1">{item.tags?.map(tagId => { const tag = tags?.find(t => t.id === tagId); return tag ? <span key={tag.id} className="px-2 py-1 text-xs rounded-full" style={{ backgroundColor: tag.color, color: '#fff' }}>{tag.name}</span> : null; })}</div></TableCell>
+                  <TableCell>
+                    {item.is_tool ? '-' : forecast?.days_until_stockout !== null && forecast?.days_until_stockout !== undefined ? `~${forecast.days_until_stockout} ${t('days')}`: '-'}
+                  </TableCell>
                   <TableCell><div className="flex gap-2"><Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(item)}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button></div></TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </CardContent>
