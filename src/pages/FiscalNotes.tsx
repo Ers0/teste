@@ -255,7 +255,7 @@ const FiscalNotes = () => {
       [t('nfe_key')]: note.nfe_key,
       [t('fiscal_note_description')]: note.description || 'N/A',
       [t('fiscal_note_arrival_date')]: note.arrival_date ? new Date(note.arrival_date).toLocaleDateString() : 'N/A',
-      [t('created_at')]: new Date(note.created_at).toLocaleString(),
+      [t('created_at')]: note.created_at ? new Date(note.created_at).toLocaleString() : 'N/A',
     }));
 
     exportToCsv(formattedData, 'fiscal_notes_report.csv');
@@ -449,7 +449,7 @@ const FiscalNotes = () => {
                         <TableCell className="font-medium">{note.nfe_key}</TableCell>
                         <TableCell>{note.description || 'N/A'}</TableCell>
                         <TableCell>{note.arrival_date ? new Date(note.arrival_date).toLocaleDateString() : 'N/A'}</TableCell>
-                        <TableCell className="text-right">{new Date(note.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">{note.created_at ? new Date(note.created_at).toLocaleDateString() : 'N/A'}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex justify-center gap-2">
                             <Button variant="destructive" size="icon" onClick={() => handleDeleteFiscalNote(note.id)}>

@@ -1,89 +1,44 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Download, Star } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
-import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
+import { Worker, Transaction } from '@/types';
 
-interface Transaction {
-  id: string;
-  item_id: string;
-  worker_id: string;
-  company: string | null;
-  type: 'takeout' | 'return';
-  quantity: number;
-  timestamp: string;
+interface PopulatedTransaction extends Transaction {
   items: { name: string } | null;
   workers: { name: string } | null;
-  user_id: string;
-  authorized_by: string | null; // New field
-  given_by: string | null;      // New field
-}
-
-interface Worker {
-  id: string;
-  name: string;
-  company: string | null;
-  qr_code_data: string | null; // System generated QR
-  external_qr_code_data: string | null; // New field for pre-existing QR
-  reliability_score: number | null;
 }
 
 const WorkerReport = () => {
   const { t } = useTranslation();
   const { workerId } = useParams<{ workerId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
-  // Fetch worker details to display name
-  const { data: workerDetails, isLoading: isWorkerLoading, error: workerError } = useQuery<Worker, Error>({
-    queryKey: ['worker', workerId, user?.id],
-    queryFn: async () => {
-      if (!workerId || !user) throw new Error(t('worker_id_or_user_missing'));
-      const { data, error } = await supabase
-        .from('workers')
-        .select('id, name, company, qr_code_data, external_qr_code_data, reliability_score') // Select new field
-        .eq('id', workerId)
-        .eq('user_id', user.id)
-        .single();
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!workerId && !!user,
-  });
+  const workerDetails = useLiveQuery(() => workerId ? db.workers.get(workerId) : undefined, [workerId]);
 
-  // Fetch transactions for the specific worker
-  const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[], Error>({
-    queryKey: ['workerTransactions', workerId, user?.id],
-    queryFn: async () => {
-      if (!workerId || !user) return [];
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*, items(name), workers(name), authorized_by, given_by, company') // Select new fields
-        .eq('worker_id', workerId)
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false });
-      if (error) throw new Error(error.message);
-      return data as Transaction[];
-    },
-    enabled: !!workerId && !!user,
-  });
+  const transactions = useLiveQuery(async () => {
+    if (!workerId) return [];
+    const txs = await db.transactions.where('worker_id').equals(workerId).reverse().sortBy('timestamp');
+    return Promise.all(txs.map(async (tx) => {
+      const item = await db.items.get(tx.item_id);
+      const worker = tx.worker_id ? await db.workers.get(tx.worker_id) : null;
+      return {
+        ...tx,
+        items: item ? { name: item.name } : null,
+        workers: worker ? { name: worker.name } : null,
+      };
+    }));
+  }, [workerId]);
 
-  useEffect(() => {
-    if (workerError) {
-      showError(t('error_fetching_worker_details') + workerError.message);
-    }
-    if (transactionsError) {
-      showError(t('error_fetching_worker_transactions') + transactionsError.message);
-    }
-  }, [workerError, transactionsError, t]);
+  const isLoading = workerDetails === undefined || transactions === undefined;
 
   const handleExportReport = () => {
     if (!transactions || transactions.length === 0) {
@@ -96,8 +51,8 @@ const WorkerReport = () => {
       [t('worker_name')]: transaction.workers?.name || 'N/A',
       [t('transaction_type')]: t(transaction.type),
       [t('quantity')]: transaction.quantity,
-      [t('authorized_by')]: transaction.authorized_by || 'N/A', // Include in export
-      [t('given_by')]: transaction.given_by || 'N/A',           // Include in export
+      [t('authorized_by')]: transaction.authorized_by || 'N/A',
+      [t('given_by')]: transaction.given_by || 'N/A',
       [t('timestamp')]: new Date(transaction.timestamp).toLocaleString(),
     }));
 
@@ -113,7 +68,7 @@ const WorkerReport = () => {
     return 'destructive';
   };
 
-  if (isWorkerLoading || isTransactionsLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-gray-600 dark:text-gray-400">{t('loading_report')}</p>
@@ -171,8 +126,8 @@ const WorkerReport = () => {
                   <TableHead>{t('item_name')}</TableHead>
                   <TableHead>{t('transaction_type')}</TableHead>
                   <TableHead className="text-right">{t('quantity')}</TableHead>
-                  <TableHead>{t('authorized_by')}</TableHead> {/* New TableHead */}
-                  <TableHead>{t('given_by')}</TableHead>      {/* New TableHead */}
+                  <TableHead>{t('authorized_by')}</TableHead>
+                  <TableHead>{t('given_by')}</TableHead>
                   <TableHead className="text-right">{t('timestamp')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -193,8 +148,8 @@ const WorkerReport = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">{transaction.quantity}</TableCell>
-                      <TableCell>{transaction.authorized_by || 'N/A'}</TableCell> {/* New TableCell */}
-                      <TableCell>{transaction.given_by || 'N/A'}</TableCell>      {/* New TableCell */}
+                      <TableCell>{transaction.authorized_by || 'N/A'}</TableCell>
+                      <TableCell>{transaction.given_by || 'N/A'}</TableCell>
                       <TableCell className="text-right">{new Date(transaction.timestamp).toLocaleString()}</TableCell>
                     </TableRow>
                   ))
