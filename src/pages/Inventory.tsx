@@ -73,7 +73,7 @@ const Inventory = () => {
   const [barcode, setBarcode] = useState('');
   const [lowStock, setLowStock] = useState<number | ''>('');
   const [criticalStock, setCriticalStock] = useState<number | ''>('');
-  const [itemType, setItemType] = useState('consumable');
+  const [itemType, setItemType] = useState('material');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -111,7 +111,7 @@ const Inventory = () => {
 
     if (filterByType !== 'all') {
       filtered = filtered.filter(item => {
-        if (filterByType === 'consumable') return item.one_time_use;
+        if (filterByType === 'material') return item.one_time_use;
         if (filterByType === 'tool') return item.is_tool;
         if (filterByType === 'ppe') return item.is_ppe;
         return true;
@@ -135,7 +135,7 @@ const Inventory = () => {
 
   const resetDialogState = () => {
     setName(''); setDescription(''); setQuantity(0); setBarcode('');
-    setLowStock(''); setCriticalStock(''); setItemType('consumable');
+    setLowStock(''); setCriticalStock(''); setItemType('material');
     setSelectedTags([]); setImageFile(null); setImagePreview(null); setEditingItem(null);
   };
 
@@ -146,7 +146,7 @@ const Inventory = () => {
     setDescription(item.description || ''); setQuantity(item.quantity);
     setBarcode(item.barcode || ''); setLowStock(item.low_stock_threshold || '');
     setCriticalStock(item.critical_stock_threshold || '');
-    if (item.is_ppe) setItemType('ppe'); else if (item.is_tool) setItemType('tool'); else setItemType('consumable');
+    if (item.is_ppe) setItemType('ppe'); else if (item.is_tool) setItemType('tool'); else setItemType('material');
     setSelectedTags(item.tags || []); setImagePreview(item.image_url); setIsEditDialogOpen(true);
   };
 
@@ -176,7 +176,7 @@ const Inventory = () => {
       name, description, quantity, barcode: barcode.trim() === '' ? null : barcode.trim(),
       low_stock_threshold: lowStock === '' ? null : Number(lowStock),
       critical_stock_threshold: criticalStock === '' ? null : Number(criticalStock),
-      one_time_use: itemType === 'consumable', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
+      one_time_use: itemType === 'material', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
       tags: selectedTags, image_url: imageUrl, user_id: user.id,
     });
     if (error) { showError(`${t('error_adding_item')} ${error.message}`); }
@@ -190,7 +190,7 @@ const Inventory = () => {
       name, description, quantity, barcode: barcode.trim() === '' ? null : barcode.trim(),
       low_stock_threshold: lowStock === '' ? null : Number(lowStock),
       critical_stock_threshold: criticalStock === '' ? null : Number(criticalStock),
-      one_time_use: itemType === 'consumable', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
+      one_time_use: itemType === 'material', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
       tags: selectedTags, image_url: imageUrl,
     }).eq('id', editingItem.id);
     if (error) { showError(`${t('error_updating_item')} ${error.message}`); }
@@ -226,7 +226,7 @@ const Inventory = () => {
         name: row.name, description: row.description, quantity: parseInt(row.quantity || '0', 10), barcode: row.barcode,
         low_stock_threshold: row.low_stock_threshold ? parseInt(row.low_stock_threshold, 10) : null,
         critical_stock_threshold: row.critical_stock_threshold ? parseInt(row.critical_stock_threshold, 10) : null,
-        one_time_use: row.type?.toLowerCase() === 'consumable', is_tool: row.type?.toLowerCase() === 'tool', is_ppe: row.type?.toLowerCase() === 'ppe', user_id: user.id,
+        one_time_use: row.type?.toLowerCase() === 'material', is_tool: row.type?.toLowerCase() === 'tool', is_ppe: row.type?.toLowerCase() === 'ppe', user_id: user.id,
       }));
       const { error } = await supabase.from('items').insert(itemsToImport); if (error) { throw error; }
       dismissToast(toastId); showSuccess(t('items_imported_successfully', { count: itemsToImport.length }));
@@ -273,7 +273,7 @@ const Inventory = () => {
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="lowStock" className="text-right">{t('low_stock_yellow')}</Label><Input id="lowStock" type="number" value={lowStock} onChange={(e) => setLowStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" placeholder="e.g., 10" /></div>
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="criticalStock" className="text-right">{t('critical_stock_red')}</Label><Input id="criticalStock" type="number" value={criticalStock} onChange={(e) => setCriticalStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" placeholder="e.g., 5" /></div>
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="tags" className="text-right">{t('tags')}</Label><MultiSelect options={tagOptions} selected={selectedTags} onChange={setSelectedTags} className="col-span-3" placeholder={t('select_tags')} /></div>
-          <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">{t('type')}</Label><RadioGroup value={itemType} onValueChange={setItemType} className="col-span-3 flex space-x-4"><div className="flex items-center space-x-2"><RadioGroupItem value="consumable" id="r1" /><Label htmlFor="r1">{t('consumable')}</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="tool" id="r2" /><Label htmlFor="r2">{t('tool')}</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="ppe" id="r3" /><Label htmlFor="r3">{t('ppe')}</Label></div></RadioGroup></div>
+          <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">{t('type')}</Label><RadioGroup value={itemType} onValueChange={setItemType} className="col-span-3 flex space-x-4"><div className="flex items-center space-x-2"><RadioGroupItem value="material" id="r1" /><Label htmlFor="r1">{t('consumable')}</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="tool" id="r2" /><Label htmlFor="r2">{t('tool')}</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="ppe" id="r3" /><Label htmlFor="r3">{t('ppe')}</Label></div></RadioGroup></div>
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="image" className="text-right">{t('image')}</Label><div className="col-span-3"><Input id="image" type="file" accept="image/*" onChange={handleImageChange} />{imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-24 w-24 object-cover" />}</div></div>
           {/* Barcode Generation */}
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="barcode" className="text-right">{t('barcode')}</Label><div className="col-span-3 flex items-center gap-2"><Input id="barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} /><Button type="button" variant="outline" onClick={() => setBarcode(uuidv4())}>{t('generate')}</Button></div></div>
@@ -298,7 +298,7 @@ const Inventory = () => {
               <div className="flex gap-2">
                 <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('sort_by')} /></SelectTrigger><SelectContent><SelectItem value="name">{t('name')}</SelectItem><SelectItem value="quantity">{t('quantity')}</SelectItem></SelectContent></Select>
                 <Select value={sortOrder} onValueChange={setSortOrder}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('order')} /></SelectTrigger><SelectContent><SelectItem value="asc">{t('ascending')}</SelectItem><SelectItem value="desc">{t('descending')}</SelectItem></SelectContent></Select>
-                <Select value={filterByType} onValueChange={setFilterByType}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('filter_by_type')} /></SelectTrigger><SelectContent><SelectItem value="all">{t('all_types')}</SelectItem><SelectItem value="consumable">{t('consumable')}</SelectItem><SelectItem value="tool">{t('tool')}</SelectItem><SelectItem value="ppe">{t('ppe')}</SelectItem></SelectContent></Select>
+                <Select value={filterByType} onValueChange={setFilterByType}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('filter_by_type')} /></SelectTrigger><SelectContent><SelectItem value="all">{t('all_types')}</SelectItem><SelectItem value="material">{t('consumable')}</SelectItem><SelectItem value="tool">{t('tool')}</SelectItem><SelectItem value="ppe">{t('ppe')}</SelectItem></SelectContent></Select>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
