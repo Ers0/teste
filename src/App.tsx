@@ -22,6 +22,7 @@ import Kits from "./pages/Kits"; // Import the new Kits page
 import { SessionContextProvider } from "./integrations/supabase/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useEffect } from "react";
+import { SyncProvider } from "./providers/SyncProvider";
 
 const queryClient = new QueryClient();
 
@@ -41,26 +42,28 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <SessionContextProvider>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="*" element={<NotFound />} />
-              
-              {/* Protected Routes */}
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
-              <Route path="/workers" element={<ProtectedRoute><Workers /></ProtectedRoute>} />
-              <Route path="/scan-item" element={<ProtectedRoute><ScanItem /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/record-takeout" element={<ProtectedRoute><WorkerTransaction /></ProtectedRoute>} />
-              <Route path="/worker-report/:workerId" element={<ProtectedRoute><WorkerReport /></ProtectedRoute>} />
-              <Route path="/transactions-history" element={<ProtectedRoute><TransactionsHistory /></ProtectedRoute>} />
-              <Route path="/fiscal-notes" element={<ProtectedRoute><FiscalNotes /></ProtectedRoute>} />
-              <Route path="/requisitions" element={<ProtectedRoute><Requisitions /></ProtectedRoute>} />
-              <Route path="/requisition/:requisitionId" element={<ProtectedRoute><RequisitionDetails /></ProtectedRoute>} />
-              <Route path="/tags" element={<ProtectedRoute><Tags /></ProtectedRoute>} />
-              <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-              <Route path="/kits" element={<ProtectedRoute><Kits /></ProtectedRoute>} /> {/* New protected route for Kits */}
-            </Routes>
+            <SyncProvider>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="*" element={<NotFound />} />
+                
+                {/* Protected Routes */}
+                <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+                <Route path="/workers" element={<ProtectedRoute><Workers /></ProtectedRoute>} />
+                <Route path="/scan-item" element={<ProtectedRoute><ScanItem /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/record-takeout" element={<ProtectedRoute><WorkerTransaction /></ProtectedRoute>} />
+                <Route path="/worker-report/:workerId" element={<ProtectedRoute><WorkerReport /></ProtectedRoute>} />
+                <Route path="/transactions-history" element={<ProtectedRoute><TransactionsHistory /></ProtectedRoute>} />
+                <Route path="/fiscal-notes" element={<ProtectedRoute><FiscalNotes /></ProtectedRoute>} />
+                <Route path="/requisitions" element={<ProtectedRoute><Requisitions /></ProtectedRoute>} />
+                <Route path="/requisition/:requisitionId" element={<ProtectedRoute><RequisitionDetails /></ProtectedRoute>} />
+                <Route path="/tags" element={<ProtectedRoute><Tags /></ProtectedRoute>} />
+                <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                <Route path="/kits" element={<ProtectedRoute><Kits /></ProtectedRoute>} /> {/* New protected route for Kits */}
+              </Routes>
+            </SyncProvider>
           </SessionContextProvider>
         </BrowserRouter>
       </TooltipProvider>

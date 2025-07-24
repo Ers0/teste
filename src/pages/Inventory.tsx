@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from '@/components/QRCodeWrapper';
 import { Item, Tag } from '@/types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 
 const Inventory = () => {
   const { t } = useTranslation();
@@ -57,27 +59,8 @@ const Inventory = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const { data: items, isLoading, error, refetch: refetchItems } = useQuery<Item[]>({
-    queryKey: ['items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data as Item[];
-    },
-    enabled: !!user,
-  });
-
-  const { data: tags } = useQuery<Tag[]>({
-    queryKey: ['tags', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('tags').select('*').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+  const items = useLiveQuery(() => db.items.toArray(), []);
+  const tags = useLiveQuery(() => db.tags.toArray(), []);
 
   const tagOptions = useMemo(() => tags?.map(tag => ({ value: tag.id, label: tag.name })) || [], [tags]);
 
@@ -168,7 +151,7 @@ const Inventory = () => {
       user_id: user.id,
     });
     if (error) { showError(`${t('error_adding_item')} ${error.message}`); }
-    else { showSuccess(t('item_added_successfully')); refetchItems(); setIsAddDialogOpen(false); }
+    else { showSuccess(t('item_added_successfully')); queryClient.invalidateQueries({ queryKey: ['items', user.id] }); setIsAddDialogOpen(false); }
   };
 
   const handleUpdateItem = async () => {
@@ -191,14 +174,14 @@ const Inventory = () => {
     if (imageFile) { updatedItemData.image_url = await uploadImage(imageFile); }
     const { error } = await supabase.from('items').update(updatedItemData).eq('id', editingItem.id);
     if (error) { showError(`${t('error_updating_item')} ${error.message}`); }
-    else { showSuccess(t('item_updated_successfully')); refetchItems(); setIsEditDialogOpen(false); }
+    else { showSuccess(t('item_updated_successfully')); queryClient.invalidateQueries({ queryKey: ['items', user?.id] }); setIsEditDialogOpen(false); }
   };
 
   const handleDeleteItem = async (itemId: string) => {
     if (window.confirm(t('confirm_delete_item'))) {
       const { error } = await supabase.from('items').delete().eq('id', itemId);
       if (error) { showError(`${t('error_deleting_item')} ${error.message}`); }
-      else { showSuccess(t('item_deleted_successfully')); refetchItems(); }
+      else { showSuccess(t('item_deleted_successfully')); queryClient.invalidateQueries({ queryKey: ['items', user?.id] }); }
     }
   };
 
@@ -227,7 +210,7 @@ const Inventory = () => {
       }));
       const { error } = await supabase.from('items').insert(itemsToImport); if (error) { throw error; }
       dismissToast(toastId); showSuccess(t('items_imported_successfully', { count: itemsToImport.length }));
-      refetchItems(); setIsImportDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['items', user.id] }); setIsImportDialogOpen(false);
     } catch (error: any) { dismissToast(toastId); showError(`${t('error_importing_items')} ${error.message}`); }
   };
 
@@ -237,7 +220,7 @@ const Inventory = () => {
     const toastId = showLoading(t('deleting_items', { count: selectedItemIds.length }));
     const { error } = await supabase.from('items').delete().in('id', selectedItemIds);
     if (error) { dismissToast(toastId); showError(t('error_deleting_items') + error.message); }
-    else { dismissToast(toastId); showSuccess(t('items_deleted_successfully')); setSelectedItemIds([]); refetchItems(); }
+    else { dismissToast(toastId); showSuccess(t('items_deleted_successfully')); setSelectedItemIds([]); queryClient.invalidateQueries({ queryKey: ['items', user?.id] }); }
     setIsBulkDeleteDialogOpen(false);
   };
 
@@ -253,7 +236,7 @@ const Inventory = () => {
 
     const { error: updateError } = await supabase.from('items').upsert(updates);
     if (updateError) { dismissToast(toastId); showError(t('error_updating_tags') + updateError.message); }
-    else { dismissToast(toastId); showSuccess(t('tags_added_successfully')); setSelectedItemIds([]); setTagsToAdd([]); refetchItems(); }
+    else { dismissToast(toastId); showSuccess(t('tags_added_successfully')); setSelectedItemIds([]); setTagsToAdd([]); queryClient.invalidateQueries({ queryKey: ['items', user?.id] }); }
     setIsBulkTagDialogOpen(false);
   };
 
@@ -280,8 +263,7 @@ const Inventory = () => {
     </Dialog>
   );
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  if (items === undefined) return <div>Loading...</div>;
 
   return (
     <div className="p-4">
