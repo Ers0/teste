@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/db';
@@ -63,15 +63,18 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { user } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const isSyncingRef = useRef(false);
 
   const syncData = useCallback(async () => {
-    if (!isOnline || !user || isSyncing) return;
+    if (!isOnline || !user || isSyncingRef.current) return;
 
+    isSyncingRef.current = true;
     setIsSyncing(true);
     
     const outboxSuccess = await processOutbox(t);
     if (!outboxSuccess) {
       setIsSyncing(false);
+      isSyncingRef.current = false;
       return;
     }
 
@@ -112,8 +115,9 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showError(`${t('data_sync_failed')}: ${error.message}`);
     } finally {
       setIsSyncing(false);
+      isSyncingRef.current = false;
     }
-  }, [isOnline, user, isSyncing, t]);
+  }, [isOnline, user, t]);
 
   useEffect(() => {
     if (isOnline && user) {
