@@ -1,11 +1,10 @@
 import React from 'react';
-import QRCode from 'react-qr-code'; // Importing the new library
+import QRCode from 'react-qr-code';
 
 // Re-export QRCode component
 const QRCodeWrapper = (props: React.ComponentProps<typeof QRCode>) => {
-  // react-qr-code uses 'value' for the QR code data and 'size' for dimensions.
-  // 'level' (error correction) is also supported. 'includeMargin' is not a direct prop.
-  return <QRCode value={props.value} size={props.size} level={props.level} />;
+  // Pass all props, including the crucial 'id' prop, to the underlying component.
+  return <QRCode {...props} />;
 };
 
 export default QRCodeWrapper;
