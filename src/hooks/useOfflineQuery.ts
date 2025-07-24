@@ -10,9 +10,9 @@ export const useOfflineQuery = <T extends { id: string }>(
   onlineQueryFn: () => Promise<T[] | null>
 ) => {
   const isOnline = useNetworkStatus();
-  const dexieTable = db[tableName] as Table<T, any>;
+  const dexieTable = db[tableName] as unknown as Table<T, any>;
 
-  const { data: onlineData, isLoading: isOnlineLoading, error: onlineError, isFetching } = useQuery({
+  const { data: onlineData, isLoading: isOnlineLoading, error: onlineError, isFetching, refetch } = useQuery({
     queryKey,
     queryFn: async () => {
       const data = await onlineQueryFn();
@@ -30,5 +30,5 @@ export const useOfflineQuery = <T extends { id: string }>(
   const isLoading = isOnline ? isOnlineLoading || isFetching : offlineData === undefined;
   const error = isOnline ? onlineError : null;
 
-  return { data, isLoading, error };
+  return { data, isLoading, error, refetch };
 };
