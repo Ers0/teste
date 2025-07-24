@@ -1,11 +1,11 @@
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
-import { useIntl } from 'react-intl';
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 
 const Login = () => {
-  const intl = useIntl();
+  const { t } = useTranslation();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -22,9 +22,9 @@ const Login = () => {
       <div className="flex items-center justify-center py-12 bg-[#842CD4]">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold text-white drop-shadow-md">{intl.formatMessage({ id: 'welcome_back' })}</h1>
+            <h1 className="text-3xl font-bold text-white drop-shadow-md">{t('welcome_back')}</h1>
             <p className="text-balance text-white drop-shadow-md">
-              {intl.formatMessage({ id: 'sign_in_to_manage_inventory' })}
+              {t('sign_in_to_manage_inventory')}
             </p>
           </div>
           <Auth
@@ -50,7 +50,7 @@ const Login = () => {
         <div className="text-center p-8">
           <img src="/yees-logo.png" alt="Yees!" className="mx-auto h-32 w-auto drop-shadow-md" />
           <p className="mt-2 text-lg text-white drop-shadow-md">
-            {intl.formatMessage({ id: 'manage_warehouse_items' })}
+            {t('manage_warehouse_items')}
           </p>
         </div>
       </div>
