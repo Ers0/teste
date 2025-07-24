@@ -55,7 +55,7 @@ const Kits = () => {
 
   const { data: allItems, isLoading: itemsLoading } = useOfflineQuery<Item>(['items', user?.id], 'items', async () => {
     if (!user) return [];
-    const { data, error } = await supabase.from('items').select('id, name').eq('user_id', user.id);
+    const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
     if (error) throw new Error(error.message);
     return data;
   });

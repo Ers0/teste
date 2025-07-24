@@ -83,6 +83,15 @@ export interface Requisition {
   created_at: string;
 }
 
+export interface FiscalNote {
+  id: string;
+  nfe_key: string;
+  description: string | null;
+  arrival_date: string | null;
+  user_id: string;
+  created_at: string;
+  photo_url: string | null;
+}
 
 export interface OfflineAction {
   id?: number;
@@ -101,11 +110,12 @@ class LocalDatabase extends Dexie {
   profiles!: Table<Profile, string>;
   transactions!: Table<Transaction, string>;
   requisitions!: Table<Requisition, string>;
+  fiscal_notes!: Table<FiscalNote, string>;
   offline_queue!: Table<OfflineAction, number>;
 
   constructor() {
     super('YeesInventoryDB');
-    this.version(4).stores({
+    this.version(5).stores({
       items: '&id, name, *tags',
       workers: '&id, name, company',
       tags: '&id, name',
@@ -114,6 +124,7 @@ class LocalDatabase extends Dexie {
       profiles: '&id',
       transactions: '&id, item_id, worker_id, requisition_id, user_id',
       requisitions: '&id, requisition_number, user_id',
+      fiscal_notes: '&id, nfe_key',
       offline_queue: '++id, timestamp',
     });
   }
