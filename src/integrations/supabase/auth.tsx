@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/client';
 import i18n from '@/i18n';
 import { Profile } from '@/types';
@@ -20,84 +19,61 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const navigate = useNavigate();
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
-    const getInitialSession = async () => {
-      try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        setSession(initialSession);
-        const currentUser = initialSession?.user ?? null;
-        setUser(currentUser);
-        
-        if (currentUser) {
-          setProfileLoading(true);
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, language')
-            .eq('id', currentUser.id)
-            .single();
-
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('Error fetching profile:', profileError);
-          } else if (profileData) {
-            setProfile(profileData as Profile);
-            i18n.changeLanguage(profileData.language || 'pt-BR');
-          }
-          setProfileLoading(false);
-        }
-      } catch (error) {
-        console.error("Error getting initial session:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getInitialSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      
-      if (currentUser) {
-        setProfileLoading(true);
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, language')
-          .eq('id', currentUser.id)
-          .single();
-        
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Error fetching profile on auth change:', profileError);
-        } else if (profileData) {
-          setProfile(profileData as Profile);
-          i18n.changeLanguage(profileData.language || 'pt-BR');
-        }
-        setProfileLoading(false);
-      } else {
-        setProfile(null);
-      }
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-      if (event === 'SIGNED_IN') {
-        navigate('/');
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSession(session);
+        setUser(session.user);
       }
-      if (event === 'SIGNED_OUT') {
-        navigate('/login');
-      }
+      setLoading(false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  useEffect(() => {
+    if (user) {
+      setProfileLoading(true);
+      supabase
+        .from('profiles')
+        .select('id, first_name, last_name, language')
+        .eq('id', user.id)
+        .single()
+        .then(({ data, error }) => {
+          if (error && error.code !== 'PGRST116') {
+            console.error('Error fetching profile:', error);
+          } else if (data) {
+            setProfile(data as Profile);
+            i18n.changeLanguage(data.language || 'pt-BR');
+          }
+          setProfileLoading(false);
+        });
+    } else {
+      setProfile(null);
+      setProfileLoading(false);
+    }
+  }, [user]);
+
+  const value = {
+    session,
+    user,
+    profile,
+    loading,
+    profileLoading,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
