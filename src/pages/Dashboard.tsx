@@ -31,7 +31,7 @@ const Dashboard = () => {
       const { data: lowReliabilityWorkers } = await supabase
         .from('workers')
         .select('id, name, reliability_score')
-        .lt('reliability_score', 80) // Corrected logic: only fetch workers with score < 80
+        .lt('reliability_score', 80)
         .order('reliability_score', { ascending: true })
         .limit(5);
 
@@ -89,7 +89,7 @@ const Dashboard = () => {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('total_items')}</CardTitle>
+              <CardTitle className="text-sm font-medium flex-1 pr-2">{t('total_items')}</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -98,7 +98,7 @@ const Dashboard = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('total_workers')}</CardTitle>
+              <CardTitle className="text-sm font-medium flex-1 pr-2">{t('total_workers')}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -107,7 +107,7 @@ const Dashboard = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('critical_stock_items')}</CardTitle>
+              <CardTitle className="text-sm font-medium flex-1 pr-2">{t('critical_stock_items')}</CardTitle>
               <AlertTriangle className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
@@ -116,7 +116,7 @@ const Dashboard = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('low_reliability_workers')}</CardTitle>
+              <CardTitle className="text-sm font-medium flex-1 pr-2">{t('low_reliability_workers')}</CardTitle>
               <Star className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
@@ -143,7 +143,7 @@ const Dashboard = () => {
                 <div className="space-y-4">
                   {stats?.criticalStockItems && stats.criticalStockItems.length > 0 ? (
                     stats.criticalStockItems.map(item => (
-                      <div key={item.id} className="flex justify-between items-center">
+                      <div key={item.id} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <Link to="/inventory" className="font-medium hover:underline">{item.name}</Link>
                         <Badge variant="destructive">{t('quantity')}: {item.quantity}</Badge>
                       </div>
@@ -151,7 +151,7 @@ const Dashboard = () => {
                   ) : <p className="text-sm text-muted-foreground">{t('no_critical_stock_items')}</p>}
                   {stats?.warningStockItems && stats.warningStockItems.length > 0 && (
                     stats.warningStockItems.map(item => (
-                      <div key={item.id} className="flex justify-between items-center">
+                      <div key={item.id} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <Link to="/inventory" className="font-medium hover:underline">{item.name}</Link>
                         <Badge variant="secondary" className="bg-amber-500 text-white">{t('quantity')}: {item.quantity}</Badge>
                       </div>
@@ -177,7 +177,7 @@ const Dashboard = () => {
                 <div className="space-y-4">
                   {stats?.lowReliabilityWorkers && stats.lowReliabilityWorkers.length > 0 ? (
                     stats.lowReliabilityWorkers.map(worker => (
-                      <div key={worker.id} className="flex justify-between items-center">
+                      <div key={worker.id} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <Link to={`/worker-report/${worker.id}`} className="font-medium hover:underline">{worker.name}</Link>
                         <Badge variant="secondary">{t('score')}: {worker.reliability_score}</Badge>
                       </div>
@@ -198,9 +198,9 @@ const Dashboard = () => {
           <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {quickLinks.map(link => (
               <Link key={link.to} to={link.to}>
-                <Button variant="outline" className="w-full h-24 flex flex-col gap-2">
+                <Button variant="outline" className="w-full min-h-24 h-full flex flex-col gap-2 p-2">
                   <link.icon className="h-6 w-6" />
-                  <span className="text-center text-sm">{link.label}</span>
+                  <span className="text-center text-xs sm:text-sm">{link.label}</span>
                 </Button>
               </Link>
             ))}
