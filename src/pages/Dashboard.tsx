@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import LowStockAlerts from '@/components/dashboard/LowStockAlerts';
+import RecentActivity from '@/components/dashboard/RecentActivity';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -94,8 +95,10 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* At-a-Glance Alerts */}
-        <LowStockAlerts />
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+          <LowStockAlerts />
+          <RecentActivity />
+        </div>
 
         {/* Quick Actions */}
         <Card>
