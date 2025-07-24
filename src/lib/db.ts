@@ -49,21 +49,30 @@ export interface KitItem {
     user_id: string;
 }
 
+export interface Profile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  language: string | null;
+}
+
 class LocalDatabase extends Dexie {
   items!: Table<Item, string>;
   workers!: Table<Worker, string>;
   tags!: Table<Tag, string>;
   kits!: Table<Kit, string>;
   kit_items!: Table<KitItem, string>;
+  profiles!: Table<Profile, string>;
 
   constructor() {
     super('YeesInventoryDB');
-    this.version(1).stores({
+    this.version(2).stores({
       items: '&id, name, *tags',
       workers: '&id, name, company',
       tags: '&id, name',
       kits: '&id, name',
       kit_items: '&id, kit_id, item_id',
+      profiles: '&id',
     });
   }
 }

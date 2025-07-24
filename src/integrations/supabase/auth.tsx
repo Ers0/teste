@@ -4,14 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/client';
 import i18n from '@/i18n';
 import { syncAllData } from '@/lib/sync';
-import { db } from '@/lib/db';
-
-interface Profile {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  language: string | null;
-}
+import { db, Profile } from '@/lib/db';
 
 interface AuthContextType {
   session: Session | null;
@@ -40,23 +33,23 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       if (currentSession?.user) {
         setProfileLoading(true);
         try {
+          let profileData: Profile | null = null;
           if (navigator.onLine) {
             await syncAllData(currentSession.user.id);
-            const { data: profileData, error: profileError } = await supabase
+            const { data, error } = await supabase
               .from('profiles')
               .select('id, first_name, last_name, language')
               .eq('id', currentSession.user.id)
               .limit(1)
               .single();
-
-            if (profileError && profileError.code !== 'PGRST116') throw profileError;
-            setProfile(profileData || null);
-            i18n.changeLanguage(profileData?.language || 'pt-BR');
+            if (error && error.code !== 'PGRST116') throw error;
+            profileData = data;
           } else {
-            // In offline mode, we can't fetch the profile.
-            // A more advanced implementation would sync this to IndexedDB as well.
-            console.log("Offline: Cannot fetch profile.");
+            console.log("Offline: Attempting to fetch profile from local DB.");
+            profileData = await db.profiles.get(currentSession.user.id) || null;
           }
+          setProfile(profileData);
+          i18n.changeLanguage(profileData?.language || 'pt-BR');
         } catch (err) {
           console.error('Error during profile fetch:', err);
           setProfile(null);

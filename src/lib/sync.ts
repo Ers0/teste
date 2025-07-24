@@ -12,10 +12,21 @@ export const syncAllData = async (userId: string) => {
   console.log("Starting data synchronization...");
 
   try {
-    const tables = ['items', 'workers', 'tags', 'kits', 'kit_items'];
+    const tables = ['items', 'workers', 'tags', 'kits', 'kit_items', 'profiles'];
     
     for (const tableName of tables) {
-      const { data, error } = await supabase.from(tableName).select('*').eq('user_id', userId);
+      const query = supabase.from(tableName).select('*');
+      
+      // The 'profiles' table has 'id' as the foreign key, not 'user_id'
+      if (tableName === 'profiles') {
+        // @ts-ignore
+        query.eq('id', userId);
+      } else {
+        // @ts-ignore
+        query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       if (data) {
         // @ts-ignore
