@@ -20,6 +20,9 @@ importers:
       '@capacitor/ios':
         specifier: ^7.4.2
         version: 7.4.2(@capacitor/core@7.4.2)
+      '@capacitor/network':
+        specifier: ^7.0.1
+        version: 7.0.1(@capacitor/core@7.4.2)
       '@hookform/resolvers':
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.55.0(react@18.3.1))
@@ -312,6 +315,11 @@ packages:
     resolution: {integrity: sha512-Edd4aZ6IJi4O/7dJIsSIuuo6LXvVVP5V++0Vs1w5bWOGbGhWZXLF0lt0KGFgSUxTuyL6xURGUygkD6dCp35QAQ==}
     peerDependencies:
       '@capacitor/core': ^7.4.0
+
+  '@capacitor/network@7.0.1':
+    resolution: {integrity: sha512-jKyhTUqegKHjHKkK8e3t0TgwAYpKb3ocYpZkJrB3uXL5figkG06UEhQE4Cp25Dfb4LIjDxTSDLLsDEteKarmyg==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
 
   '@dyad-sh/react-vite-component-tagger@0.8.0':
     resolution: {integrity: sha512-97DrCLm4+kpy5fp90cLfuhjhLlhi5/p0nzCU9/pU4V9/aIpQCb+RQ/E3BJdzpMOcoieR81zPZTEiLTW5CYKgSQ==}
@@ -3466,6 +3474,10 @@ snapshots:
       tslib: 2.8.1
 
   '@capacitor/ios@7.4.2(@capacitor/core@7.4.2)':
+    dependencies:
+      '@capacitor/core': 7.4.2
+
+  '@capacitor/network@7.0.1(@capacitor/core@7.4.2)':
     dependencies:
       '@capacitor/core': 7.4.2
 
