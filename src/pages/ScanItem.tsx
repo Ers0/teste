@@ -7,7 +7,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Barcode, Plus, Minus, ArrowLeft, Camera, PlusCircle, Search, Focus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/integrations/supabase/auth';
@@ -71,12 +71,25 @@ const ScanItem = () => {
               html5QrCodeScannerRef.current = null;
             }
             try {
-              const html5Qrcode = new Html5Qrcode(readerElementId);
+              const config = {
+                fps: 10,
+                qrbox: { width: 300, height: 150 },
+                disableFlip: false,
+                formatsToSupport: [
+                  Html5QrcodeSupportedFormats.QR_CODE,
+                  Html5QrcodeSupportedFormats.CODE_128,
+                  Html5QrcodeSupportedFormats.EAN_13,
+                  Html5QrcodeSupportedFormats.EAN_8,
+                  Html5QrcodeSupportedFormats.UPC_A,
+                  Html5QrcodeSupportedFormats.UPC_E,
+                ]
+              };
+              const html5Qrcode = new Html5Qrcode(readerElementId, { verbose: false, formatsToSupport: config.formatsToSupport });
               html5QrCodeScannerRef.current = html5Qrcode;
 
               await html5Qrcode.start(
                 cameraId,
-                { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
+                config,
                 (decodedText) => {
                   console.log("Web scan successful:", decodedText);
                   playBeep();
