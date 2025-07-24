@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/client';
 import i18n from '@/i18n';
 import { Profile } from '@/types';
@@ -20,29 +20,18 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    const fetchSessionAndProfile = async () => {
-      setLoading(true);
-      setProfileLoading(true);
-
-      const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError) {
-        console.error('Error fetching session:', sessionError);
-        setLoading(false);
-        setProfileLoading(false);
-        return;
-      }
-
+    const getInitialSession = async () => {
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
       setSession(initialSession);
-      const currentUser = initialSession?.user || null;
+      const currentUser = initialSession?.user ?? null;
       setUser(currentUser);
-
+      
       if (currentUser) {
+        setProfileLoading(true);
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, language')
@@ -51,32 +40,24 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
         if (profileError && profileError.code !== 'PGRST116') {
           console.error('Error fetching profile:', profileError);
-        } else {
+        } else if (profileData) {
           setProfile(profileData as Profile);
-          i18n.changeLanguage(profileData?.language || 'pt-BR');
+          i18n.changeLanguage(profileData.language || 'pt-BR');
         }
-      } else {
-        setProfile(null);
-        i18n.changeLanguage('pt-BR');
+        setProfileLoading(false);
       }
-
       setLoading(false);
-      setProfileLoading(false);
-
-      if (!initialSession?.user && location.pathname !== '/login') {
-        navigate('/login');
-      }
     };
 
-    fetchSessionAndProfile();
+    getInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
-      const currentUser = session?.user || null;
+      const currentUser = session?.user ?? null;
       setUser(currentUser);
-      setProfileLoading(true);
-
+      
       if (currentUser) {
+        setProfileLoading(true);
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, language')
@@ -85,27 +66,27 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         
         if (profileError && profileError.code !== 'PGRST116') {
           console.error('Error fetching profile on auth change:', profileError);
-        } else {
+        } else if (profileData) {
           setProfile(profileData as Profile);
-          i18n.changeLanguage(profileData?.language || 'pt-BR');
+          i18n.changeLanguage(profileData.language || 'pt-BR');
         }
+        setProfileLoading(false);
       } else {
         setProfile(null);
-        i18n.changeLanguage('pt-BR');
       }
-      setProfileLoading(false);
 
-      if (_event === 'SIGNED_OUT') {
-        navigate('/login');
-      } else if (_event === 'SIGNED_IN' && location.pathname === '/login') {
+      if (event === 'SIGNED_IN') {
         navigate('/');
+      }
+      if (event === 'SIGNED_OUT') {
+        navigate('/login');
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, [navigate]);
 
   return (
     <AuthContext.Provider value={{ session, user, profile, loading, profileLoading }}>
