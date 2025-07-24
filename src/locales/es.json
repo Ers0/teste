@@ -93,5 +93,20 @@
   "uncategorized": "Sin Categoría",
   "export_company_report": "Exportar informe de la empresa",
   "no_workers_to_export_for_this_company": "No hay trabajadores para exportar para esta empresa.",
-  "company_report_exported_successfully": "Informe para {{companyName}} exportado con éxito."
+  "company_report_exported_successfully": "Informe para {{companyName}} exportado con éxito.",
+  "transaction_history_for": "Historial de Transacciones de {{workerName}}",
+  "overview_of_all_transactions_by_worker": "Un resumen de todas las transacciones realizadas por este trabajador.",
+  "export_to_csv": "Exportar a CSV",
+  "no_transactions_to_export": "No hay transacciones para exportar.",
+  "report_downloaded_successfully": "Informe descargado con éxito.",
+  "loading_report": "Cargando informe...",
+  "worker_not_found": "Trabajador no encontrado",
+  "worker_details_could_not_be_loaded": "No se pudieron cargar los detalles de este trabajador.",
+  "go_back": "Volver",
+  "item_name": "Nombre del Artículo",
+  "transaction_type": "Tipo",
+  "authorized_by": "Autorizado Por",
+  "given_by": "Entregado Por",
+  "timestamp": "Fecha y Hora",
+  "no_transactions_found_for_this_worker": "No se encontraron transacciones para este trabajador."
 }

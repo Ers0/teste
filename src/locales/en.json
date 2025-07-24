@@ -93,5 +93,20 @@
   "uncategorized": "Uncategorized",
   "export_company_report": "Export company report",
   "no_workers_to_export_for_this_company": "No workers to export for this company.",
-  "company_report_exported_successfully": "Report for {{companyName}} exported successfully."
+  "company_report_exported_successfully": "Report for {{companyName}} exported successfully.",
+  "transaction_history_for": "Transaction History for {{workerName}}",
+  "overview_of_all_transactions_by_worker": "An overview of all transactions made by this worker.",
+  "export_to_csv": "Export to CSV",
+  "no_transactions_to_export": "No transactions to export.",
+  "report_downloaded_successfully": "Report downloaded successfully.",
+  "loading_report": "Loading report...",
+  "worker_not_found": "Worker not found",
+  "worker_details_could_not_be_loaded": "The details for this worker could not be loaded.",
+  "go_back": "Go Back",
+  "item_name": "Item Name",
+  "transaction_type": "Type",
+  "authorized_by": "Authorized By",
+  "given_by": "Given By",
+  "timestamp": "Timestamp",
+  "no_transactions_found_for_this_worker": "No transactions found for this worker."
 }
