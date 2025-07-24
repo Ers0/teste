@@ -7,7 +7,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, type NavigateFunction } from 'react-router-dom';
+import { useNavigate, type NavigateFunction, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -806,7 +806,9 @@ const WorkerTransaction = () => {
       let stockError = false;
 
       for (const ki of kitItems) {
-        const item = ki.items as Item;
+        const item = ki.items as unknown as Item;
+        if (!item) continue;
+
         if (item.quantity < ki.quantity) {
           showError(`Not enough stock for ${item.name}. Required: ${ki.quantity}, Available: ${item.quantity}`);
           stockError = true;
