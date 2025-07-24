@@ -14,22 +14,8 @@ import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-
-interface Item {
-  id: string;
-  name: string;
-  description: string | null;
-  barcode: string | null;
-  quantity: number;
-  image_url: string | null;
-  image?: File | null;
-  low_stock_threshold: number | null;
-  critical_stock_threshold: number | null;
-  one_time_use: boolean;
-  is_tool: boolean;
-  user_id: string;
-  tags: string[] | null;
-}
+import { db } from '@/lib/db';
+import { Item } from '@/types';
 
 const initialNewItemState = {
   name: '',
@@ -176,39 +162,24 @@ const ScanItem = () => {
   };
 
   const fetchItemByBarcode = async (scannedBarcode: string) => {
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
-    }
-    console.log("Attempting to fetch item with barcode:", scannedBarcode);
-    const { data, error } = await supabase
-      .from('items')
-      .select('*')
-      .eq('barcode', scannedBarcode)
-      .eq('user_id', user.id)
-      .single();
+    console.log("Attempting to fetch item with barcode from local DB:", scannedBarcode);
+    const item = await db.items.where('barcode').equals(scannedBarcode).first();
 
-    if (error) {
-      console.error("Error fetching item:", error);
-      if (error.code === 'PGRST116') {
-        showError(t('item_not_found_add_new'));
-        setItem(null);
-        setNewItemDetails({ ...initialNewItemState, barcode: scannedBarcode });
-        setShowNewItemDialog(true);
-      } else {
-        showError(t('error_fetching_item') + error.message);
-        setItem(null);
-        setShowNewItemDialog(false);
-      }
-    } else {
-      console.log("Item found:", data);
-      setItem(data);
-      showSuccess(t('item_found', { itemName: data.name }));
+    if (item) {
+      console.log("Item found:", item);
+      setItem(item);
+      showSuccess(t('item_found', { itemName: item.name }));
       setTransactionMode('restock');
       setQuantityChange(1);
       setShowNewItemDialog(false);
       setItemSearchTerm('');
       setItemSearchResults([]);
+    } else {
+      console.error("Item not found in local DB");
+      showError(t('item_not_found_add_new'));
+      setItem(null);
+      setNewItemDetails({ ...initialNewItemState, barcode: scannedBarcode });
+      setShowNewItemDialog(true);
     }
   };
 
@@ -217,66 +188,37 @@ const ScanItem = () => {
       showError(t('enter_item_name_to_search'));
       return;
     }
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
-    }
 
-    const searchTerms = itemSearchTerm.trim().split(/[\s,]+/).filter(Boolean);
-    if (searchTerms.length === 0) {
-      return;
-    }
+    const searchLower = itemSearchTerm.trim().toLowerCase();
+    
+    try {
+      const allItems = await db.items.toArray();
+      const allTags = await db.tags.toArray();
 
-    // 1. Find tags matching the search terms
-    const tagFilters = searchTerms.map(term => `name.ilike.%${term}%`).join(',');
-    const { data: matchingTags, error: tagsError } = await supabase
-      .from('tags')
-      .select('id')
-      .or(tagFilters)
-      .eq('user_id', user.id);
+      const matchingTagIds = allTags
+        .filter(tag => tag.name.toLowerCase().includes(searchLower))
+        .map(tag => tag.id);
 
-    if (tagsError) {
-      showError(t('error_searching_tags') + tagsError.message);
-      return;
-    }
+      const results = allItems.filter(item => {
+        const nameMatch = item.name.toLowerCase().includes(searchLower);
+        const tagMatch = item.tags?.some(tagId => matchingTagIds.includes(tagId)) ?? false;
+        return nameMatch || tagMatch;
+      });
 
-    const matchingTagIds = matchingTags.map(tag => tag.id);
-
-    // 2. Build filters for items
-    const nameFilters = searchTerms.map(term => `name.ilike.%${term}%`);
-    const allFilters = [...nameFilters];
-
-    if (matchingTagIds.length > 0) {
-      allFilters.push(`tags.cs.{${matchingTagIds.join(',')}}`);
-    }
-
-    // 3. Search for items
-    const { data, error } = await supabase
-      .from('items')
-      .select('*, one_time_use, is_tool, tags')
-      .or(allFilters.join(','))
-      .eq('user_id', user.id);
-
-    if (error) {
-      showError(t('error_searching_items') + error.message);
-      setItemSearchResults([]);
-    } else if (data && data.length > 0) {
-      if (data.length === 1) {
-        setItem(data[0]);
-        showSuccess(t('item_found', { itemName: data[0].name }));
-        setBarcode(data[0].barcode || '');
-        setItemSearchResults([]);
-        if (data[0].one_time_use) {
-          setTransactionMode('takeout');
-          showError(t('this_is_one_time_use_item_takeout_only'));
+      if (results.length > 0) {
+        if (results.length === 1) {
+          handleSelectItem(results[0]);
+        } else {
+          setItemSearchResults(results);
+          showSuccess(t('multiple_items_found_select'));
         }
       } else {
-        setItemSearchResults(data);
-        showSuccess(t('multiple_items_found_select'));
+        showError(t('no_items_found_for_name'));
+        setItemSearchResults([]);
       }
-    } else {
-      showError(t('no_items_found_for_name'));
-      setItemSearchResults([]);
+    } catch (error) {
+      console.error("Error searching items locally:", error);
+      showError(t('error_searching_items_locally'));
     }
   };
 

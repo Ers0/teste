@@ -8,41 +8,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useProfile } from '@/hooks/use-profile';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
-import { Item, Worker } from '@/types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 
 const Dashboard = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
 
-  const { data: items, isLoading: itemsLoading } = useQuery<Item[]>({
-    queryKey: ['items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const { data: workers, isLoading: workersLoading } = useQuery<Worker[]>({
-    queryKey: ['workers', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+  const items = useLiveQuery(() => db.items.toArray());
+  const workers = useLiveQuery(() => db.workers.toArray());
 
   const stats = useMemo(() => {
     if (!items || !workers) return null;
-
     return {
       itemsCount: items.length,
       workersCount: workers.length,
@@ -60,7 +39,7 @@ const Dashboard = () => {
     }
   };
 
-  const isLoading = profileLoading || itemsLoading || workersLoading;
+  const isLoading = profileLoading || items === undefined || workers === undefined;
 
   const quickLinks = [
     { to: "/inventory", icon: Package, label: t('inventory_management') },
