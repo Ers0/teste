@@ -8,7 +8,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Item, Worker, Kit, Transaction } from '@/types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 
 interface TransactionItem {
   item: Item;
@@ -66,38 +68,9 @@ const WorkerTransaction = () => {
   const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([]);
   const [isKitDialogOpen, setIsKitDialogOpen] = useState(false);
 
-  const { data: allWorkers } = useQuery<Worker[]>({
-    queryKey: ['workers', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const { data: allItems } = useQuery<Item[]>({
-    queryKey: ['items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const { data: kits } = useQuery<Kit[]>({
-    queryKey: ['kits', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('kits').select('*').eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+  const allWorkers = useLiveQuery(() => db.workers.toArray(), []);
+  const allItems = useLiveQuery(() => db.items.toArray(), []);
+  const kits = useLiveQuery(() => db.kits.toArray(), []);
 
   const companies = useMemo(() => {
     if (!allWorkers) return [];
@@ -213,44 +186,60 @@ const WorkerTransaction = () => {
     setScanningItem(false);
   };
 
-  const { data: transactionsHistory, isLoading: isHistoryLoading, error: historyError } = useQuery<Transaction[]>({
-    queryKey: ['transactions', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*, items(name), workers(name), company')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data as Transaction[];
-    },
-    enabled: !!user,
-  });
+  const transactionsHistory = useLiveQuery(async () => {
+    const transactions = await db.transactions.orderBy('timestamp').reverse().limit(5).toArray();
+    const populated = await Promise.all(transactions.map(async (tx) => {
+        const item = await db.items.get(tx.item_id);
+        const worker = tx.worker_id ? await db.workers.get(tx.worker_id) : null;
+        return {
+            ...tx,
+            items: item ? { name: item.name } : null,
+            workers: worker ? { name: worker.name } : null,
+        };
+    }));
+    return populated;
+  }, []);
 
-  const { data: outstandingItems, isLoading: isOutstandingLoading, error: outstandingError } = useQuery<OutstandingItem[]>({
-    queryKey: ['outstandingItems', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('outstanding_items').select('*');
-      if (error) throw error;
-      return data as OutstandingItem[];
-    },
-    enabled: !!user,
-  });
+  const outstandingItems = useLiveQuery(async () => {
+    const transactions = await db.transactions.where('type').anyOf('takeout', 'return').toArray();
+    const items = await db.items.toArray();
+    const workers = await db.workers.toArray();
 
-  useEffect(() => {
-    if (historyError) {
-      showError(t('error_fetching_transaction_history') + historyError.message);
+    const itemsMap = new Map(items.map(i => [i.id, i]));
+    const workersMap = new Map(workers.map(w => [w.id, w]));
+
+    const balances: { [key: string]: number } = {};
+
+    for (const tx of transactions) {
+        if (!tx.worker_id) continue;
+        const key = `${tx.worker_id}-${tx.item_id}`;
+        if (tx.type === 'takeout') {
+            balances[key] = (balances[key] || 0) + tx.quantity;
+        } else if (tx.type === 'return') {
+            balances[key] = (balances[key] || 0) - tx.quantity;
+        }
     }
-  }, [historyError, t]);
 
-  useEffect(() => {
-    if (outstandingError) {
-      showError(t('error_fetching_outstanding_takeouts') + outstandingError.message);
+    const result: OutstandingItem[] = [];
+    for (const key in balances) {
+        if (balances[key] > 0) {
+            const [worker_id, item_id] = key.split('-');
+            const worker = workersMap.get(worker_id);
+            const item = itemsMap.get(item_id);
+            if (worker && item) {
+                result.push({
+                    worker_id,
+                    item_id,
+                    worker_name: worker.name,
+                    company: worker.company,
+                    item_name: item.name,
+                    outstanding_quantity: balances[key],
+                });
+            }
+        }
     }
-  }, [outstandingError, t]);
+    return result;
+  }, []);
 
   const handleScanWorker = (qrCodeData: string) => {
     if (!qrCodeData) { showError(t('enter_worker_qr_code_scan')); return; }
@@ -644,12 +633,8 @@ const WorkerTransaction = () => {
   const handleSelectKit = async (kitId: string) => {
     const toastId = showLoading('Adding items from kit...');
     try {
-      const { data: kitItems, error: kitError } = await supabase
-        .from('kit_items')
-        .select('quantity, items(*)')
-        .eq('kit_id', kitId);
+      const kitItems = await db.kit_items.where('kit_id').equals(kitId).toArray();
 
-      if (kitError) throw kitError;
       if (!kitItems || kitItems.length === 0) {
         showError('This kit is empty.');
         return;
@@ -659,7 +644,7 @@ const WorkerTransaction = () => {
       let stockError = false;
 
       for (const ki of kitItems) {
-        const item = ki.items as unknown as Item;
+        const item = await db.items.get(ki.item_id);
         if (!item) continue;
 
         if (item.quantity < ki.quantity) {
@@ -835,7 +820,7 @@ const WorkerTransaction = () => {
                           <SelectValue placeholder={t('select_a_company')} />
                         </SelectTrigger>
                         <SelectContent>
-                          {companies.map(company => (
+                          {companies?.map(company => (
                             <SelectItem key={company} value={company}>{company}</SelectItem>
                           ))}
                         </SelectContent>
@@ -1030,7 +1015,7 @@ const WorkerTransaction = () => {
                   <h3 className="text-lg font-semibold flex items-center">
                     <HistoryIcon className="mr-2 h-5 w-5" /> {t('recent_transaction_history')}
                   </h3>
-                  {isHistoryLoading ? (
+                  {transactionsHistory === undefined ? (
                     <p className="text-gray-500">{t('loading_history')}</p>
                   ) : transactionsHistory && transactionsHistory.length > 0 ? (
                     <div className="space-y-2">
@@ -1071,7 +1056,7 @@ const WorkerTransaction = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {t('outstanding_takeouts_description')}
                 </p>
-                {isOutstandingLoading ? (
+                {outstandingItems === undefined ? (
                   <p className="text-gray-500">{t('loading_outstanding_takeouts')}</p>
                 ) : outstandingItems && outstandingItems.length > 0 ? (
                   <div className="space-y-2">
