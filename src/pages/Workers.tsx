@@ -439,6 +439,38 @@ const Workers = () => {
     return 'destructive';
   };
 
+  const downloadQRCode = (svgId: string, workerName: string, type: 'system' | 'external') => {
+    const svg = document.getElementById(svgId);
+    if (!svg) {
+      showError('QR Code element not found.');
+      return;
+    }
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        showError('Could not get canvas context.');
+        return;
+    }
+    const img = new Image();
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      const pngFile = canvas.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.download = `${workerName.replace(/\s+/g, '_')}_${type}_qrcode.png`;
+      downloadLink.href = pngFile;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    };
+
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
   return (
     <React.Fragment>
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
@@ -682,15 +714,21 @@ const Workers = () => {
             </DialogHeader>
             <div className="flex flex-col items-center justify-center p-4 space-y-4">
               {qrCodeDataToDisplay && (
-                <div className="border p-2 rounded-md">
+                <div className="border p-2 rounded-md flex flex-col items-center gap-2">
                   <p className="text-sm font-semibold mb-2">{t('system_generated_qr')}</p>
-                  <QRCode value={qrCodeDataToDisplay} size={200} level="H" />
+                  <QRCode id="system-qr-code" value={qrCodeDataToDisplay} size={200} level="H" />
+                  <Button variant="outline" size="sm" onClick={() => downloadQRCode('system-qr-code', qrCodeWorkerName, 'system')}>
+                    <Download className="mr-2 h-4 w-4" /> {t('download')}
+                  </Button>
                 </div>
               )}
               {externalQrCodeDataToDisplay && (
-                <div className="border p-2 rounded-md">
+                <div className="border p-2 rounded-md flex flex-col items-center gap-2">
                   <p className="text-sm font-semibold mb-2">{t('external_qr_code')}</p>
-                  <QRCode value={externalQrCodeDataToDisplay} size={200} level="H" />
+                  <QRCode id="external-qr-code" value={externalQrCodeDataToDisplay} size={200} level="H" />
+                  <Button variant="outline" size="sm" onClick={() => downloadQRCode('external-qr-code', qrCodeWorkerName, 'external')}>
+                    <Download className="mr-2 h-4 w-4" /> {t('download')}
+                  </Button>
                 </div>
               )}
               {!qrCodeDataToDisplay && !externalQrCodeDataToDisplay && (

@@ -394,5 +394,8 @@
   "enter_item_barcode_scan": "Digite ou escaneie o código de barras do item.",
   "item_not_found_error": "Item não encontrado: ",
   "item_found": "Item '{{itemName}}' encontrado.",
-  "this_is_a_tool": "Esta é uma ferramenta."
+  "this_is_a_tool": "Esta é uma ferramenta.",
+  "download": "Baixar",
+  "no_file_selected": "Nenhum arquivo selecionado.",
+  "worker_photo": "Foto do funcionário"
 }
