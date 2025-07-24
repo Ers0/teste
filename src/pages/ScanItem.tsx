@@ -4,11 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus, ArrowLeft, Camera, Flashlight, PlusCircle, Search } from 'lucide-react';
+import { Barcode, Plus, Minus, ArrowLeft, Camera, PlusCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -111,7 +111,7 @@ const ScanItem = () => {
                       fetchItemByBarcode(decodedText);
                       setScanning(false);
                     },
-                    (errorMessage) => {
+                    () => {
                       // This callback is called frequently, even for non-errors.
                       // Do not stop scanning here.
                     }
@@ -145,7 +145,7 @@ const ScanItem = () => {
     return () => {
       stopWebScanner();
     };
-  }, [scanning]);
+  }, [scanning, t]);
 
   const startScan = () => {
     setBarcode('');

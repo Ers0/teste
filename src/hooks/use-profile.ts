@@ -1,13 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 
-interface Profile {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  language: string | null;
-}
-
 export const useProfile = () => {
   const { user, profile, loading: authLoading, profileLoading } = useAuth(); // Get profile from useAuth
   const queryClient = useQueryClient();

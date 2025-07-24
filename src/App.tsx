@@ -19,7 +19,7 @@ import RequisitionDetails from "./pages/RequisitionDetails";
 import Tags from "./pages/Tags"; // Import the new Tags component
 import { SessionContextProvider } from "./integrations/supabase/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 

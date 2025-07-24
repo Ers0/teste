@@ -7,14 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Flashlight, Download, Upload, Users, Star } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, QrCode, Image as ImageIcon, Camera, Download, Upload, Users, Star } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import QRCode from '@/components/QRCodeWrapper';
 import { v4 as uuidv4 } from 'uuid';
 import { Html5Qrcode } from 'html5-qrcode';
-import { setBodyBackground, addCssClass, removeCssClass } from '@/utils/camera-utils';
 import { exportToCsv } from '@/utils/export';
 import { parseCsv } from '@/utils/import';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -144,8 +143,8 @@ const Workers = () => {
                     setIsScanningExternalQr(false);
                     setIsDialogOpen(true);
                   },
-                  (errorMessage) => {
-                    console.warn(`QR Code Scan Error: ${errorMessage}`);
+                  () => {
+                    // QR Code Scan Error
                   }
                 );
               } catch (err: any) {
@@ -175,7 +174,7 @@ const Workers = () => {
     return () => {
       stopWebScanner();
     };
-  }, [isScanningExternalQr, editingWorker, newWorker]);
+  }, [isScanningExternalQr, editingWorker, newWorker, t]);
 
   const startExternalQrScan = () => {
     setIsDialogOpen(false);

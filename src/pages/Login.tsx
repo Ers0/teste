@@ -2,7 +2,6 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
-import { Warehouse } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const Login = () => {

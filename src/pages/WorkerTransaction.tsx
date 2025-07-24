@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { QrCode, Barcode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Flashlight, Search, Trash2 } from 'lucide-react';
+import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Html5Qrcode } from 'html5-qrcode';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { exportToPdf } from '@/utils/pdf';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 
@@ -153,7 +152,7 @@ const WorkerTransaction = () => {
                   cameraId,
                   { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
                   onScanSuccess,
-                  (errorMessage) => {}
+                  () => {}
                 );
               } catch (err: any) {
                 showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
@@ -197,7 +196,7 @@ const WorkerTransaction = () => {
     return () => {
       stopWebScanner();
     };
-  }, [scanningWorker, scanningItem]);
+  }, [scanningWorker, scanningItem, t]);
 
   const startWorkerScan = () => {
     setWorkerQrCodeInput('');

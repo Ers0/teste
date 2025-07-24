@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Barcode, ArrowLeft, Camera, Flashlight, FileText, Download, Trash2, CalendarIcon, Image as ImageIcon } from 'lucide-react';
+import { Barcode, ArrowLeft, Camera, FileText, Download, Trash2, CalendarIcon, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -119,7 +119,7 @@ const FiscalNotes = () => {
                     setNfeKey(decodedText);
                     setScanning(false);
                   },
-                  (errorMessage) => {
+                  () => {
                     // This callback is called frequently, even for non-errors.
                   }
                 );
@@ -147,7 +147,7 @@ const FiscalNotes = () => {
     return () => {
       stopWebScanner();
     };
-  }, [scanning]);
+  }, [scanning, t]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -183,7 +183,7 @@ const FiscalNotes = () => {
     return () => {
       stopCamera();
     };
-  }, [isCameraOpen]);
+  }, [isCameraOpen, t]);
 
   const startScan = () => {
     setNfeKey('');
