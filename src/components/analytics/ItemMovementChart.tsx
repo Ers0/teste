@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 
 interface ItemMovementData {
   name: string;
-  total_movement: number;
+  takeouts: number;
+  returns: number;
 }
 
 const ItemMovementChart = () => {
@@ -37,7 +38,8 @@ const ItemMovementChart = () => {
         <YAxis />
         <Tooltip />
         <Legend />
-        <Bar dataKey="total_movement" fill="#8884d8" name={t('total_takeouts')} />
+        <Bar dataKey="takeouts" fill="#ef4444" name={t('takeout')} />
+        <Bar dataKey="returns" fill="#22c55e" name={t('return')} />
       </BarChart>
     </ResponsiveContainer>
   );

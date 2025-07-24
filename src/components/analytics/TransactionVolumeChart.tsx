@@ -7,7 +7,9 @@ import { useTranslation } from 'react-i18next';
 
 interface TransactionVolumeData {
   date: string;
-  transaction_count: number;
+  takeouts: number;
+  returns: number;
+  restocks: number;
 }
 
 const TransactionVolumeChart = () => {
@@ -37,7 +39,9 @@ const TransactionVolumeChart = () => {
         <YAxis />
         <Tooltip />
         <Legend />
-        <Line type="monotone" dataKey="transaction_count" stroke="#82ca9d" name={t('transactions')} />
+        <Line type="monotone" dataKey="takeouts" stroke="#ef4444" name={t('takeout')} />
+        <Line type="monotone" dataKey="returns" stroke="#22c55e" name={t('return')} />
+        <Line type="monotone" dataKey="restocks" stroke="#3b82f6" name={t('restock')} />
       </LineChart>
     </ResponsiveContainer>
   );
