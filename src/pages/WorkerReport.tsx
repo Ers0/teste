@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { Worker, Transaction } from '@/types';
+import AssignedPpeStatus from '@/components/dashboard/AssignedPpeStatus';
 
 interface PopulatedTransaction extends Transaction {
   items: { name: string } | null;
@@ -113,7 +114,8 @@ const WorkerReport = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-end mb-4">
+          <AssignedPpeStatus worker={workerDetails} />
+          <div className="flex justify-end my-4">
             <Button onClick={handleExportReport} disabled={!transactions || transactions.length === 0}>
               <Download className="mr-2 h-4 w-4" /> {t('export_to_csv')}
             </Button>

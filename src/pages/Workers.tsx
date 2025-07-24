@@ -631,6 +631,7 @@ const Workers = () => {
                           <TableRow>
                             <TableHead className="w-[80px]">{t('photo')}</TableHead>
                             <TableHead>{t('name')}</TableHead>
+                            <TableHead>{t('assigned_ppes')}</TableHead>
                             <TableHead>{t('reliability_score')}</TableHead>
                             <TableHead className="text-center">{t('qr_code')}</TableHead>
                             <TableHead className="text-center">{t('actions')}</TableHead>
@@ -649,6 +650,14 @@ const Workers = () => {
                                 )}
                               </TableCell>
                               <TableCell className="font-medium">{worker.name}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {worker.assigned_ppes?.map(ppeId => {
+                                    const ppe = ppeItems?.find(p => p.id === ppeId);
+                                    return ppe ? <Badge key={ppeId} variant="outline">{ppe.name}</Badge> : null;
+                                  })}
+                                </div>
+                              </TableCell>
                               <TableCell>
                                 <Badge variant={getScoreVariant(worker.reliability_score)}>
                                   <Star className="mr-1 h-3 w-3" />
