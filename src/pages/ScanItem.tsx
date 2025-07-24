@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Barcode, Plus, Minus, ArrowLeft, Camera, PlusCircle, Search, Focus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
@@ -547,7 +547,7 @@ const ScanItem = () => {
                   >
                     <ToggleGroupItem
                       value="restock"
-                      aria-label="Toggle restock"
+                      aria-label={t('restock')}
                       disabled={item.one_time_use}
                       className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200"
                     >
@@ -555,7 +555,7 @@ const ScanItem = () => {
                     </ToggleGroupItem>
                     <ToggleGroupItem
                       value="takeout"
-                      aria-label="Toggle takeout"
+                      aria-label={t('takeout')}
                       className="flex-1 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:dark:bg-red-900 data-[state=on]:dark:text-red-200"
                     >
                       {t('takeout')}
@@ -739,6 +739,13 @@ const ScanItem = () => {
                       onChange={handleNewItemImageChange}
                       className="col-span-3"
                     />
+                      {(newItemDetails.image && URL.createObjectURL(newItemDetails.image)) && (
+                        <img 
+                          src={URL.createObjectURL(newItemDetails.image)} 
+                          alt={newItemDetails.name || t('worker_photo')} 
+                          className="col-span-4 w-24 h-24 object-cover rounded-full mt-2 mx-auto" 
+                        />
+                      )}
                   </div>
                 </div>
                 <DialogFooter>

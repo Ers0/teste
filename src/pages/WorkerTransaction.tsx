@@ -318,7 +318,7 @@ const WorkerTransaction = () => {
         const item = await db.items.get(ki.item_id);
         if (!item) continue;
         if (item.quantity < ki.quantity) {
-          showError(`Not enough stock for ${item.name}. Required: ${ki.quantity}, Available: ${item.quantity}`);
+          showError(t('not_enough_stock_for_item', { itemName: item.name }));
           stockError = true;
           break;
         }
@@ -366,8 +366,8 @@ const WorkerTransaction = () => {
                 <div className="space-y-2 border-b pb-4">
                   <h3 className="text-lg font-semibold">{t('transaction_type')}</h3>
                   <ToggleGroup type="single" value={transactionType} onValueChange={(value: 'takeout' | 'return') => { if (scannedItem?.one_time_use && value === 'return') { showError(t('cannot_set_to_return_one_time_use')); return; } value && setTransactionType(value); }} className="flex justify-center gap-4">
-                    <ToggleGroupItem value="takeout" aria-label="Toggle takeout" className="flex-1 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:dark:bg-red-900 data-[state=on]:dark:text-red-200">{t('takeout')}</ToggleGroupItem>
-                    <ToggleGroupItem value="return" aria-label="Toggle return" disabled={scannedItem?.one_time_use} className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200">{t('return')}</ToggleGroupItem>
+                    <ToggleGroupItem value="takeout" aria-label={t('takeout')} className="flex-1 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:dark:bg-red-900 data-[state=on]:dark:text-red-200">{t('takeout')}</ToggleGroupItem>
+                    <ToggleGroupItem value="return" aria-label={t('return')} disabled={scannedItem?.one_time_use} className="flex-1 data-[state=on]:bg-green-100 data-[state=on]:text-green-700 data-[state=on]:dark:bg-green-900 data-[state=on]:dark:text-green-200">{t('return')}</ToggleGroupItem>
                   </ToggleGroup>
                 </div>
                 <WorkerSelection
