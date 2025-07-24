@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { Item, Kit, KitItem as DbKitItem } from '@/types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 
 interface KitItem extends Item {
   quantity: number;
@@ -29,7 +30,6 @@ const Kits = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingKit, setEditingKit] = useState<PopulatedKit | null>(null);
@@ -38,38 +38,10 @@ const Kits = () => {
   const [selectedItems, setSelectedItems] = useState<Map<string, KitItem>>(new Map());
   const [isItemSearchOpen, setIsItemSearchOpen] = useState(false);
 
-  const { data: kits, isLoading: kitsLoading } = useQuery<Kit[]>({
-    queryKey: ['kits', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('kits').select('*').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const { data: allKitItems, isLoading: kitItemsLoading } = useQuery<DbKitItem[]>({
-    queryKey: ['kit_items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('kit_items').select('*').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const { data: allItems, isLoading: itemsLoading } = useQuery<Item[]>({
-    queryKey: ['items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+  const kits = useLiveQuery(() => db.kits.toArray(), []);
+  const allKitItems = useLiveQuery(() => db.kit_items.toArray(), []);
+  const allItems = useLiveQuery(() => db.items.toArray(), []);
+  const isLoading = kits === undefined || allKitItems === undefined || allItems === undefined;
 
   const populatedKits = useMemo<PopulatedKit[]>(() => {
     if (!kits || !allKitItems || !allItems) return [];
@@ -176,8 +148,6 @@ const Kits = () => {
       dismissToast(toastId);
       showSuccess(`Kit "${kitName}" saved successfully!`);
       setIsDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['kits', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['kit_items', user?.id] });
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message);
@@ -191,14 +161,11 @@ const Kits = () => {
         showError(error.message);
       } else {
         showSuccess('Kit deleted successfully.');
-        queryClient.invalidateQueries({ queryKey: ['kits', user?.id] });
-        queryClient.invalidateQueries({ queryKey: ['kit_items', user?.id] });
       }
     }
   };
 
   const selectedItemsArray = useMemo(() => Array.from(selectedItems.values()), [selectedItems]);
-  const isLoading = kitsLoading || kitItemsLoading || itemsLoading;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">

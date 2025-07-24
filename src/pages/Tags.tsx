@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Edit, Trash2, ArrowLeft } from 'lucide-react';
@@ -13,6 +12,8 @@ import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tag } from '@/types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 
 const initialTagState = { name: '', color: '#842CD4' };
 
@@ -20,26 +21,13 @@ const Tags = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [tagData, setTagData] = useState(initialTagState);
 
-  const { data: tags, isLoading, refetch: refetchTags } = useQuery<Tag[]>({
-    queryKey: ['tags', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('tags')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('name', { ascending: true });
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+  const tags = useLiveQuery(() => db.tags.orderBy('name').toArray(), []);
+  const isLoading = tags === undefined;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -65,11 +53,11 @@ const Tags = () => {
     if (editingTag) {
       const { error } = await supabase.from('tags').update(payload).eq('id', editingTag.id);
       if (error) { showError(t('error_updating_tag') + error.message); }
-      else { showSuccess(t('tag_updated_successfully')); refetchTags(); closeDialog(); }
+      else { showSuccess(t('tag_updated_successfully')); closeDialog(); }
     } else {
       const { error } = await supabase.from('tags').insert(payload);
       if (error) { showError(t('error_adding_tag') + error.message); }
-      else { showSuccess(t('tag_added_successfully')); refetchTags(); closeDialog(); }
+      else { showSuccess(t('tag_added_successfully')); closeDialog(); }
     }
   };
 
@@ -77,7 +65,7 @@ const Tags = () => {
     if (window.confirm(t('confirm_delete_tag'))) {
       const { error } = await supabase.from('tags').delete().eq('id', id);
       if (error) { showError(t('error_deleting_tag') + error.message); }
-      else { showSuccess(t('tag_deleted_successfully')); refetchTags(); }
+      else { showSuccess(t('tag_deleted_successfully')); }
     }
   };
 
