@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { Item, Worker, Transaction, Tag, Kit, KitItem, Requisition, FiscalNote, Profile } from '@/types';
+import { Item, Worker, Transaction, Tag, Kit, KitItem, Requisition, FiscalNote, Profile, RequisitionItem } from '@/types';
 
 export interface Outbox {
   id?: number;
@@ -17,12 +17,26 @@ export class LocalDatabase extends Dexie {
   kits!: Table<Kit>;
   kit_items!: Table<KitItem>;
   requisitions!: Table<Requisition>;
+  requisition_items!: Table<RequisitionItem>;
   fiscal_notes!: Table<FiscalNote>;
   profiles!: Table<Profile>;
   outbox!: Table<Outbox>;
 
   constructor() {
     super('YeesAlmoxarifadoDB');
+    this.version(5).stores({
+      items: 'id, name, barcode, *tags, is_ppe, requires_requisition',
+      workers: 'id, name, company, qr_code_data, external_qr_code_data',
+      transactions: 'id, item_id, worker_id, type, timestamp, requisition_id',
+      tags: 'id, name',
+      kits: 'id, name',
+      kit_items: 'id, kit_id, item_id',
+      requisitions: 'id, requisition_number, created_at, status',
+      requisition_items: 'id, requisition_id, item_id',
+      fiscal_notes: 'id, nfe_key, created_at',
+      profiles: 'id',
+      outbox: '++id, timestamp',
+    });
     this.version(4).stores({
       items: 'id, name, barcode, *tags, is_ppe', // Adding is_ppe index
       workers: 'id, name, company, qr_code_data, external_qr_code_data',

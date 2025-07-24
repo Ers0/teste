@@ -65,6 +65,7 @@ const Inventory = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [requiresRequisition, setRequiresRequisition] = useState(false);
 
   const items = useLiveQuery(() => db.items.toArray(), []);
   const tags = useLiveQuery(() => db.tags.toArray(), []);
@@ -125,6 +126,7 @@ const Inventory = () => {
     setName(''); setDescription(''); setQuantity(0); setBarcode('');
     setLowStock(''); setCriticalStock(''); setItemType('material');
     setSelectedTags([]); setImageFile(null); setImagePreview(null); setEditingItem(null);
+    setRequiresRequisition(false);
   };
 
   const handleOpenAddDialog = () => { resetDialogState(); setIsAddDialogOpen(true); };
@@ -135,7 +137,9 @@ const Inventory = () => {
     setBarcode(item.barcode || ''); setLowStock(item.low_stock_threshold || '');
     setCriticalStock(item.critical_stock_threshold || '');
     if (item.is_ppe) setItemType('ppe'); else if (item.is_tool) setItemType('tool'); else setItemType('material');
-    setSelectedTags(item.tags || []); setImagePreview(item.image_url); setIsEditDialogOpen(true);
+    setSelectedTags(item.tags || []); setImagePreview(item.image_url);
+    setRequiresRequisition(item.requires_requisition || false);
+    setIsEditDialogOpen(true);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +179,7 @@ const Inventory = () => {
       critical_stock_threshold: criticalStock === '' ? null : Number(criticalStock),
       one_time_use: itemType === 'material', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
       tags: selectedTags, image_url: imageUrl, user_id: user.id,
+      requires_requisition: requiresRequisition,
     };
 
     try {
@@ -205,6 +210,7 @@ const Inventory = () => {
       critical_stock_threshold: criticalStock === '' ? null : Number(criticalStock),
       one_time_use: itemType === 'material', is_tool: itemType === 'tool', is_ppe: itemType === 'ppe',
       tags: selectedTags, image_url: newImageUrl,
+      requires_requisition: requiresRequisition,
     };
 
     try {
@@ -292,6 +298,7 @@ const Inventory = () => {
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="criticalStock" className="text-right">{t('critical_stock_red')}</Label><Input id="criticalStock" type="number" value={criticalStock} onChange={(e) => setCriticalStock(e.target.value === '' ? '' : Number(e.target.value))} className="col-span-3" placeholder="e.g., 5" /></div>
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="tags" className="text-right">{t('tags')}</Label><MultiSelect options={tagOptions} selected={selectedTags} onChange={setSelectedTags} className="col-span-3" placeholder={t('select_tags')} /></div>
           <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">{t('type')}</Label><RadioGroup value={itemType} onValueChange={setItemType} className="col-span-3 flex space-x-4"><div className="flex items-center space-x-2"><RadioGroupItem value="material" id="r1" /><Label htmlFor="r1">{t('consumable')}</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="tool" id="r2" /><Label htmlFor="r2">{t('tool')}</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="ppe" id="r3" /><Label htmlFor="r3">{t('ppe')}</Label></div></RadioGroup></div>
+          <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="requiresRequisition" className="text-right">{t('requires_requisition')}</Label><Checkbox id="requiresRequisition" checked={requiresRequisition} onCheckedChange={(checked) => setRequiresRequisition(Boolean(checked))} className="col-span-3" /></div>
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="image" className="text-right">{t('image')}</Label><div className="col-span-3"><Input id="image" type="file" accept="image/*" onChange={handleImageChange} />{imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-24 w-24 object-cover" />}</div></div>
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="barcode" className="text-right">{t('barcode')}</Label><div className="col-span-3 flex items-center gap-2"><Input id="barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} /><Button type="button" variant="outline" onClick={() => setBarcode(uuidv4())}>{t('generate')}</Button></div></div>
           {barcode && (<div className="col-span-4 flex flex-col items-center gap-4 printable"><p className="font-semibold">{name}</p><QRCode value={barcode} size={128} /><Button type="button" variant="outline" size="sm" className="mt-2 no-print" onClick={handlePrintBarcode}><Printer className="mr-2 h-4 w-4" />{t('print_barcode')}</Button></div>)}

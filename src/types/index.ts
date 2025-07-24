@@ -12,6 +12,7 @@ export interface Item {
   image_url: string | null;
   user_id: string;
   tags: string[] | null;
+  requires_requisition: boolean;
 }
 
 export interface Worker {
@@ -53,6 +54,7 @@ export interface Profile {
   first_name: string | null;
   last_name: string | null;
   language: string | null;
+  role: string;
 }
 
 export interface Transaction {
@@ -81,6 +83,16 @@ export interface Requisition {
   requester_name: string | null;
   requester_company: string | null;
   application_location: string | null;
+  created_at: string;
+  status: string;
+}
+
+export interface RequisitionItem {
+  id: string;
+  requisition_id: string;
+  item_id: string;
+  quantity: number;
+  user_id: string;
   created_at: string;
 }
 
