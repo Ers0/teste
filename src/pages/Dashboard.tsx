@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import LowStockAlerts from '@/components/dashboard/LowStockAlerts';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -92,6 +93,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* At-a-Glance Alerts */}
+        <LowStockAlerts />
 
         {/* Quick Actions */}
         <Card>
