@@ -58,7 +58,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     user,
     profile: profile || null,
     loading,
-    profileLoading: loading, // Profile is loading if the main auth state is loading
+    profileLoading: loading || profile === undefined,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

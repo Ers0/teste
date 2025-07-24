@@ -19,7 +19,8 @@ import { parseCsv } from '@/utils/import';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useQuery } from '@tanstack/react-query';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 import { Worker } from '@/types';
 
 type EditingWorkerState = Worker & { photo?: File | null };
@@ -50,20 +51,7 @@ const Workers = () => {
   const [isScanningExternalQr, setIsScanningExternalQr] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
 
-  const { data: workers, refetch: fetchWorkers } = useQuery<Worker[]>({
-    queryKey: ['workers', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('workers')
-        .select('*, external_qr_code_data, reliability_score')
-        .eq('user_id', user.id)
-        .order('name', { ascending: true });
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+  const workers = useLiveQuery(() => db.workers.orderBy('name').toArray(), []);
 
   useEffect(() => {
     if (workers) {
@@ -259,7 +247,6 @@ const Workers = () => {
       return;
     }
     showSuccess(t('worker_added_successfully'));
-    fetchWorkers();
     setNewWorker(initialNewWorkerState);
     setIsDialogOpen(false);
   };
@@ -289,7 +276,6 @@ const Workers = () => {
       showError(t('error_updating_worker') + error.message);
     } else {
       showSuccess(t('worker_updated_successfully'));
-      fetchWorkers();
     }
 
     setEditingWorker(null);
@@ -303,7 +289,6 @@ const Workers = () => {
         showError(t('error_deleting_worker') + error.message);
       } else {
         showSuccess(t('worker_deleted_successfully'));
-        fetchWorkers();
       }
     }
   };
@@ -334,22 +319,17 @@ const Workers = () => {
   };
 
   const handleExport = async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('workers')
-      .select('name, company, external_qr_code_data, reliability_score')
-      .eq('user_id', user.id);
-
-    if (error) {
-      showError(t('error_exporting_workers') + error.message);
-      return;
-    }
-    if (!data || data.length === 0) {
+    if (!workers || workers.length === 0) {
       showError(t('no_data_to_export'));
       return;
     }
-
-    exportToCsv(data, 'workers_report.csv');
+    const dataToExport = workers.map(w => ({
+      name: w.name,
+      company: w.company,
+      external_qr_code_data: w.external_qr_code_data,
+      reliability_score: w.reliability_score,
+    }));
+    exportToCsv(dataToExport, 'workers_report.csv');
     showSuccess(t('workers_exported_successfully'));
   };
 
@@ -398,7 +378,6 @@ const Workers = () => {
       showSuccess(t('workers_imported_successfully', { count: workersToImport.length }));
       setIsImportDialogOpen(false);
       setFileToImport(null);
-      fetchWorkers();
     } catch (error: any) {
       dismissToast(toastId);
       showError(t('error_importing_workers') + error.message);
