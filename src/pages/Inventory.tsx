@@ -56,6 +56,7 @@ const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [filterByType, setFilterByType] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -103,10 +104,19 @@ const Inventory = () => {
 
   const filteredAndSortedItems = useMemo(() => {
     if (!items) return [];
-    const filtered = items.filter(item =>
+    let filtered = items.filter(item =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.description?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (filterByType !== 'all') {
+      filtered = filtered.filter(item => {
+        if (filterByType === 'consumable') return item.one_time_use;
+        if (filterByType === 'tool') return item.is_tool;
+        if (filterByType === 'ppe') return item.is_ppe;
+        return true;
+      });
+    }
 
     return filtered.sort((a, b) => {
       let compareA, compareB;
@@ -121,7 +131,7 @@ const Inventory = () => {
       if (compareA > compareB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [items, searchTerm, sortBy, sortOrder]);
+  }, [items, searchTerm, sortBy, sortOrder, filterByType]);
 
   const resetDialogState = () => {
     setName(''); setDescription(''); setQuantity(0); setBarcode('');
@@ -285,7 +295,11 @@ const Inventory = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
             <div className="flex flex-1 flex-col md:flex-row gap-2">
               <div className="relative flex-1 md:flex-initial"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder={t('search_by_name_tag_desc')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 w-full" /></div>
-              <div className="flex gap-2"><Select value={sortBy} onValueChange={setSortBy}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('sort_by')} /></SelectTrigger><SelectContent><SelectItem value="name">{t('name')}</SelectItem><SelectItem value="quantity">{t('quantity')}</SelectItem></SelectContent></Select><Select value={sortOrder} onValueChange={setSortOrder}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('order')} /></SelectTrigger><SelectContent><SelectItem value="asc">{t('ascending')}</SelectItem><SelectItem value="desc">{t('descending')}</SelectItem></SelectContent></Select></div>
+              <div className="flex gap-2">
+                <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('sort_by')} /></SelectTrigger><SelectContent><SelectItem value="name">{t('name')}</SelectItem><SelectItem value="quantity">{t('quantity')}</SelectItem></SelectContent></Select>
+                <Select value={sortOrder} onValueChange={setSortOrder}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('order')} /></SelectTrigger><SelectContent><SelectItem value="asc">{t('ascending')}</SelectItem><SelectItem value="desc">{t('descending')}</SelectItem></SelectContent></Select>
+                <Select value={filterByType} onValueChange={setFilterByType}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('filter_by_type')} /></SelectTrigger><SelectContent><SelectItem value="all">{t('all_types')}</SelectItem><SelectItem value="consumable">{t('consumable')}</SelectItem><SelectItem value="tool">{t('tool')}</SelectItem><SelectItem value="ppe">{t('ppe')}</SelectItem></SelectContent></Select>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {selectedItemIds.length > 0 ? (
