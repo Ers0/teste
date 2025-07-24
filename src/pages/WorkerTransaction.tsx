@@ -8,7 +8,6 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { QrCode, ArrowLeft, Package, Users, History as HistoryIcon, Plus, Minus, Camera, Search, Trash2, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction, Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,9 +17,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Item, Worker, Kit, Transaction } from '@/types';
+import { Item, Worker, Kit, Transaction, Requisition } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/lib/db';
+import { db, Outbox } from '@/lib/db';
+import { v4 as uuidv4 } from 'uuid';
 
 interface TransactionItem {
   item: Item;
@@ -57,7 +57,6 @@ const WorkerTransaction = () => {
   const [applicationLocation, setApplicationLocation] = useState('');
   const [activeTab, setActiveTab] = useState('transaction-form');
   const navigate: NavigateFunction = useNavigate();
-  const queryClient = useQueryClient();
 
   const [selectionMode, setSelectionMode] = useState<'worker' | 'company'>('worker');
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
@@ -367,52 +366,6 @@ const WorkerTransaction = () => {
       return;
     }
 
-    if (transactionType === 'return') {
-      if (selectionMode === 'worker' && !scannedWorker) {
-        showError(t('select_worker_before_return'));
-        return;
-      }
-      if (selectionMode === 'company' && !selectedCompany) {
-        showError(t('select_company_before_return'));
-        return;
-      }
-
-      const toastId = showLoading(t('checking_worker_balance'));
-      try {
-        let query = supabase
-          .from('transactions')
-          .select('type, quantity')
-          .eq('item_id', scannedItem.id)
-          .eq('user_id', user!.id);
-
-        if (selectionMode === 'worker') {
-          query = query.eq('worker_id', scannedWorker!.id);
-        } else {
-          query = query.eq('company', selectedCompany!);
-        }
-
-        const { data: transactions, error } = await query;
-        if (error) throw error;
-
-        const balance = transactions.reduce((acc, tx) => {
-          if (tx.type === 'takeout') return acc + tx.quantity;
-          if (tx.type === 'return') return acc - tx.quantity;
-          return acc;
-        }, 0);
-
-        if (quantityToChange > balance) {
-          dismissToast(toastId);
-          showError(t('cannot_return_more_than_taken', { balance }));
-          return;
-        }
-        dismissToast(toastId);
-      } catch (error: any) {
-        dismissToast(toastId);
-        showError(t('error_checking_balance') + error.message);
-        return;
-      }
-    }
-
     setTransactionItems(prev => [...prev, {
       item: scannedItem,
       quantity: quantityToChange,
@@ -435,31 +388,21 @@ const WorkerTransaction = () => {
   };
 
   const handleFinalizeTransactions = async () => {
-    if (transactionItems.length === 0) {
-      showError(t('no_items_in_transaction_list'));
-      return;
-    }
-    if (selectionMode === 'worker' && !scannedWorker) {
-      showError(t('scan_worker_first'));
-      return;
-    }
-    if (selectionMode === 'company' && !selectedCompany) {
-      showError(t('select_company_first'));
-      return;
-    }
-    if (!user) {
-      showError(t('user_not_authenticated_login'));
-      return;
-    }
+    if (transactionItems.length === 0) { showError(t('no_items_in_transaction_list')); return; }
+    if (selectionMode === 'worker' && !scannedWorker) { showError(t('scan_worker_first')); return; }
+    if (selectionMode === 'company' && !selectedCompany) { showError(t('select_company_first')); return; }
+    if (!user) { showError(t('user_not_authenticated_login')); return; }
 
-    const toastId = showLoading(t('processing_transactions'));
+    const toastId = showLoading(t('saving_transaction_locally'));
     
-    const takeoutItems = transactionItems.filter(item => item.type === 'takeout');
-    const returnItems = transactionItems.filter(item => item.type === 'return');
-    let requisitionCreated = false;
-
     try {
-      let requisitionId: string | null = null;
+      const takeoutItems = transactionItems.filter(item => item.type === 'takeout');
+      const returnItems = transactionItems.filter(item => item.type === 'return');
+      
+      const outboxOps: Outbox[] = [];
+      const localItemUpdates: { id: string, newQuantity: number }[] = [];
+      const localTransactions: Transaction[] = [];
+      let newRequisition: Requisition | null = null;
 
       if (takeoutItems.length > 0) {
         const getNextRequisitionNumber = (): string => {
@@ -469,130 +412,69 @@ const WorkerTransaction = () => {
           localStorage.setItem(key, newNumber.toString());
           return newNumber.toString().padStart(4, '0');
         };
-        const requisitionNumber = getNextRequisitionNumber();
-
-        const { data: requisitionData, error: requisitionError } = await supabase
-          .from('requisitions')
-          .insert({
-            requisition_number: requisitionNumber,
-            user_id: user.id,
-            authorized_by: authorizedBy.trim() || null,
-            given_by: givenBy.trim() || null,
-            requester_name: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
-            requester_company: selectionMode === 'worker' ? scannedWorker!.company : selectedCompany,
-            application_location: applicationLocation.trim() || null,
-          })
-          .select('id')
-          .single();
-
-        if (requisitionError) throw requisitionError;
-        requisitionId = requisitionData.id;
-
-        for (const txItem of takeoutItems) {
-          const { data: currentItem, error: fetchError } = await supabase
-            .from('items')
-            .select('quantity')
-            .eq('id', txItem.item.id)
-            .single();
-
-          if (fetchError || !currentItem) {
-            throw new Error(t('error_fetching_item_details_for', { itemName: txItem.item.name }));
-          }
-
-          if (currentItem.quantity < txItem.quantity) {
-            throw new Error(t('not_enough_stock_for_item', { itemName: txItem.item.name }));
-          }
-          const newQuantity = currentItem.quantity - txItem.quantity;
-
-          const { error: updateError } = await supabase
-            .from('items')
-            .update({ quantity: newQuantity })
-            .eq('id', txItem.item.id);
-
-          if (updateError) {
-            throw new Error(t('error_updating_quantity_for', { itemName: txItem.item.name }));
-          }
-
-          const { error: transactionError } = await supabase
-            .from('transactions')
-            .insert([{
-              requisition_id: requisitionId,
-              worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
-              company: selectionMode === 'company' ? selectedCompany : null,
-              item_id: txItem.item.id,
-              type: txItem.type,
-              quantity: txItem.quantity,
-              user_id: user.id,
-              authorized_by: authorizedBy.trim() || null,
-              given_by: givenBy.trim() || null,
-              is_broken: false,
-            }]);
-
-          if (transactionError) {
-            await supabase.from('items').update({ quantity: currentItem.quantity }).eq('id', txItem.item.id);
-            throw new Error(t('error_recording_transaction_for', { itemName: txItem.item.name }));
-          }
-        }
-        requisitionCreated = true;
+        
+        newRequisition = {
+          id: uuidv4(),
+          requisition_number: getNextRequisitionNumber(),
+          user_id: user.id,
+          authorized_by: authorizedBy.trim() || null,
+          given_by: givenBy.trim() || null,
+          requester_name: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
+          requester_company: selectionMode === 'worker' ? scannedWorker!.company : selectedCompany,
+          application_location: applicationLocation.trim() || null,
+          created_at: new Date().toISOString(),
+        };
+        outboxOps.push({ type: 'create', table: 'requisitions', payload: newRequisition, timestamp: Date.now() });
       }
 
-      for (const txItem of returnItems) {
-        if (!txItem.is_broken) {
-          const { data: currentItem, error: fetchError } = await supabase
-            .from('items')
-            .select('quantity')
-            .eq('id', txItem.item.id)
-            .single();
+      for (const txItem of transactionItems) {
+        const currentItem = await db.items.get(txItem.item.id);
+        if (!currentItem) throw new Error(`Item ${txItem.item.name} not found locally.`);
 
-          if (fetchError || !currentItem) {
-            throw new Error(t('error_fetching_item_details_for', { itemName: txItem.item.name }));
-          }
-
-          const newQuantity = currentItem.quantity + txItem.quantity;
-
-          const { error: updateError } = await supabase
-            .from('items')
-            .update({ quantity: newQuantity })
-            .eq('id', txItem.item.id);
-
-          if (updateError) {
-            throw new Error(t('error_updating_quantity_for', { itemName: txItem.item.name }));
-          }
+        let newQuantity = currentItem.quantity;
+        if (txItem.type === 'takeout') {
+          if (currentItem.quantity < txItem.quantity) throw new Error(t('not_enough_stock_for_item', { itemName: txItem.item.name }));
+          newQuantity -= txItem.quantity;
+        } else if (txItem.type === 'return' && !txItem.is_broken) {
+          newQuantity += txItem.quantity;
+        }
+        
+        if (newQuantity !== currentItem.quantity) {
+          localItemUpdates.push({ id: txItem.item.id, newQuantity });
+          outboxOps.push({ type: 'update', table: 'items', payload: { id: txItem.item.id, quantity: newQuantity }, timestamp: Date.now() });
         }
 
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .insert([{
-            requisition_id: null,
-            worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
-            company: selectionMode === 'company' ? selectedCompany : null,
-            item_id: txItem.item.id,
-            type: txItem.type,
-            quantity: txItem.quantity,
-            user_id: user.id,
-            authorized_by: authorizedBy.trim() || null,
-            given_by: givenBy.trim() || null,
-            is_broken: txItem.is_broken,
-          }]);
-
-        if (transactionError) {
-          if (!txItem.is_broken) {
-            const { data: currentItem } = await supabase.from('items').select('quantity').eq('id', txItem.item.id).single();
-            if (currentItem) {
-              await supabase.from('items').update({ quantity: currentItem.quantity - txItem.quantity }).eq('id', txItem.item.id);
-            }
-          }
-          throw new Error(t('error_recording_transaction_for', { itemName: txItem.item.name }));
-        }
+        const newTransaction: Transaction = {
+          id: uuidv4(),
+          item_id: txItem.item.id,
+          worker_id: selectionMode === 'worker' ? scannedWorker!.id : null,
+          company: selectionMode === 'company' ? selectedCompany : (scannedWorker?.company || null),
+          type: txItem.type,
+          quantity: txItem.quantity,
+          timestamp: new Date().toISOString(),
+          user_id: user.id,
+          authorized_by: authorizedBy.trim() || null,
+          given_by: givenBy.trim() || null,
+          requisition_id: txItem.type === 'takeout' ? newRequisition?.id || null : null,
+          is_broken: txItem.is_broken || false,
+        };
+        localTransactions.push(newTransaction);
+        outboxOps.push({ type: 'create', table: 'transactions', payload: newTransaction, timestamp: Date.now() });
       }
+
+      await db.transaction('rw', db.requisitions, db.items, db.transactions, db.outbox, async () => {
+        if (newRequisition) await db.requisitions.add(newRequisition);
+        for (const update of localItemUpdates) {
+          await db.items.update(update.id, { quantity: update.newQuantity });
+        }
+        await db.transactions.bulkAdd(localTransactions);
+        await db.outbox.bulkAdd(outboxOps as any);
+      });
 
       dismissToast(toastId);
-      showSuccess(t('all_transactions_recorded_successfully'));
+      showSuccess(t('transaction_saved_locally_and_queued'));
       handleDone();
-
-      if (requisitionCreated) {
-        navigate('/requisitions');
-      }
+      if (newRequisition) navigate('/requisitions');
 
     } catch (error: any) {
       dismissToast(toastId);
@@ -618,8 +500,6 @@ const WorkerTransaction = () => {
     setSelectionMode('worker');
     setTransactionItems([]);
     showSuccess(t('transaction_session_cleared'));
-    queryClient.refetchQueries({ queryKey: ['transactions', user?.id] });
-    queryClient.refetchQueries({ queryKey: ['outstandingItems', user?.id] });
   };
 
   const incrementQuantity = () => {
