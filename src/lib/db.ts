@@ -23,6 +23,18 @@ export class LocalDatabase extends Dexie {
 
   constructor() {
     super('YeesAlmoxarifadoDB');
+    this.version(4).stores({
+      items: 'id, name, barcode, *tags, is_ppe', // Adding is_ppe index
+      workers: 'id, name, company, qr_code_data, external_qr_code_data',
+      transactions: 'id, item_id, worker_id, type, timestamp, requisition_id',
+      tags: 'id, name',
+      kits: 'id, name',
+      kit_items: 'id, kit_id, item_id',
+      requisitions: 'id, requisition_number, created_at',
+      fiscal_notes: 'id, nfe_key, created_at',
+      profiles: 'id',
+      outbox: '++id, timestamp',
+    });
     this.version(3).stores({
       items: 'id, name, barcode, *tags',
       workers: 'id, name, company, qr_code_data, external_qr_code_data',
