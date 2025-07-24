@@ -1,18 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Edit, Trash2, Upload, Download, Search, ArrowLeft, MoreHorizontal, Printer } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Upload, Download, Search, ArrowLeft, Printer } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
 import { useAuth } from '@/integrations/supabase/auth';
@@ -24,36 +24,11 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from '@/components/QRCodeWrapper';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { db } from '@/lib/db';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-
-interface Item {
-  id: string;
-  name: string;
-  description: string | null;
-  quantity: number;
-  barcode: string | null;
-  low_stock_threshold: number | null;
-  critical_stock_threshold: number | null;
-  one_time_use: boolean;
-  is_tool: boolean;
-  is_ppe: boolean;
-  image_url: string | null;
-  user_id: string;
-  tags: string[] | null;
-}
-
-interface Tag {
-  id: string;
-  name: string;
-  color: string;
-}
+import { Item, Tag } from '@/types';
 
 const Inventory = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -82,27 +57,27 @@ const Inventory = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const { data: items, isLoading, error, refetch: refetchItems } = useOfflineQuery<Item>(
-    ['items', user?.id],
-    'items',
-    async () => {
+  const { data: items, isLoading, error, refetch: refetchItems } = useQuery<Item[]>({
+    queryKey: ['items', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
       if (error) throw new Error(error.message);
       return data as Item[];
-    }
-  );
+    },
+    enabled: !!user,
+  });
 
-  const { data: tags } = useOfflineQuery<Tag>(
-    ['tags', user?.id],
-    'tags',
-    async () => {
+  const { data: tags } = useQuery<Tag[]>({
+    queryKey: ['tags', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase.from('tags').select('*').eq('user_id', user.id);
       if (error) throw new Error(error.message);
       return data;
-    }
-  );
+    },
+    enabled: !!user,
+  });
 
   const tagOptions = useMemo(() => tags?.map(tag => ({ value: tag.id, label: tag.name })) || [], [tags]);
 
@@ -176,8 +151,9 @@ const Inventory = () => {
     if (!name || quantity < 0) { showError(t('fill_item_name_quantity')); return; }
     if (!user) { showError(t('user_not_authenticated_login')); return; }
 
-    const newItem: Omit<Item, 'depletion_date'> = {
-      id: uuidv4(),
+    let imageUrl = null; if (imageFile) { imageUrl = await uploadImage(imageFile); }
+
+    const { error } = await supabase.from('items').insert({
       name,
       description,
       quantity,
@@ -188,28 +164,17 @@ const Inventory = () => {
       is_tool: itemType === 'tool',
       is_ppe: itemType === 'ppe',
       tags: selectedTags,
-      image_url: null, // Handled separately
+      image_url: imageUrl,
       user_id: user.id,
-    };
-
-    if (isOnline) {
-      let imageUrl = null; if (imageFile) { imageUrl = await uploadImage(imageFile); }
-      newItem.image_url = imageUrl;
-      const { error } = await supabase.from('items').insert(newItem);
-      if (error) { showError(`${t('error_adding_item')} ${error.message}`); }
-      else { showSuccess(t('item_added_successfully')); refetchItems(); setIsAddDialogOpen(false); }
-    } else {
-      await db.items.add(newItem as Item);
-      await db.offline_queue.add({ type: 'create', tableName: 'items', payload: newItem, timestamp: Date.now() });
-      showSuccess(t('item_saved_offline'));
-      setIsAddDialogOpen(false);
-    }
+    });
+    if (error) { showError(`${t('error_adding_item')} ${error.message}`); }
+    else { showSuccess(t('item_added_successfully')); refetchItems(); setIsAddDialogOpen(false); }
   };
 
   const handleUpdateItem = async () => {
     if (!editingItem) return; if (!name || quantity < 0) { showError(t('fill_item_name_quantity')); return; }
     
-    const updatedItemData = {
+    const updatedItemData: Partial<Item> = {
       name,
       description,
       quantity,
@@ -223,30 +188,17 @@ const Inventory = () => {
       image_url: editingItem.image_url,
     };
 
-    if (isOnline) {
-      if (imageFile) { updatedItemData.image_url = await uploadImage(imageFile); }
-      const { error } = await supabase.from('items').update(updatedItemData).eq('id', editingItem.id);
-      if (error) { showError(`${t('error_updating_item')} ${error.message}`); }
-      else { showSuccess(t('item_updated_successfully')); refetchItems(); setIsEditDialogOpen(false); }
-    } else {
-      await db.items.update(editingItem.id, updatedItemData);
-      await db.offline_queue.add({ type: 'update', tableName: 'items', payload: { id: editingItem.id, ...updatedItemData }, timestamp: Date.now() });
-      showSuccess(t('item_update_saved_offline'));
-      setIsEditDialogOpen(false);
-    }
+    if (imageFile) { updatedItemData.image_url = await uploadImage(imageFile); }
+    const { error } = await supabase.from('items').update(updatedItemData).eq('id', editingItem.id);
+    if (error) { showError(`${t('error_updating_item')} ${error.message}`); }
+    else { showSuccess(t('item_updated_successfully')); refetchItems(); setIsEditDialogOpen(false); }
   };
 
   const handleDeleteItem = async (itemId: string) => {
     if (window.confirm(t('confirm_delete_item'))) {
-      if (isOnline) {
-        const { error } = await supabase.from('items').delete().eq('id', itemId);
-        if (error) { showError(`${t('error_deleting_item')} ${error.message}`); }
-        else { showSuccess(t('item_deleted_successfully')); refetchItems(); }
-      } else {
-        await db.items.delete(itemId);
-        await db.offline_queue.add({ type: 'delete', tableName: 'items', payload: { id: itemId }, timestamp: Date.now() });
-        showSuccess(t('item_deleted_offline'));
-      }
+      const { error } = await supabase.from('items').delete().eq('id', itemId);
+      if (error) { showError(`${t('error_deleting_item')} ${error.message}`); }
+      else { showSuccess(t('item_deleted_successfully')); refetchItems(); }
     }
   };
 
@@ -283,18 +235,9 @@ const Inventory = () => {
 
   const handleBulkDelete = async () => {
     const toastId = showLoading(t('deleting_items', { count: selectedItemIds.length }));
-    if (isOnline) {
-      const { error } = await supabase.from('items').delete().in('id', selectedItemIds);
-      if (error) { dismissToast(toastId); showError(t('error_deleting_items') + error.message); }
-      else { dismissToast(toastId); showSuccess(t('items_deleted_successfully')); setSelectedItemIds([]); refetchItems(); }
-    } else {
-      await db.items.bulkDelete(selectedItemIds);
-      const actions = selectedItemIds.map(id => ({ type: 'delete', tableName: 'items', payload: { id }, timestamp: Date.now() }));
-      await db.offline_queue.bulkAdd(actions as any);
-      dismissToast(toastId);
-      showSuccess(t('items_deleted_offline'));
-      setSelectedItemIds([]);
-    }
+    const { error } = await supabase.from('items').delete().in('id', selectedItemIds);
+    if (error) { dismissToast(toastId); showError(t('error_deleting_items') + error.message); }
+    else { dismissToast(toastId); showSuccess(t('items_deleted_successfully')); setSelectedItemIds([]); refetchItems(); }
     setIsBulkDeleteDialogOpen(false);
   };
 
@@ -308,19 +251,9 @@ const Inventory = () => {
       tags: [...new Set([...(item.tags || []), ...tagsToAdd])]
     }));
 
-    if (isOnline) {
-      const { error: updateError } = await supabase.from('items').upsert(updates);
-      if (updateError) { dismissToast(toastId); showError(t('error_updating_tags') + updateError.message); }
-      else { dismissToast(toastId); showSuccess(t('tags_added_successfully')); setSelectedItemIds([]); setTagsToAdd([]); refetchItems(); }
-    } else {
-      await db.items.bulkPut(updates);
-      const actions = updates.map(item => ({ type: 'update', tableName: 'items', payload: item, timestamp: Date.now() }));
-      await db.offline_queue.bulkAdd(actions as any);
-      dismissToast(toastId);
-      showSuccess(t('tags_update_saved_offline'));
-      setSelectedItemIds([]);
-      setTagsToAdd([]);
-    }
+    const { error: updateError } = await supabase.from('items').upsert(updates);
+    if (updateError) { dismissToast(toastId); showError(t('error_updating_tags') + updateError.message); }
+    else { dismissToast(toastId); showSuccess(t('tags_added_successfully')); setSelectedItemIds([]); setTagsToAdd([]); refetchItems(); }
     setIsBulkTagDialogOpen(false);
   };
 
@@ -397,7 +330,7 @@ const Inventory = () => {
       {renderItemDialog(false)}
       {renderItemDialog(true)}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}><DialogContent><DialogHeader><DialogTitle>{t('import_inventory')}</DialogTitle></DialogHeader><p>{t('import_instructions_inventory')}</p><Input type="file" accept=".csv" onChange={handleImport} /></DialogContent></Dialog>
-      <Dialog open={isBulkTagDialogOpen} onOpenChange={setIsBulkTagDialogOpen}><DialogContent><DialogHeader><DialogTitle>{t('add_tags_to_selected_items', { count: selectedItemIds.length })}</DialogTitle><DialogDescription>{t('select_tags_to_add_to_all_selected_items')}</DialogDescription></DialogHeader><div className="py-4"><MultiSelect options={tagOptions} selected={tagsToAdd} onChange={setTagsToAdd} placeholder={t('select_tags')} /></div><DialogFooter><Button variant="outline" onClick={() => setIsBulkTagDialogOpen(false)}>{t('cancel')}</Button><Button onClick={handleBulkAddTags}>{t('add_tags')}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isBulkTagDialogOpen} onOpenChange={setIsBulkTagDialogOpen}><DialogContent><DialogHeader><DialogTitle>{t('add_tags_to_selected_items', { count: selectedItemIds.length })}</DialogTitle></DialogHeader><div className="py-4"><MultiSelect options={tagOptions} selected={tagsToAdd} onChange={setTagsToAdd} placeholder={t('select_tags')} /></div><DialogFooter><Button variant="outline" onClick={() => setIsBulkTagDialogOpen(false)}>{t('cancel')}</Button><Button onClick={handleBulkAddTags}>{t('add_tags')}</Button></DialogFooter></DialogContent></Dialog>
       <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t('are_you_sure')}</AlertDialogTitle><AlertDialogDescription>{t('confirm_bulk_delete_items', { count: selectedItemIds.length })}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('cancel')}</AlertDialogCancel><AlertDialogAction onClick={handleBulkDelete}>{t('delete')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );

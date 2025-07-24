@@ -1,12 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, ArrowLeft, PackagePlus, Search, X } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
@@ -14,8 +14,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { Item, Kit, KitItem as DbKitItem } from '@/lib/db';
+import { Item, Kit, KitItem as DbKitItem } from '@/types';
 
 interface KitItem extends Item {
   quantity: number;
@@ -39,25 +38,37 @@ const Kits = () => {
   const [selectedItems, setSelectedItems] = useState<Map<string, KitItem>>(new Map());
   const [isItemSearchOpen, setIsItemSearchOpen] = useState(false);
 
-  const { data: kits, isLoading: kitsLoading } = useOfflineQuery<Kit>(['kits', user?.id], 'kits', async () => {
-    if (!user) return [];
-    const { data, error } = await supabase.from('kits').select('*').eq('user_id', user.id);
-    if (error) throw new Error(error.message);
-    return data;
+  const { data: kits, isLoading: kitsLoading } = useQuery<Kit[]>({
+    queryKey: ['kits', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('kits').select('*').eq('user_id', user.id);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user,
   });
 
-  const { data: allKitItems, isLoading: kitItemsLoading } = useOfflineQuery<DbKitItem>(['kit_items', user?.id], 'kit_items', async () => {
-    if (!user) return [];
-    const { data, error } = await supabase.from('kit_items').select('*').eq('user_id', user.id);
-    if (error) throw new Error(error.message);
-    return data;
+  const { data: allKitItems, isLoading: kitItemsLoading } = useQuery<DbKitItem[]>({
+    queryKey: ['kit_items', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('kit_items').select('*').eq('user_id', user.id);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user,
   });
 
-  const { data: allItems, isLoading: itemsLoading } = useOfflineQuery<Item>(['items', user?.id], 'items', async () => {
-    if (!user) return [];
-    const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
-    if (error) throw new Error(error.message);
-    return data;
+  const { data: allItems, isLoading: itemsLoading } = useQuery<Item[]>({
+    queryKey: ['items', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user,
   });
 
   const populatedKits = useMemo<PopulatedKit[]>(() => {
@@ -142,7 +153,7 @@ const Kits = () => {
         const { error } = await supabase.from('kits').update({ name: kitName, description: kitDescription }).eq('id', editingKit.id);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from('kits').insert({ name: kitName, description: kitDescription }).select('id').single();
+        const { data, error } = await supabase.from('kits').insert({ name: kitName, description: kitDescription, user_id: user!.id }).select('id').single();
         if (error) throw error;
         kitId = data.id;
       }

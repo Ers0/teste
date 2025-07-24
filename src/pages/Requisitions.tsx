@@ -9,18 +9,16 @@ import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { exportToPdf } from '@/utils/pdf';
 import { showError } from '@/utils/toast';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { Requisition } from '@/lib/db';
+import { Requisition } from '@/types';
 
 const Requisitions = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data: requisitions, isLoading, error } = useOfflineQuery<Requisition>(
-    ['requisitions', user?.id],
-    'requisitions',
-    async () => {
+  const { data: requisitions, isLoading, error } = useQuery<Requisition[]>({
+    queryKey: ['requisitions', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('requisitions')
@@ -29,8 +27,9 @@ const Requisitions = () => {
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return data;
-    }
-  );
+    },
+    enabled: !!user,
+  });
 
   const handleDownloadPdf = async (requisition: Requisition) => {
     if (!user) return;

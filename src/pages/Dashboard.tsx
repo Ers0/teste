@@ -8,14 +8,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useProfile } from '@/hooks/use-profile';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Notifications from '@/components/Notifications';
 import { useEffect, useMemo } from 'react';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { Item } from '@/lib/db';
-import { Worker } from '@/lib/db';
+import { Item, Worker } from '@/types';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -29,23 +27,27 @@ const Dashboard = () => {
     }
   }, [user, queryClient]);
 
-  const { data: items, isLoading: itemsLoading } = useOfflineQuery<Item>(
-    ['items', user?.id], 'items', async () => {
+  const { data: items, isLoading: itemsLoading } = useQuery<Item[]>({
+    queryKey: ['items', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
       if (error) throw error;
       return data;
-    }
-  );
+    },
+    enabled: !!user,
+  });
 
-  const { data: workers, isLoading: workersLoading } = useOfflineQuery<Worker>(
-    ['workers', user?.id], 'workers', async () => {
+  const { data: workers, isLoading: workersLoading } = useQuery<Worker[]>({
+    queryKey: ['workers', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase.from('workers').select('*').eq('user_id', user.id);
       if (error) throw error;
       return data;
-    }
-  );
+    },
+    enabled: !!user,
+  });
 
   const stats = useMemo(() => {
     if (!items || !workers) return null;

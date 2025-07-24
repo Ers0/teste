@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,29 +7,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, ArrowLeft, Tag } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { showSuccess, showError } from '@/utils/toast';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { db } from '@/lib/db';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { v4 as uuidv4 } from 'uuid';
-
-interface Tag {
-  id: string;
-  name: string;
-  color: string;
-  user_id: string;
-}
+import { Tag } from '@/types';
 
 const initialTagState = { name: '', color: '#842CD4' };
 
 const Tags = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isOnline = useNetworkStatus();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -37,10 +26,9 @@ const Tags = () => {
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [tagData, setTagData] = useState(initialTagState);
 
-  const { data: tags, isLoading, refetch: refetchTags } = useOfflineQuery<Tag>(
-    ['tags', user?.id],
-    'tags',
-    async () => {
+  const { data: tags, isLoading, refetch: refetchTags } = useQuery<Tag[]>({
+    queryKey: ['tags', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('tags')
@@ -49,16 +37,9 @@ const Tags = () => {
         .order('name', { ascending: true });
       if (error) throw new Error(error.message);
       return data;
-    }
-  );
-
-  useEffect(() => {
-    if (editingTag) {
-      setTagData({ name: editingTag.name, color: editingTag.color });
-    } else {
-      setTagData(initialTagState);
-    }
-  }, [editingTag]);
+    },
+    enabled: !!user,
+  });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -75,55 +56,40 @@ const Tags = () => {
       return;
     }
 
+    const payload = {
+      user_id: user.id,
+      name: tagData.name,
+      color: tagData.color,
+    };
+
     if (editingTag) {
-      // Update logic
-      const updatedTag = { ...editingTag, ...tagData };
-      if (isOnline) {
-        const { error } = await supabase.from('tags').update({ name: tagData.name, color: tagData.color }).eq('id', editingTag.id);
-        if (error) { showError(t('error_updating_tag') + error.message); }
-        else { showSuccess(t('tag_updated_successfully')); refetchTags(); }
-      } else {
-        await db.tags.update(editingTag.id, { name: tagData.name, color: tagData.color });
-        await db.offline_queue.add({ type: 'update', tableName: 'tags', payload: { id: editingTag.id, name: tagData.name, color: tagData.color }, timestamp: Date.now() });
-        showSuccess(t('tag_update_saved_offline'));
-      }
+      const { error } = await supabase.from('tags').update(payload).eq('id', editingTag.id);
+      if (error) { showError(t('error_updating_tag') + error.message); }
+      else { showSuccess(t('tag_updated_successfully')); refetchTags(); closeDialog(); }
     } else {
-      // Create logic
-      const newTag: Tag = {
-        id: uuidv4(),
-        user_id: user.id,
-        name: tagData.name,
-        color: tagData.color,
-      };
-      if (isOnline) {
-        const { error } = await supabase.from('tags').insert(newTag);
-        if (error) { showError(t('error_adding_tag') + error.message); }
-        else { showSuccess(t('tag_added_successfully')); refetchTags(); }
-      } else {
-        await db.tags.add(newTag);
-        await db.offline_queue.add({ type: 'create', tableName: 'tags', payload: newTag, timestamp: Date.now() });
-        showSuccess(t('tag_saved_offline'));
-      }
+      const { error } = await supabase.from('tags').insert(payload);
+      if (error) { showError(t('error_adding_tag') + error.message); }
+      else { showSuccess(t('tag_added_successfully')); refetchTags(); closeDialog(); }
     }
-    closeDialog();
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm(t('confirm_delete_tag'))) {
-      if (isOnline) {
-        const { error } = await supabase.from('tags').delete().eq('id', id);
-        if (error) { showError(t('error_deleting_tag') + error.message); }
-        else { showSuccess(t('tag_deleted_successfully')); refetchTags(); }
-      } else {
-        await db.tags.delete(id);
-        await db.offline_queue.add({ type: 'delete', tableName: 'tags', payload: { id }, timestamp: Date.now() });
-        showSuccess(t('tag_deleted_offline'));
-      }
+      const { error } = await supabase.from('tags').delete().eq('id', id);
+      if (error) { showError(t('error_deleting_tag') + error.message); }
+      else { showSuccess(t('tag_deleted_successfully')); refetchTags(); }
     }
   };
 
   const openEditDialog = (tag: Tag) => {
     setEditingTag(tag);
+    setTagData({ name: tag.name, color: tag.color });
+    setIsDialogOpen(true);
+  };
+
+  const openAddDialog = () => {
+    setEditingTag(null);
+    setTagData(initialTagState);
     setIsDialogOpen(true);
   };
 
@@ -150,32 +116,9 @@ const Tags = () => {
         </CardHeader>
         <CardContent>
           <div className="flex justify-end mb-4">
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => setEditingTag(null)}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_tag')}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{editingTag ? t('edit_tag') : t('add_new_tag')}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">{t('name')}</Label>
-                    <Input id="name" name="name" value={tagData.name} onChange={handleInputChange} className="col-span-3" />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="color" className="text-right">{t('color')}</Label>
-                    <Input id="color" name="color" type="color" value={tagData.color} onChange={handleInputChange} className="col-span-3 p-1 h-10" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={closeDialog}>{t('cancel')}</Button>
-                  <Button onClick={handleSubmit}>{editingTag ? t('save_changes') : t('add_tag')}</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={openAddDialog}>
+              <PlusCircle className="mr-2 h-4 w-4" /> {t('add_new_tag')}
+            </Button>
           </div>
           <Table>
             <TableHeader>
@@ -212,6 +155,27 @@ const Tags = () => {
           </Table>
         </CardContent>
       </Card>
+      <Dialog open={isDialogOpen} onOpenChange={closeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingTag ? t('edit_tag') : t('add_new_tag')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">{t('name')}</Label>
+              <Input id="name" name="name" value={tagData.name} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="color" className="text-right">{t('color')}</Label>
+              <Input id="color" name="color" type="color" value={tagData.color} onChange={handleInputChange} className="col-span-3 p-1 h-10" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialog}>{t('cancel')}</Button>
+            <Button onClick={handleSubmit}>{editingTag ? t('save_changes') : t('add_tag')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

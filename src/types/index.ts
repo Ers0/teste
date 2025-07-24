@@ -1,5 +1,3 @@
-import Dexie, { Table } from 'dexie';
-
 export interface Item {
   id: string;
   name: string;
@@ -69,6 +67,8 @@ export interface Transaction {
   given_by: string | null;
   requisition_id: string | null;
   is_broken: boolean;
+  items?: { name: string } | null;
+  workers?: { name: string } | null;
 }
 
 export interface Requisition {
@@ -92,42 +92,3 @@ export interface FiscalNote {
   created_at: string;
   photo_url: string | null;
 }
-
-export interface OfflineAction {
-  id?: number;
-  type: 'create' | 'update' | 'delete';
-  tableName: string;
-  payload: any;
-  timestamp: number;
-}
-
-class LocalDatabase extends Dexie {
-  items!: Table<Item, string>;
-  workers!: Table<Worker, string>;
-  tags!: Table<Tag, string>;
-  kits!: Table<Kit, string>;
-  kit_items!: Table<KitItem, string>;
-  profiles!: Table<Profile, string>;
-  transactions!: Table<Transaction, string>;
-  requisitions!: Table<Requisition, string>;
-  fiscal_notes!: Table<FiscalNote, string>;
-  offline_queue!: Table<OfflineAction, number>;
-
-  constructor() {
-    super('YeesInventoryDB');
-    this.version(5).stores({
-      items: '&id, name, *tags',
-      workers: '&id, name, company',
-      tags: '&id, name',
-      kits: '&id, name',
-      kit_items: '&id, kit_id, item_id',
-      profiles: '&id',
-      transactions: '&id, item_id, worker_id, requisition_id, user_id',
-      requisitions: '&id, requisition_number, user_id',
-      fiscal_notes: '&id, nfe_key',
-      offline_queue: '++id, timestamp',
-    });
-  }
-}
-
-export const db = new LocalDatabase();

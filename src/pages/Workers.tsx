@@ -19,21 +19,8 @@ import { parseCsv } from '@/utils/import';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { db } from '@/lib/db';
-
-interface Worker {
-  id: string;
-  name: string;
-  company: string | null;
-  photo_url: string | null;
-  qr_code_data: string | null;
-  external_qr_code_data: string | null;
-  user_id: string;
-  photo?: File | null;
-  reliability_score: number | null;
-}
+import { useQuery } from '@tanstack/react-query';
+import { Worker } from '@/types';
 
 const initialNewWorkerState = {
   name: '',
@@ -46,7 +33,6 @@ const initialNewWorkerState = {
 const Workers = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isOnline = useNetworkStatus();
   const [groupedWorkers, setGroupedWorkers] = useState<Record<string, Worker[]>>({});
   const [newWorker, setNewWorker] = useState<typeof initialNewWorkerState>(initialNewWorkerState);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
@@ -62,10 +48,9 @@ const Workers = () => {
   const [isScanningExternalQr, setIsScanningExternalQr] = useState(false);
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
 
-  const { data: workers, isLoading: workersLoading, refetch: fetchWorkers } = useOfflineQuery<Worker>(
-    ['workers', user?.id],
-    'workers',
-    async () => {
+  const { data: workers, refetch: fetchWorkers } = useQuery<Worker[]>({
+    queryKey: ['workers', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('workers')
@@ -74,8 +59,9 @@ const Workers = () => {
         .order('name', { ascending: true });
       if (error) throw new Error(error.message);
       return data;
-    }
-  );
+    },
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (workers) {
@@ -210,14 +196,14 @@ const Workers = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       if (editingWorker) {
-        setEditingWorker({ ...editingWorker, photo: e.target.files[0] });
+        setEditingWorker({ ...editingWorker, photo: e.target.files[0] as any });
       } else {
         setNewWorker({ ...newWorker, photo: e.target.files[0] });
       }
     }
   };
 
-  const uploadPhoto = async (file: File | null, workerId: string) => {
+  const uploadPhoto = async (file: File, workerId: string) => {
     if (!file) return null;
 
     const fileExt = file.name.split('.').pop();
@@ -250,37 +236,28 @@ const Workers = () => {
       return;
     }
 
-    const workerData: Omit<Worker, 'photo' | 'photo_url'> & { photo_url: string | null } = {
-      id: uuidv4(),
+    const workerId = uuidv4();
+    let photoUrl = null;
+    if (newWorker.photo) {
+      photoUrl = await uploadPhoto(newWorker.photo, workerId);
+    }
+
+    const { error: insertError } = await supabase.from('workers').insert({
+      id: workerId,
       name: newWorker.name,
       company: newWorker.company,
       qr_code_data: uuidv4(),
       external_qr_code_data: newWorker.external_qr_code_data.trim() || null,
       user_id: user.id,
       reliability_score: 100,
-      photo_url: null,
-    };
-
-    if (isOnline) {
-      let photoUrl = null;
-      if (newWorker.photo) {
-        photoUrl = await uploadPhoto(newWorker.photo, workerData.id);
-      }
-      workerData.photo_url = photoUrl;
-
-      const { error: insertError } = await supabase.from('workers').insert(workerData);
-      if (insertError) {
-        showError(t('error_adding_worker') + insertError.message);
-        return;
-      }
-      showSuccess(t('worker_added_successfully'));
-      fetchWorkers();
-    } else {
-      await db.workers.add(workerData);
-      await db.offline_queue.add({ type: 'create', tableName: 'workers', payload: workerData, timestamp: Date.now() });
-      showSuccess(t('worker_saved_offline'));
+      photo_url: photoUrl,
+    });
+    if (insertError) {
+      showError(t('error_adding_worker') + insertError.message);
+      return;
     }
-
+    showSuccess(t('worker_added_successfully'));
+    fetchWorkers();
     setNewWorker(initialNewWorkerState);
     setIsDialogOpen(false);
   };
@@ -295,28 +272,22 @@ const Workers = () => {
       return;
     }
 
-    const updatedData = {
+    const updatedData: Partial<Worker> = {
       name: editingWorker.name,
       company: editingWorker.company,
       external_qr_code_data: editingWorker.external_qr_code_data?.trim() || null,
       photo_url: editingWorker.photo_url,
     };
 
-    if (isOnline) {
-      if (editingWorker.photo instanceof File) {
-        updatedData.photo_url = await uploadPhoto(editingWorker.photo, editingWorker.id);
-      }
-      const { error } = await supabase.from('workers').update(updatedData).eq('id', editingWorker.id);
-      if (error) {
-        showError(t('error_updating_worker') + error.message);
-      } else {
-        showSuccess(t('worker_updated_successfully'));
-        fetchWorkers();
-      }
+    if ((editingWorker as any).photo instanceof File) {
+      updatedData.photo_url = await uploadPhoto((editingWorker as any).photo, editingWorker.id);
+    }
+    const { error } = await supabase.from('workers').update(updatedData).eq('id', editingWorker.id);
+    if (error) {
+      showError(t('error_updating_worker') + error.message);
     } else {
-      await db.workers.update(editingWorker.id, updatedData);
-      await db.offline_queue.add({ type: 'update', tableName: 'workers', payload: { id: editingWorker.id, ...updatedData }, timestamp: Date.now() });
-      showSuccess(t('worker_update_saved_offline'));
+      showSuccess(t('worker_updated_successfully'));
+      fetchWorkers();
     }
 
     setEditingWorker(null);
@@ -325,18 +296,12 @@ const Workers = () => {
 
   const handleDeleteWorker = async (id: string) => {
     if (window.confirm(t('confirm_delete_worker'))) {
-      if (isOnline) {
-        const { error } = await supabase.from('workers').delete().eq('id', id);
-        if (error) {
-          showError(t('error_deleting_worker') + error.message);
-        } else {
-          showSuccess(t('worker_deleted_successfully'));
-          fetchWorkers();
-        }
+      const { error } = await supabase.from('workers').delete().eq('id', id);
+      if (error) {
+        showError(t('error_deleting_worker') + error.message);
       } else {
-        await db.workers.delete(id);
-        await db.offline_queue.add({ type: 'delete', tableName: 'workers', payload: { id }, timestamp: Date.now() });
-        showSuccess(t('worker_deleted_offline'));
+        showSuccess(t('worker_deleted_successfully'));
+        fetchWorkers();
       }
     }
   };

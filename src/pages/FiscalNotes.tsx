@@ -19,24 +19,12 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { v4 as uuidv4 } from 'uuid';
 import CameraCapture from '@/components/CameraCapture';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { db } from '@/lib/db';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-
-interface FiscalNote {
-  id: string;
-  nfe_key: string;
-  description: string | null;
-  arrival_date: string | null;
-  user_id: string;
-  created_at: string;
-  photo_url: string | null;
-}
+import { useQuery } from '@tanstack/react-query';
+import { FiscalNote } from '@/types';
 
 const FiscalNotes = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isOnline = useNetworkStatus();
   const navigate = useNavigate();
 
   const [nfeKey, setNfeKey] = useState('');
@@ -48,10 +36,9 @@ const FiscalNotes = () => {
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
-  const { data: fiscalNotes, isLoading, refetch: refetchFiscalNotes } = useOfflineQuery<FiscalNote>(
-    ['fiscal_notes', user?.id],
-    'fiscal_notes',
-    async () => {
+  const { data: fiscalNotes, isLoading, refetch: refetchFiscalNotes } = useQuery<FiscalNote[]>({
+    queryKey: ['fiscal_notes', user?.id],
+    queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('fiscal_notes')
@@ -60,8 +47,9 @@ const FiscalNotes = () => {
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return data;
-    }
-  );
+    },
+    enabled: !!user,
+  });
 
   const startWebScanner = useCallback(async () => {
     try {
@@ -227,44 +215,29 @@ const FiscalNotes = () => {
     const toastId = showLoading(t('saving_fiscal_note'));
     const fiscalNoteId = uuidv4();
     
-    const newFiscalNote: FiscalNote = {
+    let photoUrl = null;
+    if (photo) {
+      photoUrl = await uploadPhoto(photo, fiscalNoteId);
+    }
+
+    const { error: insertError } = await supabase.from('fiscal_notes').insert({
       id: fiscalNoteId,
       nfe_key: nfeKey,
       description: description.trim() || null,
       arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
       user_id: user.id,
-      created_at: new Date().toISOString(),
-      photo_url: null,
-    };
+      photo_url: photoUrl,
+    });
 
-    if (isOnline) {
-      try {
-        if (photo) {
-          newFiscalNote.photo_url = await uploadPhoto(photo, fiscalNoteId);
-        }
-        const { error: insertError } = await supabase.from('fiscal_notes').insert(newFiscalNote);
-        if (insertError) throw insertError;
-        dismissToast(toastId);
-        showSuccess(t('fiscal_note_saved_successfully'));
-        refetchFiscalNotes();
-      } catch (error: any) {
-        dismissToast(toastId);
-        showError(t('error_saving_fiscal_note') + error.message);
-        return;
-      }
-    } else {
-      // Offline logic - can't upload photo
-      if (photo) {
-        showError("Cannot upload photos while offline. Please save the note and add the photo later.");
-        dismissToast(toastId);
-        return;
-      }
-      await db.fiscal_notes.add(newFiscalNote);
-      await db.offline_queue.add({ type: 'create', tableName: 'fiscal_notes', payload: newFiscalNote, timestamp: Date.now() });
+    if (insertError) {
       dismissToast(toastId);
-      showSuccess(t('fiscal_note_saved_offline'));
+      showError(t('error_saving_fiscal_note') + insertError.message);
+      return;
     }
 
+    dismissToast(toastId);
+    showSuccess(t('fiscal_note_saved_successfully'));
+    refetchFiscalNotes();
     setNfeKey('');
     setDescription('');
     setArrivalDate(undefined);
@@ -273,24 +246,18 @@ const FiscalNotes = () => {
 
   const handleDeleteFiscalNote = async (id: string) => {
     if (window.confirm(t('confirm_delete_fiscal_note'))) {
-      if (isOnline) {
-        const noteToDelete = fiscalNotes?.find(note => note.id === id);
-        if (noteToDelete && noteToDelete.photo_url && user) {
-          const urlParts = noteToDelete.photo_url.split('/');
-          const fileName = urlParts[urlParts.length - 1];
-          const filePath = `${user.id}/${fileName}`;
-          if (fileName) {
-            await supabase.storage.from('fiscal-note-photos').remove([filePath]);
-          }
+      const noteToDelete = fiscalNotes?.find(note => note.id === id);
+      if (noteToDelete && noteToDelete.photo_url && user) {
+        const urlParts = noteToDelete.photo_url.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+        const filePath = `${user.id}/${fileName}`;
+        if (fileName) {
+          await supabase.storage.from('fiscal-note-photos').remove([filePath]);
         }
-        const { error } = await supabase.from('fiscal_notes').delete().eq('id', id);
-        if (error) { showError(t('error_deleting_fiscal_note') + error.message); }
-        else { showSuccess(t('fiscal_note_deleted_successfully')); refetchFiscalNotes(); }
-      } else {
-        await db.fiscal_notes.delete(id);
-        await db.offline_queue.add({ type: 'delete', tableName: 'fiscal_notes', payload: { id }, timestamp: Date.now() });
-        showSuccess(t('fiscal_note_deleted_offline'));
       }
+      const { error } = await supabase.from('fiscal_notes').delete().eq('id', id);
+      if (error) { showError(t('error_deleting_fiscal_note') + error.message); }
+      else { showSuccess(t('fiscal_note_deleted_successfully')); refetchFiscalNotes(); }
     }
   };
 
