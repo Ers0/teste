@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Barcode, ArrowLeft, Camera, FileText, Download, Trash2, CalendarIcon, Image as ImageIcon } from 'lucide-react';
+import { Barcode, ArrowLeft, Camera, FileText, Download, Trash2, CalendarIcon, Image as ImageIcon, Focus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -51,6 +51,71 @@ const FiscalNotes = () => {
     }
   }, [user]);
 
+  const startWebScanner = useCallback(async () => {
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length > 0) {
+        let cameraId = cameras[0].id;
+        const backCamera = cameras.find(camera => 
+          camera.label.toLowerCase().includes('back') || 
+          camera.label.toLowerCase().includes('environment')
+        );
+        if (backCamera) cameraId = backCamera.id;
+        else if (cameras.length > 1) cameraId = cameras[1].id;
+
+        const readerElementId = "fiscal-note-reader";
+        const readerElement = document.getElementById(readerElementId);
+
+        if (!readerElement) {
+          showError(t('camera_display_area_not_found'));
+          setScanning(false);
+          return;
+        }
+
+        setTimeout(async () => {
+          if (html5QrCodeScannerRef.current) {
+            await html5QrCodeScannerRef.current.stop().catch(() => {});
+            html5QrCodeScannerRef.current.clear();
+            html5QrCodeScannerRef.current = null;
+          }
+          try {
+            const config = {
+              fps: 10,
+              qrbox: { width: 300, height: 150 },
+              disableFlip: false,
+              formatsToSupport: [
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.CODE_128,
+              ]
+            };
+            const html5Qrcode = new Html5Qrcode(readerElement.id, { verbose: false, formatsToSupport: config.formatsToSupport });
+            html5QrCodeScannerRef.current = html5Qrcode;
+
+            await html5Qrcode.start(
+              cameraId,
+              config,
+              (decodedText) => {
+                setNfeKey(decodedText);
+                setScanning(false);
+              },
+              () => {}
+            );
+          } catch (err: any) {
+            showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
+            setScanning(false);
+          }
+        }, 200);
+      } else {
+        showError(t('no_camera_found_access_denied'));
+        setScanning(false);
+      }
+    } catch (err: any) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
+      setScanning(false);
+    }
+  }, [t]);
+
   useEffect(() => {
     const stopWebScanner = async () => {
       if (html5QrCodeScannerRef.current) {
@@ -66,78 +131,6 @@ const FiscalNotes = () => {
     };
 
     if (scanning) {
-      const startWebScanner = async () => {
-        try {
-          const cameras = await Html5Qrcode.getCameras();
-          if (cameras && cameras.length > 0) {
-            let cameraId = cameras[0].id; // Default to first camera
-            const backCamera = cameras.find(camera => 
-              camera.label.toLowerCase().includes('back') || 
-              camera.label.toLowerCase().includes('environment')
-            );
-            if (backCamera) {
-              cameraId = backCamera.id;
-            } else if (cameras.length > 1) {
-              cameraId = cameras[1].id;
-            }
-
-            const readerElementId = "fiscal-note-reader";
-            const readerElement = document.getElementById(readerElementId);
-
-            if (!readerElement) {
-              console.error(`HTML Element with id=${readerElementId} not found during web scan start attempt.`);
-              showError(t('camera_display_area_not_found'));
-              setScanning(false);
-              return;
-            }
-
-            setTimeout(async () => {
-              if (html5QrCodeScannerRef.current) {
-                await html5QrCodeScannerRef.current.stop().catch(() => {});
-                html5QrCodeScannerRef.current.clear();
-                html5QrCodeScannerRef.current = null;
-              }
-              try {
-                const config = {
-                  fps: 10,
-                  qrbox: { width: 300, height: 150 },
-                  disableFlip: false,
-                  formatsToSupport: [
-                    Html5QrcodeSupportedFormats.QR_CODE,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                  ]
-                };
-                const html5Qrcode = new Html5Qrcode(readerElement.id, { verbose: false, formatsToSupport: config.formatsToSupport });
-                html5QrCodeScannerRef.current = html5Qrcode;
-
-                await html5Qrcode.start(
-                  cameraId,
-                  config,
-                  (decodedText) => {
-                    console.log("Web scan successful:", decodedText);
-                    setNfeKey(decodedText);
-                    setScanning(false);
-                  },
-                  () => {
-                    // This callback is called frequently, even for non-errors.
-                  }
-                );
-              } catch (err: any) {
-                console.error(`Failed to start camera ${cameraId}:`, err);
-                showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
-                setScanning(false);
-              }
-            }, 200);
-          } else {
-            showError(t('no_camera_found_access_denied'));
-            setScanning(false);
-          }
-        } catch (err: any) {
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
-          setScanning(false);
-        }
-      };
       startWebScanner();
     } else {
       stopWebScanner();
@@ -146,7 +139,21 @@ const FiscalNotes = () => {
     return () => {
       stopWebScanner();
     };
-  }, [scanning, t]);
+  }, [scanning, startWebScanner]);
+
+  const handleRefocus = async () => {
+    if (html5QrCodeScannerRef.current) {
+      try {
+        await html5QrCodeScannerRef.current.stop();
+        html5QrCodeScannerRef.current.clear();
+      } catch (error) {
+        console.error("Error stopping for refocus:", error);
+      } finally {
+        html5QrCodeScannerRef.current = null;
+      }
+    }
+    setTimeout(startWebScanner, 100);
+  };
 
   const startScan = () => {
     setNfeKey('');
@@ -353,9 +360,14 @@ const FiscalNotes = () => {
       <div className={`min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
           <div id="fiscal-note-reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
-          <Button onClick={stopScan} className="mt-4" variant="secondary">
-            {t('cancel_scan')}
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button onClick={stopScan} variant="secondary">
+              {t('cancel_scan')}
+            </Button>
+            <Button onClick={handleRefocus} variant="outline">
+              <Focus className="mr-2 h-4 w-4" /> {t('refocus')}
+            </Button>
+          </div>
           <p className="text-sm text-white mt-2">{t('position_barcode_horizontally')}</p>
         </div>
 

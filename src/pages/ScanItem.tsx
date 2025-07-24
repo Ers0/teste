@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
-import { Barcode, Plus, Minus, ArrowLeft, Camera, PlusCircle, Search } from 'lucide-react';
+import { Barcode, Plus, Minus, ArrowLeft, Camera, PlusCircle, Search, Focus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -59,6 +59,66 @@ const ScanItem = () => {
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const navigate: NavigateFunction = useNavigate();
 
+  const startWebScanner = useCallback(async () => {
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length > 0) {
+        let cameraId = cameras[0].id;
+        const backCamera = cameras.find(camera => 
+          camera.label.toLowerCase().includes('back') || 
+          camera.label.toLowerCase().includes('environment')
+        );
+        if (backCamera) {
+          cameraId = backCamera.id;
+        } else if (cameras.length > 1) {
+          cameraId = cameras[1].id;
+        }
+
+        const readerElementId = "reader";
+        const readerElement = document.getElementById(readerElementId);
+        if (readerElement) {
+          setTimeout(async () => {
+            if (html5QrCodeScannerRef.current) {
+              await html5QrCodeScannerRef.current.stop().catch(() => {});
+              html5QrCodeScannerRef.current.clear();
+              html5QrCodeScannerRef.current = null;
+            }
+            try {
+              const html5Qrcode = new Html5Qrcode(readerElementId);
+              html5QrCodeScannerRef.current = html5Qrcode;
+
+              await html5Qrcode.start(
+                cameraId,
+                { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
+                (decodedText) => {
+                  console.log("Web scan successful:", decodedText);
+                  setBarcode(decodedText);
+                  fetchItemByBarcode(decodedText);
+                  setScanning(false);
+                },
+                () => {}
+              );
+            } catch (err: any) {
+              console.error(`Failed to start camera ${cameraId}:`, err);
+              showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
+              setScanning(false);
+            }
+          }, 200);
+        } else {
+          showError(t('camera_display_area_not_found'));
+          setScanning(false);
+        }
+      } else {
+        showError(t('no_camera_found_access_denied'));
+        setScanning(false);
+      }
+    } catch (err: any) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
+      setScanning(false);
+    }
+  }, [t]);
+
   useEffect(() => {
     const stopWebScanner = async () => {
       if (html5QrCodeScannerRef.current) {
@@ -74,69 +134,6 @@ const ScanItem = () => {
     };
 
     if (scanning) {
-      const startWebScanner = async () => {
-        try {
-          const cameras = await Html5Qrcode.getCameras();
-          if (cameras && cameras.length > 0) {
-            let cameraId = cameras[0].id;
-            const backCamera = cameras.find(camera => 
-              camera.label.toLowerCase().includes('back') || 
-              camera.label.toLowerCase().includes('environment')
-            );
-            if (backCamera) {
-              cameraId = backCamera.id;
-            } else if (cameras.length > 1) {
-              cameraId = cameras[1].id;
-            }
-
-            const readerElementId = "reader";
-            const readerElement = document.getElementById(readerElementId);
-            if (readerElement) {
-              setTimeout(async () => {
-                if (html5QrCodeScannerRef.current) {
-                  await html5QrCodeScannerRef.current.stop().catch(() => {});
-                  html5QrCodeScannerRef.current.clear();
-                  html5QrCodeScannerRef.current = null;
-                }
-                try {
-                  const html5Qrcode = new Html5Qrcode(readerElementId);
-                  html5QrCodeScannerRef.current = html5Qrcode;
-
-                  await html5Qrcode.start(
-                    cameraId,
-                    { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
-                    (decodedText) => {
-                      console.log("Web scan successful:", decodedText);
-                      setBarcode(decodedText);
-                      fetchItemByBarcode(decodedText);
-                      setScanning(false);
-                    },
-                    () => {
-                      // This callback is called frequently, even for non-errors.
-                      // Do not stop scanning here.
-                    }
-                  );
-                } catch (err: any) {
-                  console.error(`Failed to start camera ${cameraId}:`, err);
-                  showError(t('could_not_start_video_source') + t('check_camera_permissions_or_close_apps'));
-                  setScanning(false);
-                }
-              }, 200);
-            } else {
-              console.error(`HTML Element with id=${readerElementId} not found during web scan start attempt.`);
-              showError(t('camera_display_area_not_found'));
-              setScanning(false);
-            }
-          } else {
-            showError(t('no_camera_found_access_denied'));
-            setScanning(false);
-          }
-        } catch (err: any) {
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          showError(t('error_starting_web_camera_scan') + errorMessage + t('check_camera_permissions'));
-          setScanning(false);
-        }
-      };
       startWebScanner();
     } else {
       stopWebScanner();
@@ -145,7 +142,21 @@ const ScanItem = () => {
     return () => {
       stopWebScanner();
     };
-  }, [scanning, t]);
+  }, [scanning, startWebScanner]);
+
+  const handleRefocus = async () => {
+    if (html5QrCodeScannerRef.current) {
+      try {
+        await html5QrCodeScannerRef.current.stop();
+        html5QrCodeScannerRef.current.clear();
+      } catch (error) {
+        console.error("Error stopping for refocus:", error);
+      } finally {
+        html5QrCodeScannerRef.current = null;
+      }
+    }
+    setTimeout(startWebScanner, 100);
+  };
 
   const startScan = () => {
     setBarcode('');
@@ -466,9 +477,14 @@ const ScanItem = () => {
       <div className={`min-h-screen flex items-center justify-center p-4 ${scanning ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${scanning ? '' : 'hidden'}`}>
           <div id="reader" className="w-full max-w-md h-auto aspect-video rounded-lg overflow-hidden min-h-[250px]"></div>
-          <Button onClick={stopScan} className="mt-4" variant="secondary">
-            {t('cancel_scan')}
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button onClick={stopScan} variant="secondary">
+              {t('cancel_scan')}
+            </Button>
+            <Button onClick={handleRefocus} variant="outline">
+              <Focus className="mr-2 h-4 w-4" /> {t('refocus')}
+            </Button>
+          </div>
         </div>
 
         <Card className={`w-full max-w-md ${scanning ? 'hidden' : ''}`}>
