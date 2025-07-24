@@ -42,6 +42,7 @@ interface Item {
   image_url: string | null;
   user_id: string;
   tags: string[] | null;
+  depletion_date: string | null;
 }
 
 interface Tag {
@@ -87,7 +88,7 @@ const Inventory = () => {
     'items',
     async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('items').select('*').eq('user_id', user.id);
+      const { data, error } = await supabase.from('items').select('*, depletion_date:calculate_stock_depletion_date(id)').eq('user_id', user.id);
       if (error) throw new Error(error.message);
       return data as Item[];
     }
@@ -127,7 +128,11 @@ const Inventory = () => {
       if (sortBy === 'name') {
         compareA = a.name.toLowerCase();
         compareB = b.name.toLowerCase();
-      } else {
+      } else if (sortBy === 'depletion_date') {
+        compareA = a.depletion_date || '9999-12-31';
+        compareB = b.depletion_date || '9999-12-31';
+      }
+      else {
         compareA = a.quantity;
         compareB = b.quantity;
       }
@@ -176,7 +181,7 @@ const Inventory = () => {
     if (!name || quantity < 0) { showError(t('fill_item_name_quantity')); return; }
     if (!user) { showError(t('user_not_authenticated_login')); return; }
 
-    const newItem: Item = {
+    const newItem: Omit<Item, 'depletion_date'> = {
       id: uuidv4(),
       name,
       description,
@@ -199,7 +204,7 @@ const Inventory = () => {
       if (error) { showError(`${t('error_adding_item')} ${error.message}`); }
       else { showSuccess(t('item_added_successfully')); refetchItems(); setIsAddDialogOpen(false); }
     } else {
-      await db.items.add(newItem);
+      await db.items.add(newItem as Item);
       await db.offline_queue.add({ type: 'create', tableName: 'items', payload: newItem, timestamp: Date.now() });
       showSuccess(t('item_saved_offline'));
       setIsAddDialogOpen(false);
@@ -359,7 +364,7 @@ const Inventory = () => {
             <div className="flex flex-1 flex-col md:flex-row gap-2">
               <div className="relative flex-1 md:flex-initial"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder={t('search_by_name_tag_desc')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 w-full" /></div>
               <div className="flex gap-2">
-                <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('sort_by')} /></SelectTrigger><SelectContent><SelectItem value="name">{t('name')}</SelectItem><SelectItem value="quantity">{t('quantity')}</SelectItem></SelectContent></Select>
+                <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('sort_by')} /></SelectTrigger><SelectContent><SelectItem value="name">{t('name')}</SelectItem><SelectItem value="quantity">{t('quantity')}</SelectItem><SelectItem value="depletion_date">{t('est_depletion')}</SelectItem></SelectContent></Select>
                 <Select value={sortOrder} onValueChange={setSortOrder}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('order')} /></SelectTrigger><SelectContent><SelectItem value="asc">{t('ascending')}</SelectItem><SelectItem value="desc">{t('descending')}</SelectItem></SelectContent></Select>
                 <Select value={filterByType} onValueChange={setFilterByType}><SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder={t('filter_by_type')} /></SelectTrigger><SelectContent><SelectItem value="all">{t('all_types')}</SelectItem><SelectItem value="material">{t('consumable')}</SelectItem><SelectItem value="tool">{t('tool')}</SelectItem><SelectItem value="ppe">{t('ppe')}</SelectItem></SelectContent></Select>
               </div>
@@ -377,7 +382,7 @@ const Inventory = () => {
             </div>
           </div>
           <Table>
-            <TableHeader><TableRow><TableHead className="w-[50px]"><Checkbox checked={selectedItemIds.length === filteredAndSortedItems.length && filteredAndSortedItems.length > 0} onCheckedChange={(checked) => setSelectedItemIds(checked ? filteredAndSortedItems.map(i => i.id) : [])} /></TableHead><TableHead>{t('name')}</TableHead><TableHead>{t('description')}</TableHead><TableHead className="text-right">{t('quantity')}</TableHead><TableHead>{t('type')}</TableHead><TableHead>{t('tags')}</TableHead><TableHead>{t('actions')}</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-[50px]"><Checkbox checked={selectedItemIds.length === filteredAndSortedItems.length && filteredAndSortedItems.length > 0} onCheckedChange={(checked) => setSelectedItemIds(checked ? filteredAndSortedItems.map(i => i.id) : [])} /></TableHead><TableHead>{t('name')}</TableHead><TableHead>{t('description')}</TableHead><TableHead className="text-right">{t('quantity')}</TableHead><TableHead>{t('type')}</TableHead><TableHead>{t('tags')}</TableHead><TableHead>{t('est_depletion')}</TableHead><TableHead>{t('actions')}</TableHead></TableRow></TableHeader>
             <TableBody>
               {filteredAndSortedItems.map((item) => (
                 <TableRow key={item.id} data-state={selectedItemIds.includes(item.id) && "selected"}>
@@ -387,6 +392,7 @@ const Inventory = () => {
                   <TableCell className="text-right">{item.critical_stock_threshold != null && item.quantity <= item.critical_stock_threshold ? (<Badge variant="destructive">{item.quantity}</Badge>) : item.low_stock_threshold != null && item.quantity <= item.low_stock_threshold ? (<Badge variant="secondary" className="bg-yellow-400 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-200">{item.quantity}</Badge>) : (<Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">{item.quantity}</Badge>)}</TableCell>
                   <TableCell>{item.is_ppe ? (<Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">{t('ppe')}</Badge>) : item.is_tool ? (<Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{t('tool')}</Badge>) : (<Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">{t('consumable')}</Badge>)}</TableCell>
                   <TableCell><div className="flex flex-wrap gap-1">{item.tags?.map(tagId => { const tag = tags?.find(t => t.id === tagId); return tag ? <span key={tag.id} className="px-2 py-1 text-xs rounded-full" style={{ backgroundColor: tag.color, color: '#fff' }}>{tag.name}</span> : null; })}</div></TableCell>
+                  <TableCell>{item.depletion_date ? new Date(item.depletion_date).toLocaleDateString() : 'N/A'}</TableCell>
                   <TableCell><div className="flex gap-2"><Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(item)}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button></div></TableCell>
                 </TableRow>
               ))}
