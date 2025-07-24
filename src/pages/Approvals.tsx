@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Check, X } from 'lucide-react';
@@ -35,20 +35,37 @@ const Approvals = () => {
     return populatedRequisitions;
   }, []);
 
-  const handleUpdateStatus = async (requisitionId: string, newStatus: 'approved' | 'rejected') => {
+  const handleUpdateStatus = async (requisition: PopulatedRequisition, newStatus: 'approved' | 'rejected') => {
     try {
-      const requisition = await db.requisitions.get(requisitionId);
-      if (!requisition) {
-        showError(t('requisition_not_found'));
-        return;
+      if (newStatus === 'approved') {
+        for (const reqItem of requisition.items) {
+          if (!reqItem.itemDetails || reqItem.itemDetails.quantity < reqItem.quantity) {
+            showError(t('insufficient_stock_for_approval', { itemName: reqItem.itemDetails?.name || t('unknown_item') }));
+            return;
+          }
+        }
       }
 
       const updatedRequisition = { ...requisition, status: newStatus };
-      await db.requisitions.put(updatedRequisition);
+      // This is a simplified version of the object for Dexie's put method.
+      const requisitionToUpdate: Requisition = {
+        id: requisition.id,
+        requisition_number: requisition.requisition_number,
+        user_id: requisition.user_id,
+        authorized_by: requisition.authorized_by,
+        given_by: requisition.given_by,
+        requester_name: requisition.requester_name,
+        requester_company: requisition.requester_company,
+        application_location: requisition.application_location,
+        created_at: requisition.created_at,
+        status: newStatus,
+      };
+
+      await db.requisitions.put(requisitionToUpdate);
       await db.outbox.add({
         type: 'update',
         table: 'requisitions',
-        payload: { id: requisitionId, status: newStatus },
+        payload: { id: requisition.id, status: newStatus },
         timestamp: Date.now(),
       });
 
@@ -106,10 +123,10 @@ const Approvals = () => {
                       ))}
                     </ul>
                     <div className="flex justify-end gap-2 mt-4">
-                      <Button variant="destructive" size="sm" onClick={() => handleUpdateStatus(req.id, 'rejected')}>
+                      <Button variant="destructive" size="sm" onClick={() => handleUpdateStatus(req, 'rejected')}>
                         <X className="mr-2 h-4 w-4" /> {t('reject')}
                       </Button>
-                      <Button variant="default" size="sm" onClick={() => handleUpdateStatus(req.id, 'approved')}>
+                      <Button variant="default" size="sm" onClick={() => handleUpdateStatus(req, 'approved')}>
                         <Check className="mr-2 h-4 w-4" /> {t('approve')}
                       </Button>
                     </div>

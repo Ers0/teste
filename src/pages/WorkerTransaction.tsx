@@ -400,38 +400,35 @@ const WorkerTransaction = () => {
     const toastId = showLoading(t('saving_transaction_locally'));
     
     try {
-      const takeoutItems = transactionItems.filter(item => item.type === 'takeout');
-      const returnItems = transactionItems.filter(item => item.type === 'return');
-      
       const outboxOps: Outbox[] = [];
       const localItemUpdates: { id: string, newQuantity: number }[] = [];
       const localTransactions: Transaction[] = [];
-      let newRequisition: Requisition | null = null;
-
-      if (takeoutItems.length > 0) {
-        const getNextRequisitionNumber = (): string => {
-          const key = 'lastRequisitionNumber';
-          let lastNumber = parseInt(localStorage.getItem(key) || '0', 10);
-          const newNumber = lastNumber + 1;
-          localStorage.setItem(key, newNumber.toString());
-          return newNumber.toString().padStart(4, '0');
-        };
-        
-        newRequisition = {
-          id: uuidv4(),
-          requisition_number: getNextRequisitionNumber(),
-          user_id: user.id,
-          authorized_by: authorizedBy.trim() || null,
-          given_by: givenBy.trim() || null,
-          requester_name: selectionMode === 'worker' ? scannedWorker!.name : selectedCompany,
-          requester_company: selectionMode === 'worker' ? scannedWorker!.company : selectedCompany,
-          application_location: applicationLocation.trim() || null,
-          created_at: new Date().toISOString(),
-        };
-        outboxOps.push({ type: 'create', table: 'requisitions', payload: newRequisition, timestamp: Date.now() });
-      }
 
       for (const txItem of transactionItems) {
+        if (txItem.type === 'takeout' && txItem.item.requires_requisition) {
+          let approvedRequisitions;
+          if (selectionMode === 'worker' && scannedWorker) {
+            approvedRequisitions = await db.requisitions.where({ status: 'approved', requester_name: scannedWorker.name }).toArray();
+          } else if (selectionMode === 'company' && selectedCompany) {
+            approvedRequisitions = await db.requisitions.where({ status: 'approved', requester_company: selectedCompany }).toArray();
+          } else {
+            throw new Error('No recipient selected for requisition check.');
+          }
+
+          let hasApproval = false;
+          for (const req of approvedRequisitions) {
+            const reqItem = await db.requisition_items.where({ requisition_id: req.id, item_id: txItem.item.id }).first();
+            if (reqItem && reqItem.quantity >= txItem.quantity) {
+              hasApproval = true;
+              break;
+            }
+          }
+
+          if (!hasApproval) {
+            throw new Error(t('no_approved_requisition_found', { itemName: txItem.item.name }));
+          }
+        }
+
         const currentItem = await db.items.get(txItem.item.id);
         if (!currentItem) throw new Error(`Item ${txItem.item.name} not found locally.`);
 
@@ -459,15 +456,14 @@ const WorkerTransaction = () => {
           user_id: user.id,
           authorized_by: authorizedBy.trim() || null,
           given_by: givenBy.trim() || null,
-          requisition_id: txItem.type === 'takeout' ? newRequisition?.id || null : null,
+          requisition_id: null, // Requisitions are for approval, not direct linking here yet
           is_broken: txItem.is_broken || false,
         };
         localTransactions.push(newTransaction);
         outboxOps.push({ type: 'create', table: 'transactions', payload: newTransaction, timestamp: Date.now() });
       }
 
-      await db.transaction('rw', db.requisitions, db.items, db.transactions, db.outbox, async () => {
-        if (newRequisition) await db.requisitions.add(newRequisition);
+      await db.transaction('rw', db.items, db.transactions, db.outbox, async () => {
         for (const update of localItemUpdates) {
           await db.items.update(update.id, { quantity: update.newQuantity });
         }
@@ -478,7 +474,6 @@ const WorkerTransaction = () => {
       dismissToast(toastId);
       showSuccess(t('transaction_saved_locally_and_queued'));
       handleDone();
-      if (newRequisition) navigate('/requisitions');
 
     } catch (error: any) {
       dismissToast(toastId);
@@ -700,14 +695,8 @@ const WorkerTransaction = () => {
                     <div className="space-y-2">
                       <Label htmlFor="company-select">{t('select_company')}</Label>
                       <Select onValueChange={setSelectedCompany} value={selectedCompany || ''}>
-                        <SelectTrigger id="company-select">
-                          <SelectValue placeholder={t('select_a_company')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {companies?.map(company => (
-                            <SelectItem key={company} value={company}>{company}</SelectItem>
-                          ))}
-                        </SelectContent>
+                        <SelectTrigger id="company-select"><SelectValue placeholder={t('select_a_company')} /></SelectTrigger>
+                        <SelectContent>{companies?.map(company => (<SelectItem key={company} value={company}>{company}</SelectItem>))}</SelectContent>
                       </Select>
                     </div>
                   )}
@@ -788,6 +777,9 @@ const WorkerTransaction = () => {
                       )}
                       {scannedItem.is_tool && (
                         <p className="text-sm text-blue-500 font-semibold">{t('this_is_a_tool')}</p>
+                      )}
+                      {scannedItem.requires_requisition && (
+                        <Badge variant="destructive">{t('requires_requisition')}</Badge>
                       )}
 
                       <div className="space-y-2 mt-4">
