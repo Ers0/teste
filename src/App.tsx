@@ -23,6 +23,7 @@ import { SessionContextProvider } from "./integrations/supabase/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useEffect } from "react";
 import { SyncProvider } from "./providers/SyncProvider";
+import SyncStatusIndicator from "./components/SyncStatusIndicator";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => {
         <BrowserRouter>
           <SessionContextProvider>
             <SyncProvider>
+              <SyncStatusIndicator />
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="*" element={<NotFound />} />
