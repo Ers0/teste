@@ -23,6 +23,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { FiscalNote } from '@/types';
 import { useOnlineStatus } from '@/hooks/use-online-status';
+import { playBeep } from '@/utils/sound';
 
 const FiscalNotes = () => {
   const { t } = useTranslation();
@@ -104,6 +105,7 @@ const FiscalNotes = () => {
               cameraId,
               config,
               (decodedText) => {
+                playBeep();
                 setNfeKey(decodedText);
                 setScanning(false);
               },
@@ -296,6 +298,7 @@ const FiscalNotes = () => {
         ]
       });
       const decodedText = await html5QrCode.scanFile(file, false);
+      playBeep();
       setNfeKey(decodedText);
       showSuccess(t('barcode_scanned_from_image'));
     } catch (err) {

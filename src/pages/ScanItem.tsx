@@ -16,6 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { db } from '@/lib/db';
 import { Item } from '@/types';
+import { playBeep } from '@/utils/sound';
 
 const initialNewItemState = {
   name: '',
@@ -78,6 +79,7 @@ const ScanItem = () => {
                 { fps: 10, qrbox: { width: 300, height: 150 }, disableFlip: false },
                 (decodedText) => {
                   console.log("Web scan successful:", decodedText);
+                  playBeep();
                   setBarcode(decodedText);
                   fetchItemByBarcode(decodedText);
                   setScanning(false);

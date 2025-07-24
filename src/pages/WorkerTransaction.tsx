@@ -21,6 +21,7 @@ import { Item, Worker, Kit, Transaction, Requisition } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Outbox } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { playBeep } from '@/utils/sound';
 
 interface TransactionItem {
   item: Item;
@@ -142,12 +143,14 @@ const WorkerTransaction = () => {
 
     if (scanningWorker) {
       startScanner("worker-qr-reader", (decodedText) => {
+        playBeep();
         setWorkerQrCodeInput(decodedText);
         handleScanWorker(decodedText);
         setScanningWorker(false);
       });
     } else if (scanningItem) {
       startScanner("item-barcode-reader", (decodedText) => {
+        playBeep();
         setItemBarcodeInput(decodedText);
         handleScanItem(decodedText);
         setScanningItem(false);
