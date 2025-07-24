@@ -5,6 +5,7 @@ import "./globals.css";
 import './i18n'; // Import i18n configuration
 import { I18nextProvider } from 'react-i18next'; // Import I18nextProvider
 import i18n from './i18n'; // Import the i18n instance
+import './lib/syncManager'; // Initialize the sync manager
 
 createRoot(document.getElementById("root")!).render(
   <React.Suspense fallback="Loading...">

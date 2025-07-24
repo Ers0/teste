@@ -56,6 +56,14 @@ export interface Profile {
   language: string | null;
 }
 
+export interface OfflineAction {
+  id?: number;
+  type: 'create' | 'update' | 'delete';
+  tableName: string;
+  payload: any;
+  timestamp: number;
+}
+
 class LocalDatabase extends Dexie {
   items!: Table<Item, string>;
   workers!: Table<Worker, string>;
@@ -63,16 +71,18 @@ class LocalDatabase extends Dexie {
   kits!: Table<Kit, string>;
   kit_items!: Table<KitItem, string>;
   profiles!: Table<Profile, string>;
+  offline_queue!: Table<OfflineAction, number>;
 
   constructor() {
     super('YeesInventoryDB');
-    this.version(2).stores({
+    this.version(3).stores({
       items: '&id, name, *tags',
       workers: '&id, name, company',
       tags: '&id, name',
       kits: '&id, name',
       kit_items: '&id, kit_id, item_id',
       profiles: '&id',
+      offline_queue: '++id, timestamp',
     });
   }
 }
