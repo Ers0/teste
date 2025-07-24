@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { showError } from '@/utils/toast';
 
 interface CameraCaptureProps {
@@ -23,7 +22,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           videoElement.srcObject = stream;
-          videoElement.play(); // Explicitly play the video stream
+          videoElement.play();
         } catch (err) {
           console.error("Error accessing camera:", err);
           showError(t('error_accessing_camera'));
@@ -66,19 +65,17 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
   };
 
   return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>{t('take_photo')}</DialogTitle>
-      </DialogHeader>
-      <div className="relative">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black bg-opacity-80 p-4">
+      <h2 className="text-2xl font-bold text-white mb-4">{t('take_photo')}</h2>
+      <div className="relative w-full max-w-2xl">
         <video ref={videoRef} autoPlay playsInline className="w-full h-auto rounded-md aspect-video object-cover bg-black"></video>
         <canvas ref={canvasRef} className="hidden"></canvas>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>{t('cancel')}</Button>
+      <div className="flex gap-4 mt-4">
+        <Button variant="secondary" onClick={onClose}>{t('cancel')}</Button>
         <Button onClick={handleCapture}>{t('capture_photo')}</Button>
-      </DialogFooter>
-    </DialogContent>
+      </div>
+    </div>
   );
 };
 

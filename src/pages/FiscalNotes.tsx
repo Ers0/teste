@@ -518,14 +518,12 @@ const FiscalNotes = () => {
           </CardContent>
         </Card>
 
-        <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
-          {isCameraOpen && (
-            <CameraCapture
-              onCapture={handlePhotoCaptured}
-              onClose={() => setIsCameraOpen(false)}
-            />
-          )}
-        </Dialog>
+        {isCameraOpen && (
+          <CameraCapture
+            onCapture={handlePhotoCaptured}
+            onClose={() => setIsCameraOpen(false)}
+          />
+        )}
 
         <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
           <DialogContent className="max-w-3xl">
