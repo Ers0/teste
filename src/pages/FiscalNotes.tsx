@@ -22,11 +22,13 @@ import CameraCapture from '@/components/CameraCapture';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { FiscalNote } from '@/types';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 const FiscalNotes = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isOnline = useOnlineStatus();
 
   const [nfeKey, setNfeKey] = useState('');
   const [description, setDescription] = useState('');
@@ -201,51 +203,45 @@ const FiscalNotes = () => {
       return;
     }
 
-    const toastId = showLoading(t('saving_fiscal_note'));
-    const fiscalNoteId = uuidv4();
-    
     let photoUrl = null;
-    if (photo) {
-      photoUrl = await uploadPhoto(photo, fiscalNoteId);
+    if (isOnline && photo) {
+      photoUrl = await uploadPhoto(photo, uuidv4());
+    } else if (!isOnline && photo) {
+      showError("Photo upload is not available offline.");
     }
 
-    const { error: insertError } = await supabase.from('fiscal_notes').insert({
-      id: fiscalNoteId,
+    const newNote: FiscalNote = {
+      id: uuidv4(),
       nfe_key: nfeKey,
       description: description.trim() || null,
       arrival_date: arrivalDate ? arrivalDate.toISOString() : null,
       user_id: user.id,
+      created_at: new Date().toISOString(),
       photo_url: photoUrl,
-    });
+    };
 
-    if (insertError) {
-      dismissToast(toastId);
-      showError(t('error_saving_fiscal_note') + insertError.message);
-      return;
+    try {
+      await db.fiscal_notes.add(newNote);
+      await db.outbox.add({ type: 'create', table: 'fiscal_notes', payload: newNote, timestamp: Date.now() });
+      showSuccess(t('fiscal_note_saved_locally'));
+      setNfeKey('');
+      setDescription('');
+      setArrivalDate(undefined);
+      setPhoto(null);
+    } catch (error: any) {
+      showError(t('error_saving_fiscal_note') + error.message);
     }
-
-    dismissToast(toastId);
-    showSuccess(t('fiscal_note_saved_successfully'));
-    setNfeKey('');
-    setDescription('');
-    setArrivalDate(undefined);
-    setPhoto(null);
   };
 
   const handleDeleteFiscalNote = async (id: string) => {
     if (window.confirm(t('confirm_delete_fiscal_note'))) {
-      const noteToDelete = fiscalNotes?.find(note => note.id === id);
-      if (noteToDelete && noteToDelete.photo_url && user) {
-        const urlParts = noteToDelete.photo_url.split('/');
-        const fileName = urlParts[urlParts.length - 1];
-        const filePath = `${user.id}/${fileName}`;
-        if (fileName) {
-          await supabase.storage.from('fiscal-note-photos').remove([filePath]);
-        }
+      try {
+        await db.fiscal_notes.delete(id);
+        await db.outbox.add({ type: 'delete', table: 'fiscal_notes', payload: { id }, timestamp: Date.now() });
+        showSuccess(t('fiscal_note_deleted_locally'));
+      } catch (error: any) {
+        showError(t('error_deleting_fiscal_note') + error.message);
       }
-      const { error } = await supabase.from('fiscal_notes').delete().eq('id', id);
-      if (error) { showError(t('error_deleting_fiscal_note') + error.message); }
-      else { showSuccess(t('fiscal_note_deleted_successfully')); }
     }
   };
 
