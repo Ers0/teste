@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,86 +8,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Download, ArrowLeft } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
-import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
+import { Transaction, Item, Worker } from '@/types';
 
-interface Transaction {
-  id: string;
-  item_id: string;
-  worker_id: string | null;
-  company: string | null;
-  type: 'takeout' | 'return' | 'restock';
-  quantity: number;
-  timestamp: string;
+interface PopulatedTransaction extends Transaction {
   items: { name: string } | null;
   workers: { name: string } | null;
-  user_id: string;
-  authorized_by: string | null;
-  given_by: string | null;
-  is_broken: boolean;
-}
-
-interface Item {
-  id: string;
-  name: string;
-}
-
-interface Worker {
-  id: string;
-  name: string;
 }
 
 const TransactionsHistory = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'takeout' | 'return' | 'restock'>('all');
   const [filterItem, setFilterItem] = useState('all');
   const [filterWorker, setFilterWorker] = useState('all');
   const navigate = useNavigate();
 
-  const { data: transactions, isLoading, error } = useQuery<Transaction[], Error>({
-    queryKey: ['transactions', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*, items(name), workers(name), company, authorized_by, given_by, is_broken')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false });
-      if (error) throw new Error(error.message);
-      return data as Transaction[];
-    },
-    enabled: !!user,
-  });
+  const transactions = useLiveQuery(() => db.transactions.orderBy('timestamp').reverse().toArray(), []);
+  const items = useLiveQuery(() => db.items.toArray(), []);
+  const workers = useLiveQuery(() => db.workers.toArray(), []);
 
-  const { data: items } = useQuery<Item[], Error>({
-    queryKey: ['items', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('items').select('id, name').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+  const populatedTransactions = useMemo<PopulatedTransaction[]>(() => {
+    if (!transactions || !items || !workers) return [];
+    const itemsMap = new Map(items.map(i => [i.id, i]));
+    const workersMap = new Map(workers.map(w => [w.id, w]));
 
-  const { data: workers } = useQuery<Worker[], Error>({
-    queryKey: ['workers', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('workers').select('id, name').eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+    return transactions.map(tx => ({
+      ...tx,
+      items: tx.item_id ? { name: itemsMap.get(tx.item_id)?.name || 'N/A' } : null,
+      workers: tx.worker_id ? { name: workersMap.get(tx.worker_id)?.name || 'N/A' } : null,
+    }));
+  }, [transactions, items, workers]);
 
   const filteredTransactions = useMemo(() => {
-    if (!transactions) return [];
-    return transactions.filter(transaction => {
+    if (!populatedTransactions) return [];
+    return populatedTransactions.filter(transaction => {
       const matchesSearch = searchTerm === '' ||
         transaction.items?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         transaction.workers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,14 +58,14 @@ const TransactionsHistory = () => {
       const matchesWorker = filterWorker === 'all' || transaction.worker_id === filterWorker;
       return matchesSearch && matchesType && matchesItem && matchesWorker;
     });
-  }, [transactions, searchTerm, filterType, filterItem, filterWorker]);
+  }, [populatedTransactions, searchTerm, filterType, filterItem, filterWorker]);
 
   const brokenToolsTransactions = useMemo(() => {
-    if (!transactions) return [];
-    return transactions.filter(t => t.is_broken);
-  }, [transactions]);
+    if (!populatedTransactions) return [];
+    return populatedTransactions.filter(t => t.is_broken);
+  }, [populatedTransactions]);
 
-  const handleExport = (dataToExport: Transaction[], filename: string) => {
+  const handleExport = (dataToExport: PopulatedTransaction[], filename: string) => {
     if (!dataToExport || dataToExport.length === 0) {
       showError(t('no_transactions_to_export'));
       return;
@@ -127,10 +85,9 @@ const TransactionsHistory = () => {
     showSuccess(t('report_downloaded_successfully'));
   };
 
-  if (isLoading) return <div>{t('loading_history')}</div>;
-  if (error) return <div>{t('error_fetching_transaction_history')} {error.message}</div>;
+  if (transactions === undefined || items === undefined || workers === undefined) return <div>{t('loading_history')}</div>;
 
-  const renderTable = (data: Transaction[]) => (
+  const renderTable = (data: PopulatedTransaction[]) => (
     <Table>
       <TableHeader>
         <TableRow>

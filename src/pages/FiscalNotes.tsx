@@ -19,7 +19,8 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { v4 as uuidv4 } from 'uuid';
 import CameraCapture from '@/components/CameraCapture';
-import { useQuery } from '@tanstack/react-query';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 import { FiscalNote } from '@/types';
 
 const FiscalNotes = () => {
@@ -36,20 +37,8 @@ const FiscalNotes = () => {
   const html5QrCodeScannerRef = useRef<Html5Qrcode | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
-  const { data: fiscalNotes, isLoading, refetch: refetchFiscalNotes } = useQuery<FiscalNote[]>({
-    queryKey: ['fiscal_notes', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('fiscal_notes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+  const fiscalNotes = useLiveQuery(() => db.fiscal_notes.orderBy('created_at').reverse().toArray(), []);
+  const isLoading = fiscalNotes === undefined;
 
   const startWebScanner = useCallback(async () => {
     try {
@@ -237,7 +226,6 @@ const FiscalNotes = () => {
 
     dismissToast(toastId);
     showSuccess(t('fiscal_note_saved_successfully'));
-    refetchFiscalNotes();
     setNfeKey('');
     setDescription('');
     setArrivalDate(undefined);
@@ -257,7 +245,7 @@ const FiscalNotes = () => {
       }
       const { error } = await supabase.from('fiscal_notes').delete().eq('id', id);
       if (error) { showError(t('error_deleting_fiscal_note') + error.message); }
-      else { showSuccess(t('fiscal_note_deleted_successfully')); refetchFiscalNotes(); }
+      else { showSuccess(t('fiscal_note_deleted_successfully')); }
     }
   };
 
