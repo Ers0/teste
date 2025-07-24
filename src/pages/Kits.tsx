@@ -46,6 +46,7 @@ const Kits = () => {
   const [kitName, setKitName] = useState('');
   const [kitDescription, setKitDescription] = useState('');
   const [selectedItems, setSelectedItems] = useState<Map<string, KitItem>>(new Map());
+  const [isItemSearchOpen, setIsItemSearchOpen] = useState(false);
 
   const { data: kits, isLoading: kitsLoading } = useQuery<Kit[], Error>({
     queryKey: ['kits', user?.id],
@@ -101,6 +102,7 @@ const Kits = () => {
       }
       return newMap;
     });
+    setIsItemSearchOpen(false); // Close popover on selection
   };
 
   const handleQuantityChange = (itemId: string, quantity: number) => {
@@ -254,7 +256,7 @@ const Kits = () => {
             </div>
             <div className="space-y-2">
               <Label>Items in Kit</Label>
-              <Popover>
+              <Popover open={isItemSearchOpen} onOpenChange={setIsItemSearchOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Item
