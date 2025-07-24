@@ -12,11 +12,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Edit, Trash2, Upload, Download, Search, ArrowLeft } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { exportToCsv } from '@/utils/export';
 import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
-import Papa from 'papaparse';
+import { parseCsv } from '@/utils/import';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -298,36 +298,44 @@ const Inventory = () => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        const itemsToImport = results.data.map((row: any) => ({
-          name: row.name,
-          description: row.description,
-          quantity: parseInt(row.quantity, 10) || 0,
-          barcode: row.barcode,
-          low_stock_threshold: parseInt(row.low_stock_threshold, 10) || null,
-          critical_stock_threshold: parseInt(row.critical_stock_threshold, 10) || null,
-          one_time_use: row.type?.toLowerCase() === 'material',
-          is_tool: row.type?.toLowerCase() === 'tool',
-          is_ppe: row.type?.toLowerCase() === 'ppe',
-          user_id: user.id,
-        }));
+    const toastId = showLoading(t('importing'));
+    try {
+      const parsedData = await parseCsv<{
+        name: string;
+        description?: string;
+        quantity?: string;
+        barcode?: string;
+        low_stock_threshold?: string;
+        critical_stock_threshold?: string;
+        type?: string;
+      }>(file);
 
-        const { error } = await supabase.from('items').insert(itemsToImport);
-        if (error) {
-          showError(`${t('error_importing_items')} ${error.message}`);
-        } else {
-          showSuccess(t('items_imported_successfully', { count: itemsToImport.length }));
-          queryClient.invalidateQueries({ queryKey: ['items'] });
-          setIsImportDialogOpen(false);
-        }
-      },
-      error: (error) => {
-        showError(`${t('error_importing_items')} ${error.message}`);
-      },
-    });
+      const itemsToImport = parsedData.map((row) => ({
+        name: row.name,
+        description: row.description,
+        quantity: parseInt(row.quantity || '0', 10),
+        barcode: row.barcode,
+        low_stock_threshold: row.low_stock_threshold ? parseInt(row.low_stock_threshold, 10) : null,
+        critical_stock_threshold: row.critical_stock_threshold ? parseInt(row.critical_stock_threshold, 10) : null,
+        one_time_use: row.type?.toLowerCase() === 'consumable',
+        is_tool: row.type?.toLowerCase() === 'tool',
+        is_ppe: row.type?.toLowerCase() === 'ppe',
+        user_id: user.id,
+      }));
+
+      const { error } = await supabase.from('items').insert(itemsToImport);
+      if (error) {
+        throw error;
+      }
+
+      dismissToast(toastId);
+      showSuccess(t('items_imported_successfully', { count: itemsToImport.length }));
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      setIsImportDialogOpen(false);
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(`${t('error_importing_items')} ${error.message}`);
+    }
   };
 
   const renderItemDialog = (isEditMode: boolean) => (
