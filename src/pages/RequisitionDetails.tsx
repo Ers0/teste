@@ -1,67 +1,35 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Download } from 'lucide-react';
-import { useAuth } from '@/integrations/supabase/auth';
 import { useTranslation } from 'react-i18next';
 import { exportToPdf } from '@/utils/pdf';
 import { showError } from '@/utils/toast';
-
-interface RequisitionDetailsData {
-  id: string;
-  requisition_number: string;
-  requester_name: string | null;
-  requester_company: string | null;
-  authorized_by: string | null;
-  given_by: string | null;
-  application_location: string | null;
-  created_at: string;
-}
-
-interface TransactionItem {
-  quantity: number;
-  items: { name: string }[] | null;
-}
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
+import { Requisition } from '@/types';
 
 const RequisitionDetails = () => {
   const { t } = useTranslation();
   const { requisitionId } = useParams<{ requisitionId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
-  const { data: requisition, isLoading: isLoadingRequisition, error: requisitionError } = useQuery<RequisitionDetailsData, Error>({
-    queryKey: ['requisition', requisitionId, user?.id],
-    queryFn: async () => {
-      if (!requisitionId || !user) throw new Error('Requisition ID or user missing');
-      const { data, error } = await supabase
-        .from('requisitions')
-        .select('*')
-        .eq('id', requisitionId)
-        .eq('user_id', user.id)
-        .single();
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!requisitionId && !!user,
-  });
+  const requisition = useLiveQuery(() => requisitionId ? db.requisitions.get(requisitionId) : undefined, [requisitionId]);
+  
+  const transactionItems = useLiveQuery(async () => {
+    if (!requisitionId) return [];
+    const transactions = await db.transactions.where({ requisition_id: requisitionId }).toArray();
+    return Promise.all(transactions.map(async (ti) => {
+      const item = await db.items.get(ti.item_id);
+      return {
+        ...ti,
+        items: item ? [{ name: item.name }] : null,
+      };
+    }));
+  }, [requisitionId]);
 
-  const { data: transactionItems, isLoading: isLoadingItems, error: itemsError } = useQuery<TransactionItem[], Error>({
-    queryKey: ['requisitionItems', requisitionId, user?.id],
-    queryFn: async () => {
-      if (!requisitionId || !user) return [];
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('quantity, items(name)')
-        .eq('requisition_id', requisitionId)
-        .eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      return data as TransactionItem[];
-    },
-    enabled: !!requisitionId && !!user,
-  });
+  const isLoading = requisition === undefined || transactionItems === undefined;
 
   const handleDownloadPdf = async () => {
     if (!requisition || !transactionItems) {
@@ -82,18 +50,10 @@ const RequisitionDetails = () => {
     });
   };
 
-  if (isLoadingRequisition || isLoadingItems) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-gray-600 dark:text-gray-400">{t('loading_requisition_details')}</p>
-      </div>
-    );
-  }
-
-  if (requisitionError || itemsError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-red-500">{t('error_loading_requisition_details')}: {requisitionError?.message || itemsError?.message}</p>
       </div>
     );
   }

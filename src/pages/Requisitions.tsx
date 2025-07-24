@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,56 +16,28 @@ const Requisitions = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data: requisitions, isLoading, error } = useQuery<Requisition[]>({
-    queryKey: ['requisitions', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('requisitions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!user,
-  });
+  const requisitions = useLiveQuery(() => db.requisitions.orderBy('created_at').reverse().toArray(), []);
+  const isLoading = requisitions === undefined;
 
   const handleDownloadPdf = async (requisition: Requisition) => {
     if (!user) return;
 
-    const { data: transactionItems, error: itemsError } = await supabase
-      .from('transactions')
-      .select('quantity, items(name)')
-      .eq('requisition_id', requisition.id)
-      .eq('user_id', user.id);
-
-    if (itemsError) {
-      showError(t('error_fetching_transaction_items') + itemsError.message);
-      return;
-    }
-
-    const { data: requisitionDetails, error: requisitionError } = await supabase
-      .from('requisitions')
-      .select('*')
-      .eq('id', requisition.id)
-      .single();
-
-    if (requisitionError) {
-      showError(t('error_fetching_requisition_details') + requisitionError.message);
-      return;
-    }
+    const transactionItems = await db.transactions.where({ requisition_id: requisition.id }).toArray();
+    const populatedItems = await Promise.all(transactionItems.map(async (ti) => {
+      const item = await db.items.get(ti.item_id);
+      return {
+        item: { name: item?.name || 'N/A' },
+        quantity: ti.quantity,
+      };
+    }));
 
     await exportToPdf({
       requisitionNumber: requisition.requisition_number,
-      authorizedBy: requisitionDetails.authorized_by || '',
-      requester: requisitionDetails.requester_name,
-      company: requisitionDetails.requester_company,
-      applicationLocation: requisitionDetails.application_location || '',
-      transactionItems: (transactionItems || []).map(ti => ({
-        item: { name: (ti.items as any)?.name || 'N/A' },
-        quantity: ti.quantity,
-      })),
+      authorizedBy: requisition.authorized_by || '',
+      requester: requisition.requester_name,
+      company: requisition.requester_company,
+      applicationLocation: requisition.application_location || '',
+      transactionItems: populatedItems,
       t,
     });
   };
@@ -74,14 +46,6 @@ const Requisitions = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-gray-600 dark:text-gray-400">{t('loading_requisitions')}</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-red-500">{t('error_loading_requisitions')}: {error.message}</p>
       </div>
     );
   }
